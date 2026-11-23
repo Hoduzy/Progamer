@@ -8,7 +8,7 @@ import { makePlayer, marketValue, setNextPlayerId, getNextPlayerId, genChampPool
 import { newMeta } from './meta.js';
 import { CHAMPIONS } from '../../data/champions.js';
 
-const REGION_OFFSET = { LCK: 0, LPL: 0, LEC: -2, LCS: -4, CBLOL: -6, LCP: -4 };
+const REGION_OFFSET = { LCK: 0, LPL: 1.5, LEC: -2, LCS: -4, CBLOL: -6, LCP: -4 };
 const COACH_STYLES = ['공격형', '운영형', '데이터형', '베테랑형', '육성형'];
 
 export function regionTarget(tier, region) { return CONFIG.tierOvr[tier] + (REGION_OFFSET[region] || 0); }

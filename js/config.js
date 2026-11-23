@@ -63,13 +63,13 @@ export const CONFIG = {
       throwBase: 0.010,        // 골드 열세 + 멘탈 낮을 때 무리하다 잘리는 확률
       throwGoldGap: 2500,
       splitChance: 0.020,
-      siegeBase: 0.030,        // 틱당 포탑 압박 기본 확률
+      siegeBase: 0.022,        // 틱당 포탑 압박 기본 확률
       siegePerKGold: 0.004,
       siegePerInhib: 0.05,     // 상대 억제기가 1개 부서질 때마다 공성 확률 +
       siegeBuff: { baron: 0.16, elder: 0.10, herald: 0.05, grubs: 0.008 },
       endPushDeadMin: 3,
       defendFightChance: 0.18, // 공성 시 수비 팀이 한타를 여는 확률
-      pushChance1: 0.7,
+      pushChance1: 0.6,
       highgroundMinTime: 1380, // 21분 전에는 4명 이상 잡아야 고지 진입
       highgroundFreeTime: 1500, // 30분 이후엔 공성만으로 고지 가능       // 1명만 잡았을 때 포탑까지 미는 확률       // 넥서스까지 밀려면 상대 사망 인원 최소
     },
@@ -115,13 +115,14 @@ export const CONFIG = {
 
   // ---------------- 평점 ----------------
   rating: {
-    base: 6.0, win: 0.6, lose: -0.5,
+    base: 6.45, win: 0.6, lose: -0.5,
+    roleBase: { TOP: 0.12, JGL: 0.0, MID: -0.08, ADC: -0.12, SUP: 0.55 },
     kill: 0.22, death: -0.32, assist: 0.07,
     kpWeight: 1.4, kpAvg: 0.6,
     dmgWeight: 4.5,
     roleDmgAvg: { TOP: 0.21, JGL: 0.15, MID: 0.26, ADC: 0.28, SUP: 0.10 },
     visionWeight: 0.012, visionAvg: { TOP: 25, JGL: 40, MID: 30, ADC: 30, SUP: 80 },
-    supportAssistBonus: 0.02,
+    supportAssistBonus: 0.035,
     choiceWeight: 0.55,        // 선택 장면 누적 점수가 평점에 반영되는 비율
   },
 
@@ -133,7 +134,7 @@ export const CONFIG = {
     ADC: { laning: .19, teamfight: .23, mechanics: .23, decision: .13, vision: .04, mental: .08, pool: .05, stamina: .05 },
     SUP: { laning: .14, teamfight: .19, mechanics: .1, decision: .2, vision: .2, mental: .08, pool: .05, stamina: .04 },
   },
-  tierOvr: { S: 84, A: 79, B: 75, C: 71, D: 66 },   // 1군 평균 OVR
+  tierOvr: { S: 83, A: 79.5, B: 76, C: 73, D: 68 }, // 1군 평균 OVR (팀 티어별)
   academyOffset: -13,                                 // 2군 평균 = 1군 - 13
   userStartAvg: 55,
   playstyles: {

@@ -131,5 +131,5 @@ function hofPage(root) {
   root.innerHTML = `<div class="create"><div class="row between"><h1>명예의 전당</h1><button class="btn" id="back">← 타이틀</button></div>
     <div class="panel scroll" style="flex:1"><table class="tbl"><tr><th>#</th><th>선수</th><th>포지션</th><th>시즌</th><th>경기</th><th>평점</th><th>최고 종합</th><th>트로피</th><th>수상</th><th>점수</th></tr>
     ${list.map((h, i) => `<tr><td class="rank-num">${i + 1}</td><td><b>${esc(h.nick)}</b><div class="tiny dim">${esc(h.date)} · ${esc((h.teams || []).join(' → '))}</div></td><td>${POS_KO[h.pos]}</td><td>${h.years}</td><td>${h.games}</td><td>${h.avgRating ?? '-'}</td><td>${h.peakOvr}</td><td class="small" style="white-space:normal;max-width:220px">${h.trophies.map(esc).join(', ') || '-'}</td><td class="small" style="white-space:normal;max-width:200px">${h.awards.map(esc).join(', ') || '-'}</td><td><b class="gold">${h.score}</b></td></tr>`).join('') || '<tr><td colspan="10" class="muted">아직 은퇴한 선수가 없습니다.</td></tr>'}</table></div></div>`;
-  root.querySelector('#back').addEventListener('click', () => go('title'));
+  root.querySelector('#back').addEventListener('click', () => go(App.state && App.state.user && !App.state.user.retired ? 'records' : 'title'));
 }

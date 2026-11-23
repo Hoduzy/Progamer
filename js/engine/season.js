@@ -11,6 +11,7 @@ import { growStat, growMastery, ovr, makePlayer, marketValue } from './players.j
 import { addNews, addMsg } from './state.js';
 import { champName } from '../../data/champions.js';
 import * as intl from './international.js';
+import { seriesPOM, compAwards } from './awards.js';
 
 const LCK_DAYS = () => CONFIG.competitions.matchDays;
 const CL_DAYS = [1, 2];
@@ -162,6 +163,7 @@ export function finishComp(state, comp, placements) {
   comp.result = { placements, champion: placements[0] };
   const champ = placements[0];
   addNews(state, `🏆 ${comp.name} 우승: ${teamInfo(state, champ).name}!`, 'trophy');
+  compAwards(state, comp);
   const u = state.players[state.user.pid];
   // 사용자 팀 성적 기록
   const myRef = u.teamId ? (comp.league === 'CL' ? u.teamId + ':A' : u.teamId) : null;
@@ -241,12 +243,14 @@ export function recordSeries(state, rng, match, s) {
     return {
       w: match.teams[gm.winnerIdx], d: gm.duration, pog: gm.pog, blue: blueRef, red: redRef,
       k: gm.blueIdx === 0 ? [gm.summary.sides[0].kills, gm.summary.sides[1].kills] : [gm.summary.sides[1].kills, gm.summary.sides[0].kills],
-      picks: gm.summary.sides.map(sd => sd.players.map(p => p.champ)).flat().join(','), me,
+      picks: me ? gm.summary.sides.map(sd => sd.players.map(p => p.champ)).flat().join(',') : undefined, me: me || undefined,
     };
   });
   if (comp.standings && (comp.stage === 'groups' || comp.stage === 'league' || comp.stage === 'swiss')) addResult(comp.standings, match);
   // 선수 기록
   for (const gm of s.games) recordGameStats(state, rng, comp, gm);
+  seriesPOM(state, comp, match, s);
+  if (state.user.flags && state.user.flags.provokedTeam && match.teams.some(t => teamIdOf(t) === state.user.flags.provokedTeam)) state.user.flags.provokedTeam = null;
   // 뉴스 (LCK/국제 대회 + 사용자 팀)
   const ref = userRef(state);
   const myTeam = state.players[state.user.pid].teamId;
@@ -290,6 +294,9 @@ function recordGameStats(state, rng, comp, gm) {
         u.trust = clamp(u.trust + (r - 6.3) * 1.5 + (win ? 0.8 : -0.4), 0, 100);
         u.fans += Math.max(0, Math.round((CONFIG.fans.winBase * (win ? 1 : 0.3) + (r - 6) * CONFIG.fans.ratingMult + (gm.pog === p.pid ? CONFIG.fans.pogBonus : 0)) * (comp.league === 'CL' ? 0.3 : comp.league === 'INT' ? 2 : 1)));
         u.popularity = clamp(u.popularity + (r - 6.2) * (comp.league === 'CL' ? 0.15 : 0.5) + (gm.pog === p.pid ? 1 : 0), 0, 100);
+        const cs = u.champStats = u.champStats || {};
+        const cst = cs[p.champ] = cs[p.champ] || { g: 0, w: 0, k: 0, d: 0, a: 0, r: 0 };
+        cst.g++; if (win) cst.w++; cst.k += p.k; cst.d += p.d; cst.a += p.a; cst.r += r;
         u.matchLog.unshift({ date: state.date, comp: comp.id, compName: comp.short, win, champ: p.champ, k: p.k, d: p.d, a: p.a, cs: p.cs, rating: r, pog: gm.pog === p.pid, dur: sum.duration, opp: sum.sides[1 - si].teamId });
         if (u.matchLog.length > 80) u.matchLog.length = 80;
       }

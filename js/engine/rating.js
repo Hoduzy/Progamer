@@ -13,7 +13,7 @@ export function computeRatings(sum, choice = null) {
     for (const p of s.players) {
       const kp = (p.k + p.a) / teamK;
       const dmgShare = p.dmg / totalDmg;
-      let r = R.base + (win ? R.win : R.lose);
+      let r = R.base + (R.roleBase[p.pos] || 0) + (win ? R.win : R.lose);
       const per30 = 30 / mins;
       r += p.k * R.kill * per30 + p.d * R.death * per30 + p.a * R.assist * per30;
       r += (kp - R.kpAvg) * R.kpWeight;

@@ -359,7 +359,7 @@ export function newSeason(state, rng) {
   // 팀 티어 갱신
   for (const t of Object.values(state.teams)) {
     const s = teamStrength(state, t.id);
-    const offs = { LCK: 0, LPL: 0, LEC: -2, LCS: -4, CBLOL: -6, LCP: -4 }[t.region] || 0;
+    const offs = { LCK: 0, LPL: 1.5, LEC: -2, LCS: -4, CBLOL: -6, LCP: -4 }[t.region] || 0;
     const nt = TIER_OF(s - offs);
     t.tier = nt;
     t.prestige = clamp(Math.round(t.prestige * 0.7 + { S: 90, A: 75, B: 60, C: 45, D: 35 }[nt] * 0.3), 20, 100);

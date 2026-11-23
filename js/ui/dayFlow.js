@@ -180,16 +180,17 @@ export async function playUserMatch(match, done) {
   const s = buildSeries(st, match);
   const ut = s.teams.findIndex(t => t.players.some(p => p && p.id === u.id));
   if (ut < 0) { simulateMatch(st, rng, match); return done(); }
+  const scenes = [];
   playSeries({
     series: s, userTeamIdx: ut, userPid: u.id, meta: st.meta, rng,
     getUserState: () => ({ condition: st.user.condition, mental: st.user.mental, fatigue: st.user.fatigue }),
-    onGameEnd: () => { st.user.fatigue = Math.min(100, st.user.fatigue + CONFIG.daily.fatigue.match / s.bo); },
+    onGameEnd: result => { st.user.fatigue = Math.min(100, st.user.fatigue + CONFIG.daily.fatigue.match / s.bo); if (result.sceneLog) scenes.push(...result.sceneLog); },
     onSeriesEnd: async ser => {
       recordSeries(st, rng, match, ser);
       st.user.lineupOverride = null;
       go('hub');
       await modal({ title: `${comp.short} 시리즈 종료`, body: seriesResultHTML(st, match, ut), buttons: [{ label: '확인', primary: true }] });
-      await hooks.afterSeries(st, rng, match, { played: true, series: ser, userTeamIdx: ut });
+      await hooks.afterSeries(st, rng, match, { played: true, series: ser, userTeamIdx: ut, scenes });
       done();
     },
   });

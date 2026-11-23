@@ -176,6 +176,9 @@ export function nightRecovery(state, rng) {
   me.form = clamp((me.form || 0) * 0.92 + rng.normal(0, 0.6), -10, 10);
   u.mental = clamp(u.mental + (65 - u.mental) * 0.04, 0, 100);
   u.trust = clamp(u.trust + (50 - u.trust) * 0.012, 0, 100);
+  // 인기도는 팬 수 기반 기준값으로 천천히 수렴
+  const base = clamp(Math.log10(u.fans + 1) * 9 - 20, 0, 70);
+  u.popularity = clamp(u.popularity + (base - u.popularity) * 0.01, 0, 100);
   u.condition = computeCondition(state);
 }
 

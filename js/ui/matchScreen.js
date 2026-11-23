@@ -34,6 +34,13 @@ function render(root, params) {
   const pById = {};
   for (const p of allPlayers(g)) pById[p.pid] = p;
   const series = params.series || { label: '테스트 경기', blueWins: 0, redWins: 0, gameNo: 1, bo: 1 };
+  // 미니맵 테두리: 팀 색 (두 팀 색이 비슷하면 블루/레드)
+  const hex = c => { const m = /^#?([0-9a-f]{6})$/i.exec(c || ''); if (!m) return null; const n = parseInt(m[1], 16); return [n >> 16, (n >> 8) & 255, n & 255]; };
+  const ca = hex(T[0].color), cb = hex(T[1].color);
+  const dist = ca && cb ? Math.hypot(ca[0] - cb[0], ca[1] - cb[1], ca[2] - cb[2]) : 0;
+  const lum = c => c ? (c[0] * 0.3 + c[1] * 0.59 + c[2] * 0.11) : 0;
+  const useTeam = dist > 120 && lum(ca) > 40 && lum(cb) > 40;
+  const sideColor = [useTeam ? T[0].color : '#3d8bff', useTeam ? T[1].color : '#ff4d5e'];
 
   root.innerHTML = `
   <div class="match" id="match">
@@ -106,7 +113,7 @@ function render(root, params) {
       const [x, y] = geo.nexusPos(s); h += `<div class="mm-ent mm-nexus ${cls}" id="nx-${s}" style="left:${x * 100}%;top:${y * 100}%"></div>`;
     }
     $('mm-struct').innerHTML = h;
-    $('mm-champs').innerHTML = allPlayers(g).map(p => `<div class="mm-ent mm-champ ${p.side === 0 ? 'blue' : 'red'} ${p.isUser ? 'me' : ''}" id="mc-${p.pid}" style="left:${p.x * 100}%;top:${p.y * 100}%">${champIcon(p.champ, 28)}<span class="rt" id="mrt-${p.pid}"></span></div>`).join('');
+    $('mm-champs').innerHTML = allPlayers(g).map(p => `<div class="mm-ent mm-champ ${p.side === 0 ? 'blue' : 'red'} ${p.isUser ? 'me' : ''}" id="mc-${p.pid}" style="left:${p.x * 100}%;top:${p.y * 100}%;${p.isUser ? '' : `border-color:${sideColor[p.side]}`}">${champIcon(p.champ, 28)}<span class="rt" id="mrt-${p.pid}"></span></div>`).join('');
   }
   buildPlayerCards();
   buildStructures();

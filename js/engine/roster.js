@@ -58,6 +58,8 @@ export function squadForSeries(state, ref) {
     chem = avg(vals) / 10;
     mentalBonus = (state.user.mental - 60) * 0.05;
   }
+  // 도발 인터뷰를 들은 상대 팀은 동기부여
+  if (state.user && state.user.flags && state.user.flags.provokedTeam === teamIdOf(ref)) mentalBonus += 3;
   return { team: teamInfo(state, ref), players, chem, mentalBonus, ref };
 }
 
