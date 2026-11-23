@@ -6,9 +6,9 @@ import { addNews, addMsg, regionTarget, competitorOf } from './state.js';
 import { createSeason, lckRegularStandings, lckIds } from './season.js';
 import { REGIONS } from '../../data/teams.js';
 
-const TIER_OF = o => (o >= 82 ? 'S' : o >= 78 ? 'A' : o >= 74 ? 'B' : o >= 70 ? 'C' : 'D');
-const BUDGET = { S: 1.25, A: 1.1, B: 1.0, C: 0.9, D: 0.8 };
-const REGION_PAY = { LCK: 1, LPL: 1.25, LEC: 0.95, LCS: 1.15, CBLOL: 0.6, LCP: 0.55 };
+const TIER_OF = o => { const T = CONFIG.tierThresholds; return o >= T.S ? 'S' : o >= T.A ? 'A' : o >= T.B ? 'B' : o >= T.C ? 'C' : 'D'; };
+const BUDGET = CONFIG.salary.teamBudget;
+const REGION_PAY = CONFIG.salary.regionPay;
 
 export function teamStrength(state, tid) {
   const t = state.teams[tid];
@@ -359,7 +359,7 @@ export function newSeason(state, rng) {
   // 팀 티어 갱신
   for (const t of Object.values(state.teams)) {
     const s = teamStrength(state, t.id);
-    const offs = { LCK: 0, LPL: 1.5, LEC: -2, LCS: -4, CBLOL: -6, LCP: -4 }[t.region] || 0;
+    const offs = CONFIG.regionOffset[t.region] || 0;
     const nt = TIER_OF(s - offs);
     t.tier = nt;
     t.prestige = clamp(Math.round(t.prestige * 0.7 + { S: 90, A: 75, B: 60, C: 45, D: 35 }[nt] * 0.3), 20, 100);

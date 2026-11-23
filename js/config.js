@@ -136,6 +136,8 @@ export const CONFIG = {
   },
   tierOvr: { S: 83, A: 79.5, B: 76, C: 73, D: 68 }, // 1군 평균 OVR (팀 티어별)
   academyOffset: -13,                                 // 2군 평균 = 1군 - 13
+  regionOffset: { LCK: 0, LPL: 1.5, LEC: -2, LCS: -4, CBLOL: -6, LCP: -4 }, // 지역별 전력 보정 (국제대회 밸런스)
+  tierThresholds: { S: 82, A: 78, B: 74, C: 70 },     // 시즌마다 1군 평균 OVR로 팀 티어 재계산
   userStartAvg: 55,
   playstyles: {
     '라인전 괴물': { laning: 8, mechanics: 4, teamfight: -3, decision: -2 },
@@ -199,6 +201,8 @@ export const CONFIG = {
     negotiate: { small: { raise: 0.1, accept: 0.75 }, mid: { raise: 0.2, accept: 0.5 }, big: { raise: 0.35, accept: 0.25 } },
     withdrawOnReject: 0.35,
     transferRequestAccept: 0.35,
+    teamBudget: { S: 1.25, A: 1.1, B: 1.0, C: 0.9, D: 0.8 },                       // 팀 티어별 연봉 배율
+    regionPay: { LCK: 1, LPL: 1.25, LEC: 0.95, LCS: 1.15, CBLOL: 0.6, LCP: 0.55 }, // 지역별 연봉 배율
   },
   fa: {
     startDate: '11-20', endDate: '12-28',
