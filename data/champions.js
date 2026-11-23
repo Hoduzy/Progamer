@@ -1,0 +1,145 @@
+// 챔피언 데이터 (Data Dragon id 기준)
+// [id, 한글 이름, 포지션들(첫 번째가 주 포지션), 초반, 후반, 한타, 이니시, 스플릿, 기동성, 아이템 클래스, 피해 유형]
+// 성향 값은 1~10. 자유롭게 수정 가능.
+const RAW = [
+  // ---------------- TOP ----------------
+  ['Aatrox', '아트록스', ['TOP'], 7, 6, 7, 5, 6, 4, 'bruiser', 'AD'],
+  ['Ambessa', '암베사', ['TOP'], 7, 6, 6, 6, 6, 8, 'bruiser', 'AD'],
+  ['Camille', '카밀', ['TOP'], 6, 7, 5, 6, 8, 7, 'skirm', 'AD'],
+  ['Gnar', '나르', ['TOP'], 6, 6, 8, 7, 5, 6, 'bruiser', 'AD'],
+  ['Gragas', '그라가스', ['TOP', 'JGL', 'SUP'], 6, 5, 7, 7, 4, 5, 'apTank', 'AP'],
+  ['Gwen', '그웬', ['TOP'], 5, 8, 6, 3, 8, 6, 'apFighter', 'AP'],
+  ['Jax', '잭스', ['TOP', 'JGL'], 5, 9, 6, 5, 9, 6, 'skirm', 'AD'],
+  ['Jayce', '제이스', ['TOP', 'MID'], 9, 4, 5, 2, 6, 5, 'lethality', 'AD'],
+  ['KSante', '크산테', ['TOP'], 6, 7, 7, 7, 5, 6, 'tank', 'AD'],
+  ['Renekton', '레넥톤', ['TOP'], 9, 3, 5, 6, 5, 6, 'bruiser', 'AD'],
+  ['Rumble', '럼블', ['TOP', 'MID'], 7, 6, 9, 5, 3, 3, 'apFighter', 'AP'],
+  ['Sion', '사이온', ['TOP'], 4, 7, 7, 8, 7, 3, 'tank', 'AD'],
+  ['Ornn', '오른', ['TOP'], 4, 8, 9, 8, 3, 3, 'tank', 'AD'],
+  ['Kennen', '케넨', ['TOP'], 6, 6, 8, 7, 4, 5, 'apFighter', 'AP'],
+  ['Fiora', '피오라', ['TOP'], 7, 8, 3, 2, 10, 6, 'skirm', 'AD'],
+  ['Yorick', '요릭', ['TOP'], 5, 7, 3, 2, 10, 2, 'bruiser', 'AD'],
+  ['Poppy', '뽀삐', ['TOP', 'JGL', 'SUP'], 6, 5, 6, 7, 4, 5, 'tank', 'AD'],
+  ['Malphite', '말파이트', ['TOP', 'SUP'], 4, 7, 9, 9, 3, 3, 'apTank', 'AP'],
+  ['Irelia', '이렐리아', ['TOP', 'MID'], 7, 6, 5, 5, 7, 8, 'skirm', 'AD'],
+  ['Gangplank', '갱플랭크', ['TOP'], 4, 9, 7, 3, 7, 3, 'gpCrit', 'AD'],
+  ['Shen', '쉔', ['TOP', 'SUP'], 5, 6, 6, 6, 7, 3, 'tank', 'AD'],
+  ['Mordekaiser', '모데카이저', ['TOP'], 6, 7, 6, 4, 6, 2, 'apFighter', 'AP'],
+  ['Darius', '다리우스', ['TOP'], 8, 5, 6, 4, 6, 3, 'bruiser', 'AD'],
+  ['Vladimir', '블라디미르', ['TOP', 'MID'], 3, 9, 8, 3, 5, 4, 'mageBattle', 'AP'],
+  ['Riven', '리븐', ['TOP'], 7, 6, 5, 5, 7, 8, 'bruiser', 'AD'],
+  ['Kled', '클레드', ['TOP'], 8, 5, 6, 8, 5, 6, 'bruiser', 'AD'],
+  // ---------------- JUNGLE ----------------
+  ['LeeSin', '리 신', ['JGL'], 8, 4, 6, 7, 4, 8, 'bruiser', 'AD'],
+  ['Viego', '비에고', ['JGL'], 6, 7, 6, 4, 5, 7, 'skirm', 'AD'],
+  ['Vi', '바이', ['JGL'], 7, 6, 7, 8, 3, 6, 'bruiser', 'AD'],
+  ['XinZhao', '신 짜오', ['JGL', 'TOP'], 8, 5, 6, 7, 4, 6, 'bruiser', 'AD'],
+  ['Sejuani', '세주아니', ['JGL'], 5, 6, 8, 9, 2, 4, 'tank', 'AP'],
+  ['Maokai', '마오카이', ['JGL', 'SUP', 'TOP'], 5, 6, 9, 8, 3, 3, 'tank', 'AP'],
+  ['Nidalee', '니달리', ['JGL'], 9, 3, 4, 2, 5, 9, 'mageBurst', 'AP'],
+  ['Elise', '엘리스', ['JGL'], 9, 3, 4, 5, 3, 6, 'mageBurst', 'AP'],
+  ['JarvanIV', '자르반 4세', ['JGL'], 7, 5, 8, 8, 3, 6, 'bruiser', 'AD'],
+  ['MonkeyKing', '오공', ['JGL', 'TOP'], 6, 6, 8, 8, 5, 6, 'bruiser', 'AD'],
+  ['Skarner', '스카너', ['JGL', 'TOP'], 6, 6, 7, 9, 3, 6, 'tank', 'AD'],
+  ['Kindred', '킨드레드', ['JGL'], 7, 7, 5, 2, 5, 7, 'adcCrit', 'AD'],
+  ['Graves', '그레이브즈', ['JGL'], 8, 6, 5, 3, 6, 6, 'adcCrit', 'AD'],
+  ['Belveth', '벨베스', ['JGL'], 5, 8, 6, 4, 7, 7, 'skirm', 'AD'],
+  ['Lillia', '릴리아', ['JGL'], 5, 7, 8, 6, 3, 8, 'mageBattle', 'AP'],
+  ['Diana', '다이애나', ['JGL', 'MID'], 6, 6, 8, 8, 3, 7, 'apAssassin', 'AP'],
+  ['Nocturne', '녹턴', ['JGL'], 6, 6, 6, 7, 6, 6, 'bruiser', 'AD'],
+  ['RekSai', '렉사이', ['JGL'], 8, 4, 6, 7, 3, 7, 'bruiser', 'AD'],
+  ['Taliyah', '탈리야', ['JGL', 'MID'], 8, 5, 7, 5, 4, 7, 'mageControl', 'AP'],
+  ['Ivern', '아이번', ['JGL'], 5, 6, 7, 4, 2, 4, 'enchant', 'AP'],
+  ['Pantheon', '판테온', ['JGL', 'SUP', 'TOP', 'MID'], 9, 3, 6, 7, 4, 6, 'lethality', 'AD'],
+  ['Kayn', '케인', ['JGL'], 5, 7, 6, 6, 5, 8, 'bruiser', 'AD'],
+  ['Hecarim', '헤카림', ['JGL'], 6, 6, 7, 9, 4, 9, 'bruiser', 'AD'],
+  ['Zac', '자크', ['JGL'], 5, 6, 8, 9, 2, 7, 'tank', 'AP'],
+  ['Volibear', '볼리베어', ['JGL', 'TOP'], 7, 5, 7, 7, 4, 6, 'tank', 'AP'],
+  // ---------------- MID ----------------
+  ['Azir', '아지르', ['MID'], 5, 9, 9, 7, 4, 6, 'mageControl', 'AP'],
+  ['Orianna', '오리아나', ['MID'], 5, 8, 10, 6, 3, 4, 'mageControl', 'AP'],
+  ['Ahri', '아리', ['MID'], 6, 6, 7, 6, 4, 8, 'mageBurst', 'AP'],
+  ['Syndra', '신드라', ['MID'], 6, 7, 7, 5, 4, 3, 'mageBurst', 'AP'],
+  ['Viktor', '빅토르', ['MID'], 4, 9, 8, 4, 4, 3, 'mageControl', 'AP'],
+  ['Sylas', '사일러스', ['MID', 'JGL'], 6, 7, 8, 6, 4, 6, 'apAssassin', 'AP'],
+  ['Leblanc', '르블랑', ['MID'], 8, 4, 5, 4, 5, 9, 'mageBurst', 'AP'],
+  ['Corki', '코르키', ['MID', 'ADC'], 5, 8, 6, 2, 6, 5, 'smolder', 'AD'],
+  ['Yone', '요네', ['MID', 'TOP'], 5, 8, 7, 7, 6, 8, 'yasuo', 'AD'],
+  ['Yasuo', '야스오', ['MID', 'TOP'], 5, 8, 7, 6, 6, 8, 'yasuo', 'AD'],
+  ['Akali', '아칼리', ['MID', 'TOP'], 6, 7, 5, 4, 6, 9, 'apAssassin', 'AP'],
+  ['Galio', '갈리오', ['MID', 'SUP'], 5, 6, 9, 9, 3, 5, 'apTank', 'AP'],
+  ['Tristana', '트리스타나', ['MID', 'ADC'], 6, 8, 5, 3, 6, 7, 'adcCrit', 'AD'],
+  ['Hwei', '흐웨이', ['MID'], 5, 8, 8, 5, 3, 2, 'mageControl', 'AP'],
+  ['Aurora', '오로라', ['MID', 'TOP'], 6, 7, 7, 5, 5, 7, 'mageBurst', 'AP'],
+  ['Ryze', '라이즈', ['MID', 'TOP'], 5, 8, 7, 4, 5, 5, 'mageBattle', 'AP'],
+  ['TwistedFate', '트위스티드 페이트', ['MID'], 6, 6, 5, 4, 7, 5, 'mageControl', 'AP'],
+  ['Annie', '애니', ['MID', 'SUP'], 6, 6, 8, 8, 2, 2, 'mageBurst', 'AP'],
+  ['Cassiopeia', '카시오페아', ['MID', 'TOP'], 5, 9, 8, 4, 3, 3, 'mageBattle', 'AP'],
+  ['Zoe', '조이', ['MID'], 6, 6, 6, 3, 4, 6, 'mageBurst', 'AP'],
+  ['Lissandra', '리산드라', ['MID'], 5, 6, 8, 8, 3, 4, 'mageControl', 'AP'],
+  ['Vex', '벡스', ['MID'], 6, 6, 8, 7, 3, 5, 'mageBurst', 'AP'],
+  ['Mel', '멜', ['MID', 'SUP'], 6, 7, 7, 4, 3, 5, 'mageControl', 'AP'],
+  ['Neeko', '니코', ['MID', 'SUP'], 6, 6, 8, 8, 3, 4, 'mageBurst', 'AP'],
+  ['Anivia', '애니비아', ['MID'], 4, 8, 7, 4, 4, 2, 'mageControl', 'AP'],
+  ['AurelionSol', '아우렐리온 솔', ['MID'], 3, 10, 8, 3, 5, 5, 'mageControl', 'AP'],
+  // ---------------- ADC ----------------
+  ['Kaisa', '카이사', ['ADC'], 5, 8, 6, 2, 5, 8, 'adcOnhit', 'AD'],
+  ['Varus', '바루스', ['ADC'], 6, 7, 7, 4, 4, 3, 'adcLethal', 'AD'],
+  ['Ezreal', '이즈리얼', ['ADC'], 6, 7, 5, 2, 4, 8, 'ezreal', 'AD'],
+  ['Xayah', '자야', ['ADC'], 5, 8, 7, 3, 3, 6, 'adcCrit', 'AD'],
+  ['Jinx', '징크스', ['ADC'], 4, 10, 8, 2, 5, 4, 'adcCrit', 'AD'],
+  ['Aphelios', '아펠리오스', ['ADC'], 4, 9, 8, 2, 3, 3, 'adcCrit', 'AD'],
+  ['Zeri', '제리', ['ADC'], 4, 9, 7, 2, 6, 9, 'adcCrit', 'AD'],
+  ['Kalista', '칼리스타', ['ADC'], 8, 5, 6, 5, 4, 7, 'adcOnhit', 'AD'],
+  ['Jhin', '진', ['ADC'], 6, 7, 7, 4, 3, 4, 'adcCrit', 'AD'],
+  ['Ashe', '애쉬', ['ADC', 'SUP'], 6, 6, 8, 7, 3, 3, 'adcCrit', 'AD'],
+  ['Caitlyn', '케이틀린', ['ADC'], 8, 6, 5, 2, 6, 4, 'adcCrit', 'AD'],
+  ['Lucian', '루시안', ['ADC', 'MID'], 8, 5, 5, 3, 5, 7, 'adcCrit', 'AD'],
+  ['Senna', '세나', ['ADC', 'SUP'], 5, 8, 7, 3, 3, 4, 'adcLethal', 'AD'],
+  ['Sivir', '시비르', ['ADC'], 5, 8, 8, 4, 6, 5, 'adcCrit', 'AD'],
+  ['Draven', '드레이븐', ['ADC'], 9, 5, 6, 3, 4, 4, 'adcCrit', 'AD'],
+  ['Smolder', '스몰더', ['ADC', 'MID'], 3, 10, 7, 2, 4, 4, 'smolder', 'AD'],
+  ['Ziggs', '직스', ['ADC', 'MID'], 6, 7, 7, 2, 7, 3, 'mageControl', 'AP'],
+  ['KogMaw', '코그모', ['ADC'], 4, 9, 7, 1, 3, 1, 'adcOnhit', 'AD'],
+  ['MissFortune', '미스 포츈', ['ADC'], 7, 6, 8, 3, 3, 4, 'adcLethal', 'AD'],
+  ['Twitch', '트위치', ['ADC'], 5, 8, 7, 3, 3, 4, 'adcOnhit', 'AD'],
+  // ---------------- SUPPORT ----------------
+  ['Rakan', '라칸', ['SUP'], 6, 6, 8, 9, 2, 9, 'enchant', 'AP'],
+  ['Nautilus', '노틸러스', ['SUP'], 7, 5, 7, 9, 2, 3, 'tankSup', 'AP'],
+  ['Alistar', '알리스타', ['SUP'], 6, 6, 8, 9, 2, 4, 'tankSup', 'AP'],
+  ['Leona', '레오나', ['SUP'], 7, 5, 7, 9, 2, 3, 'tankSup', 'AP'],
+  ['Rell', '렐', ['SUP'], 6, 6, 9, 10, 2, 5, 'tankSup', 'AP'],
+  ['Braum', '브라움', ['SUP'], 6, 6, 7, 6, 2, 3, 'tankSup', 'AD'],
+  ['Thresh', '쓰레쉬', ['SUP'], 6, 6, 7, 8, 2, 4, 'tankSup', 'AP'],
+  ['Renata', '레나타 글라스크', ['SUP'], 5, 7, 8, 5, 2, 3, 'enchant', 'AP'],
+  ['Lulu', '룰루', ['SUP'], 6, 7, 6, 2, 2, 3, 'enchant', 'AP'],
+  ['Milio', '밀리오', ['SUP'], 5, 7, 7, 2, 2, 4, 'enchant', 'AP'],
+  ['Karma', '카르마', ['SUP', 'MID'], 7, 5, 6, 4, 3, 5, 'enchant', 'AP'],
+  ['Bard', '바드', ['SUP'], 6, 6, 6, 6, 3, 6, 'enchant', 'AP'],
+  ['Pyke', '파이크', ['SUP'], 8, 4, 5, 7, 3, 7, 'lethality', 'AD'],
+  ['Blitzcrank', '블리츠크랭크', ['SUP'], 7, 4, 5, 8, 2, 3, 'tankSup', 'AP'],
+  ['Taric', '타릭', ['SUP'], 5, 7, 8, 6, 2, 3, 'tankSup', 'AP'],
+  ['Yuumi', '유미', ['SUP'], 3, 8, 6, 1, 1, 5, 'enchant', 'AP'],
+  ['Nami', '나미', ['SUP'], 7, 6, 7, 5, 2, 3, 'enchant', 'AP'],
+  ['Janna', '잔나', ['SUP'], 5, 7, 6, 3, 2, 4, 'enchant', 'AP'],
+  ['Seraphine', '세라핀', ['SUP', 'ADC', 'MID'], 5, 7, 8, 6, 2, 3, 'enchant', 'AP'],
+  ['Zilean', '질리언', ['SUP', 'MID'], 5, 6, 6, 4, 3, 5, 'enchant', 'AP'],
+];
+
+export const CHAMPIONS = {};
+for (const r of RAW) {
+  if (!r[1]) continue;
+  const [id, name, pos, early, late, teamfight, engage, split, mobility, cls, dmg] = r;
+  CHAMPIONS[id] = { id, name, pos, traits: { early, late, teamfight, engage, split, mobility }, cls, dmg };
+}
+export const CHAMP_IDS = Object.keys(CHAMPIONS);
+export const TRAIT_KO = { early: '초반', late: '후반', teamfight: '한타', engage: '이니시', split: '스플릿', mobility: '기동성' };
+
+export function champsForPos(pos) {
+  return CHAMP_IDS.filter(id => CHAMPIONS[id].pos.includes(pos));
+}
+export function champName(id) { return CHAMPIONS[id] ? CHAMPIONS[id].name : id; }
+// Data Dragon에서 받은 이름으로 덮어쓰기
+export function applyOnlineNames(map) {
+  for (const id of CHAMP_IDS) if (map[id]) CHAMPIONS[id].name = map[id];
+}

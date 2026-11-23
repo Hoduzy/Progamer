@@ -1,0 +1,11 @@
+{
+  "name": "lck-career",
+  "private": true,
+  "type": "module",
+  "description": "LCK 프로게이머 커리어 게임 (정적 파일, 빌드 없음)",
+  "scripts": {
+    "serve": "python3 -m http.server 8080",
+    "sim:season": "node tools/sim-season.mjs",
+    "sim:choices": "node tools/sim-choices.mjs"
+  }
+}
