@@ -25,7 +25,7 @@ node tools/sim-choices.mjs     # 선택 장면 확률 범위(5~95%)·우월 선�
 
 ## 진행 상황
 - [x] 1단계: 데이터 + 경기 엔진 + 경기 화면 (타이틀 → 테스트 경기로 한 경기 플레이)
-- [ ] 2단계: 밴픽 화면 (피어리스 드래프트)
+- [x] 2단계: 밴픽 화면 (피어리스 드래프트, 퍼스트 셀렉션, 감독 추천, 조합 평가) — 타이틀 → 테스트 경기 → Bo3
 - [ ] 3단계: 캐릭터 생성 + 시즌 캘린더 + 훈련 + 자동 시뮬레이션 + 순위표
 - [ ] 4단계: 대회 구조 전체
 - [ ] 5단계: 연봉·계약·FA·은퇴
@@ -40,12 +40,13 @@ js/core/              rng.js(시드 난수), util.js
 js/engine/            화면 없는 로직 (node에서 실행 가능)
   match.js            경기 엔진 (10초 틱)
   choices.js          선택 장면 확률·판정·효과
-  draft.js            밴픽 AI, 조합 평가
+  draft.js            밴픽 순서·AI 밴/픽·상성·조합 평가·감독 추천
+  series.js           Bo1/3/5 시리즈, 퍼스트 셀렉션, 피어리스, 빠른 시뮬레이션
   meta.js             패치·메타 티어
   players.js          선수 생성·OVR·성장
   rating.js           평점·POG
   mapgeo.js           미니맵 좌표
-js/ui/                화면 (app.js 라우터, assets.js 이미지, matchScreen.js 경기 화면, screens/*)
+js/ui/                화면 (app.js 라우터, assets.js 이미지, matchScreen.js 경기, draftScreen.js 밴픽, seriesFlow.js 시리즈 진행, screens/*)
 data/                 챔피언·아이템·팀·이름·선택 장면·해설 문장
 tools/                시뮬레이션 검증 스크립트
 docs/DESIGN.md        전체 설계

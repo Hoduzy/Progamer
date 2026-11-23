@@ -8,6 +8,8 @@ import { createDraft, autoDraft, draftToMatchInput } from '../../engine/draft.js
 import { LCK_TEAMS } from '../../../data/teams.js';
 import { makeNamePool } from '../../../data/names.js';
 import { CONFIG } from '../../config.js';
+import { createSeries } from '../../engine/series.js';
+import { playSeries } from '../seriesFlow.js';
 
 export function register(reg) { reg('testMatch', { render }); }
 
@@ -27,6 +29,15 @@ export function buildTestTeams(rng, userPos, blueCode = 'GEN', redCode = 'T1') {
 }
 
 function render(root, params) {
+  if (params.series) {
+    const rng = new RNG(params.seed || Date.now());
+    const meta = newMeta(rng, 2026);
+    const teams = buildTestTeams(rng, params.series);
+    const user = teams[0].players.find(p => p.isUser);
+    const s = createSeries({ teams, bo: 3, selector: 0, label: '테스트 시리즈' });
+    playSeries({ series: s, userTeamIdx: 0, userPid: user.id, meta, rng, getUserState: () => ({ condition: 78, mental: 70, fatigue: 20 }), onSeriesEnd: () => go('title') });
+    return;
+  }
   if (params.pos) {
     const rng = new RNG(params.seed || Date.now());
     const meta = newMeta(rng, 2026);
@@ -46,7 +57,10 @@ function render(root, params) {
   root.innerHTML = `<div class="title-screen">
     <div class="title-logo"><div class="t2" style="font-size:40px">테스트 경기</div><div class="t3">포지션을 골라 한 경기를 바로 플레이합니다 (저장되지 않음)</div></div>
     <div class="row">${POS.map(p => `<button class="btn" style="width:120px;height:64px;font-size:18px" data-pos="${p}">${POS_KO[p]}</button>`).join('')}</div>
+    <div class="t3 muted">밴픽 포함 Bo3 시리즈 (피어리스)</div>
+    <div class="row">${POS.map(p => `<button class="btn" style="width:120px;height:52px" data-series="${p}">${POS_KO[p]} Bo3</button>`).join('')}</div>
     <button class="btn ghost" id="back">← 돌아가기</button></div>`;
   root.querySelectorAll('[data-pos]').forEach(b => b.addEventListener('click', () => go('testMatch', { pos: b.dataset.pos })));
+  root.querySelectorAll('[data-series]').forEach(b => b.addEventListener('click', () => go('testMatch', { series: b.dataset.series })));
   root.querySelector('#back').addEventListener('click', () => go('title'));
 }

@@ -83,6 +83,7 @@ async function boot() {
     import('./screens/title.js'),
     import('./matchScreen.js'),
     import('./screens/testMatch.js'),
+    import('./draftScreen.js'),
   ]);
   for (const m of mods) if (m.register) m.register(registerScreen);
   await initAssets();
