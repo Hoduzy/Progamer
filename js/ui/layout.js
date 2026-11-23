@@ -8,6 +8,7 @@ export const NAV = [
   ['calendar', '📅', '캘린더'],
   ['team', '👥', '팀'],
   ['me', '⭐', '내 선수'],
+  ['contract', '📄', '계약·FA'],
   ['standings', '🏆', '순위·대진'],
   ['patch', '📝', '패치 노트'],
   ['community', '💬', '커뮤니티'],

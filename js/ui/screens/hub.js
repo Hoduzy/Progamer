@@ -5,6 +5,7 @@ import { CONFIG } from '../../config.js';
 import { esc, fmtDate, dateDiff, POS_KO, STAT_KO, avg, weekday, WEEKDAY_KO } from '../../core/util.js';
 import { userMatchOn, nextUserMatch, userRef } from '../../engine/season.js';
 import { teamInfo, rivalProfile, userProfile } from '../../engine/roster.js';
+import { competitorOf } from '../../engine/state.js';
 import { ACTIVITIES, TRAINABLE, computeCondition, soloRankLabel } from '../../engine/daily.js';
 import { ovr, topChamps } from '../../engine/players.js';
 import { champIcon, teamLogo } from '../assets.js';
@@ -26,6 +27,7 @@ function render(root) {
   const next = nextUserMatch(st);
   const slots = todaySlots(st);
   const comp = next ? st.season.comps[next.compId] : null;
+  st.user.competitorId = competitorOf(st);
   const rivalId = st.user.competitorId && st.players[st.user.competitorId] ? st.user.competitorId : null;
   const rp = rivalId ? rivalProfile(st, rivalId) : null, up = userProfile(st);
   const status = !team ? 'FA' : u.squad === 'academy' ? '2군 (LCK CL)' : (st.user.benchStreak > 0 ? '1군 (최근 벤치)' : '1군');
@@ -33,7 +35,9 @@ function render(root) {
     ...st.inbox.filter(m => !m.read).slice(0, 3).map(m => ({ d: m.date, t: `✉ ${m.from}: ${m.title}`, k: 'msg' })),
     ...st.news.slice(0, 7).map(n => ({ d: n.date, t: n.text, k: n.kind })),
   ].slice(0, 8);
-  const html = `
+  const phase = st.season.phase;
+  const faBanner = phase !== 'season' ? `<div class="panel row" style="margin-bottom:12px;border-color:var(--gold-dim)"><b class="gold">📄 ${phase === 'offseason' ? '시즌 종료 — FA 기간을 기다리는 중' : phase === 'fa' ? 'FA 기간 진행 중' : 'FA 마감 — 새 시즌 준비'}</b><span class="small muted">${st.fa && st.fa.status === 'free' ? '계약이 만료됐습니다. 제안을 확인하세요.' : st.fa && st.fa.status === 'signed' ? '계약 완료. 새 시즌을 기다립니다.' : ''}</span><div class="grow"></div><button class="btn sm primary" data-nav2="contract">계약·FA 화면</button></div>` : '';
+  const html = `${faBanner}
   <div class="grid2" style="grid-template-columns:1.6fr 1fr;align-items:start">
     <div class="panel">
       <h3>오늘 일정 <span class="small muted" style="font-weight:400">${fmtDate(st.date)}</span></h3>
@@ -91,6 +95,7 @@ function render(root) {
   const c = shell(root, 'hub', html);
   c.querySelectorAll('[data-slot]').forEach(el => el.addEventListener('click', () => editSlot(Number(el.dataset.slot))));
   c.querySelector('#day').addEventListener('click', () => runDay());
+  c.querySelectorAll('[data-nav2]').forEach(b => b.addEventListener('click', () => go(b.dataset.nav2)));
   c.querySelector('#auto').addEventListener('click', () => autoAdvance());
   c.querySelector('#saveRoutine').addEventListener('click', () => { st.user.routine[weekday(st.date)] = todaySlots(st).map(s => ({ ...s })); toast(`${WEEKDAY_KO[weekday(st.date)]}요일 루틴으로 저장했습니다.`); });
   c.querySelector('#editRoutine').addEventListener('click', () => editRoutine());

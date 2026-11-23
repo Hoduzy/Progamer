@@ -3,3 +3,4 @@ export async function afterActivities(state, rng, opts) { return []; }
 export async function afterDayEnd(state, rng) {}
 export async function afterSeries(state, rng, match, info) {}
 export function shouldStop(state) { return false; }
+export async function onSeasonEnd(state, rng) {}

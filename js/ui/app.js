@@ -91,6 +91,7 @@ async function boot() {
     import('./screens/standings.js'),
     import('./screens/community.js'),
     import('./screens/intlStandings.js'),
+    import('./screens/contract.js'),
   ]);
   for (const m of mods) if (m.register) m.register(registerScreen);
   await initAssets();

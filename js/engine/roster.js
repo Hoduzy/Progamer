@@ -91,7 +91,8 @@ export function decideStarter(state, rng) {
   }
   if (!rivalId) { state.user.lineupOverride = u.id; return { starter: u.id, solo: true, reasons: ['포지션 내 경쟁자 없음'] }; }
   const up = userProfile(state), rp = rivalProfile(state, rivalId);
-  const su = lineupScore(up, rng), sr = lineupScore(rp, rng);
+  let su = lineupScore(up, rng); const sr = lineupScore(rp, rng);
+  if (u.contract && u.contract.starter) su += CONFIG.lineup.starterGuarantee;
   const starter = su >= sr ? u.id : rivalId;
   state.user.lineupOverride = starter;
   const W = CONFIG.lineup.w;

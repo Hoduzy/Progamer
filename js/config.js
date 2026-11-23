@@ -177,6 +177,7 @@ export const CONFIG = {
     demoteBenchStreak: 4,      // 연속 벤치 시 강등 검토
     demoteRatingBelow: 6.0,
     reviewEveryDays: 7,
+    starterGuarantee: 12,      // 주전 보장 계약 시 주전 점수 보너스
   },
 
   // ---------------- 패치 ----------------

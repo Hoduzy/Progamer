@@ -8,6 +8,7 @@ export function register(reg) { reg('title', { render }); }
 
 export function startLoaded({ state, rng }) {
   App.state = state; App.rng = rng;
+  if (state.user && state.user.retired) return go('retire', {});
   go(state.user && state.players[state.user.pid].teamId ? 'hub' : 'title');
 }
 
@@ -24,6 +25,7 @@ function render(root) {
       ${auto ? `<button class="btn primary" id="cont">이어하기<span class="small" style="opacity:.75;margin-left:6px">${esc(auto.nick)} · ${esc(auto.date)}</span></button>` : ''}
       <button class="btn ${auto ? '' : 'primary'}" id="new">새 게임</button>
       <button class="btn" id="load">불러오기</button>
+      <button class="btn ghost" id="hof">명예의 전당</button>
       <button class="btn ghost" data-go="testMatch">테스트 경기</button>
     </div>
     <div class="net-badge">Data Dragon: ${DD.online ? '연결됨 (' + DD.version + ', ' + DD.source + ')' : '오프라인 — 대체 그래픽 사용'}</div>
@@ -33,6 +35,7 @@ function render(root) {
   const c = root.querySelector('#cont');
   if (c) c.addEventListener('click', () => { const r = loadFrom('auto'); if (r) startLoaded(r); });
   root.querySelector('#load').addEventListener('click', () => loadDialog());
+  root.querySelector('#hof').addEventListener('click', () => go('hof'));
 }
 
 export async function loadDialog() {

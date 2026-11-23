@@ -11,6 +11,7 @@ import { teamLogo } from './assets.js';
 import { STAT_KO } from '../core/util.js';
 import { champName } from '../../data/champions.js';
 import * as hooks from './hooks.js';
+import { seasonTick, newSeason } from '../engine/career.js';
 
 export function todaySlots(state) {
   const u = state.user;
@@ -56,9 +57,42 @@ export async function runDay() {
   else finishDay();
 }
 
+// 시즌 단계 전환 처리 (시즌 종료 / FA 시작 / FA 마감 / 새 시즌)
+export async function handleSeasonEvents(evs) {
+  const st = App.state, rng = App.rng;
+  let navigated = false;
+  for (const e of evs) {
+    if (e.type === 'seasonEnd') {
+      await hooks.onSeasonEnd(st, rng);
+    } else if (e.type === 'faStart') {
+      autosave();
+      go('contract'); navigated = true;
+      const free = st.fa && st.fa.status === 'free';
+      await modal({ title: 'FA 기간 시작', body: free ? `계약이 만료되어 FA가 됐습니다. <b>${st.fa.offers.filter(o => o.status === 'open').length}개</b>의 제안이 도착했습니다. 계약·FA 화면에서 확인하세요.` : '계약 기간이 남아 있습니다. 원한다면 구단에 이적을 요청할 수 있습니다.', buttons: [{ label: '확인', primary: true }] });
+    } else if (e.type === 'faEnd') {
+      if (st.fa && (st.fa.status === 'free' || st.fa.status === 'transfer') && !st.fa.signed) {
+        const best = st.fa.offers.filter(o => o.status === 'open').sort((a, b) => b.salary - a.salary)[0];
+        if (best) {
+          const { acceptOffer } = await import('../engine/career.js');
+          acceptOffer(st, rng, best.id);
+          await modal({ title: 'FA 마감', body: `FA 기간이 끝나 가장 좋은 제안(<b>${esc(st.teams[best.teamId].name)}</b>, ${fmtWonS(best.salary)})과 자동으로 계약했습니다.`, buttons: [{ label: '확인', primary: true }] });
+        }
+      }
+    } else if (e.type === 'newSeasonReady') {
+      newSeason(st, rng);
+      autosave();
+      go('hub'); navigated = true;
+      await modal({ title: `${st.year} 시즌 개막`, body: `새 시즌이 시작됩니다! ${esc(st.players[st.user.pid].nick)} (${st.players[st.user.pid].age}세) · ${esc(st.teams[st.players[st.user.pid].teamId].name)} ${st.players[st.user.pid].squad === 'main' ? '1군' : '2군'}<br><span class="small muted">지난 시즌 기록은 기록실에서 볼 수 있습니다.</span>`, buttons: [{ label: '시작!', primary: true }] });
+    }
+  }
+  return navigated;
+}
+const fmtWonS = w => (w >= 1e8 ? `${Math.floor(w / 1e8)}억 ${Math.round((w % 1e8) / 1e4).toLocaleString()}만 원` : `${Math.round(w / 1e4).toLocaleString()}만 원`);
+
 export async function finishDay(extraLines = []) {
   const st = App.state, rng = App.rng;
   const r = endDay(st, rng);
+  const sevs = seasonTick(st, rng);
   autosave();
   const lines = [...extraLines];
   if (r.patch) lines.push(`📝 패치 ${r.patch}가 적용됐습니다. 메타가 바뀌었습니다.`);
@@ -67,6 +101,7 @@ export async function finishDay(extraLines = []) {
   go('hub');
   if (lines.length) await modal({ title: '알림', body: lines.map(esc).join('<br>'), buttons: [{ label: '확인', primary: true }] });
   await hooks.afterDayEnd(st, rng);
+  if (sevs.length) await handleSeasonEvents(sevs);
 }
 
 // ---------------- 경기일까지 자동 진행 ----------------
@@ -88,7 +123,9 @@ export async function autoAdvance(maxDays = 60) {
     const evs = await hooks.afterActivities(st, rng, { manual: false });
     for (const e of evs) notes.push(`${st.date} ${e}`);
     const r = endDay(st, rng);
+    const sevs = seasonTick(st, rng);
     days++;
+    if (sevs.length) { autosave(); await handleSeasonEvents(sevs); if (sevs.some(e => e.type !== 'seasonEnd')) return; stopReason = '시즌 종료'; break; }
     if (r.patch) notes.push(`${st.date} 📝 패치 ${r.patch}`);
     if (r.review) { notes.push(`${st.date} ${r.review.type === 'callup' ? '🎉 1군 콜업!' : '⬇ 2군 이동'}`); stopReason = '로스터 변동'; break; }
     if (!before.inj && st.user.injury) { stopReason = '부상'; break; }
