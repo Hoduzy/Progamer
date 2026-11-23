@@ -20,7 +20,7 @@ export function computeRatings(sum, choice = null) {
       r += (dmgShare - R.roleDmgAvg[p.pos]) * R.dmgWeight;
       r += (p.vision * per30 - R.visionAvg[p.pos]) * R.visionWeight;
       if (p.pos === 'SUP') r += p.a * R.supportAssistBonus * per30;
-      if (choice && choice.pid === p.pid) r += choice.score;
+      if (choice && choice.pid === p.pid) r += choice.score * R.choiceWeight;
       out[p.pid] = { rating: Math.round(clamp(r, 0, 10) * 10) / 10, kp, dmgShare };
     }
   });

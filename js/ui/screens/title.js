@@ -1,10 +1,18 @@
-import { go } from '../app.js';
+import { App, go, modal, toast } from '../app.js';
 import { DD, teamLogo } from '../assets.js';
 import { LCK_TEAMS } from '../../../data/teams.js';
+import { SLOT_KEYS, SLOT_NAMES, slotInfo, loadFrom, importJSON, describeSlot } from '../save.js';
+import { esc } from '../../core/util.js';
 
 export function register(reg) { reg('title', { render }); }
 
+export function startLoaded({ state, rng }) {
+  App.state = state; App.rng = rng;
+  go(state.user && state.players[state.user.pid].teamId ? 'hub' : 'title');
+}
+
 function render(root) {
+  const auto = slotInfo('auto');
   root.innerHTML = `<div class="title-screen">
     <div class="title-logo">
       <div class="t1">LEAGUE OF LEGENDS</div>
@@ -13,9 +21,32 @@ function render(root) {
     </div>
     <div class="title-teams">${LCK_TEAMS.map(t => teamLogo(t, 44)).join('')}</div>
     <div class="title-menu">
-      <button class="btn primary" data-go="testMatch">테스트 경기</button>
+      ${auto ? `<button class="btn primary" id="cont">이어하기<span class="small" style="opacity:.75;margin-left:6px">${esc(auto.nick)} · ${esc(auto.date)}</span></button>` : ''}
+      <button class="btn ${auto ? '' : 'primary'}" id="new">새 게임</button>
+      <button class="btn" id="load">불러오기</button>
+      <button class="btn ghost" data-go="testMatch">테스트 경기</button>
     </div>
     <div class="net-badge">Data Dragon: ${DD.online ? '연결됨 (' + DD.version + ', ' + DD.source + ')' : '오프라인 — 대체 그래픽 사용'}</div>
   </div>`;
   root.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => go(b.dataset.go)));
+  root.querySelector('#new').addEventListener('click', () => go('create'));
+  const c = root.querySelector('#cont');
+  if (c) c.addEventListener('click', () => { const r = loadFrom('auto'); if (r) startLoaded(r); });
+  root.querySelector('#load').addEventListener('click', () => loadDialog());
+}
+
+export async function loadDialog() {
+  const rows = SLOT_KEYS.map(k => { const i = slotInfo(k); return `<div class="row between" style="padding:8px 0;border-bottom:1px solid var(--line)"><div><b>${SLOT_NAMES[k]}</b><div class="small muted">${esc(describeSlot(i))}</div></div><button class="btn sm" data-k="${k}" ${i ? '' : 'disabled'}>불러오기</button></div>`; }).join('');
+  modal({
+    title: '불러오기',
+    body: `${rows}<div style="margin-top:14px"><label class="btn sm" style="cursor:pointer">JSON 파일 불러오기<input type="file" id="file" accept=".json,application/json" style="display:none"></label></div>`,
+    buttons: [{ label: '닫기' }],
+    onOpen: (bg, close) => {
+      bg.querySelectorAll('[data-k]').forEach(b => b.addEventListener('click', () => { const r = loadFrom(b.dataset.k); close(); if (r) startLoaded(r); }));
+      bg.querySelector('#file').addEventListener('change', async e => {
+        const f = e.target.files[0]; if (!f) return;
+        try { const r = await importJSON(f); close(); startLoaded(r); toast('파일에서 불러왔습니다.'); } catch (err) { toast('불러오기 실패: ' + esc(err.message)); }
+      });
+    },
+  });
 }

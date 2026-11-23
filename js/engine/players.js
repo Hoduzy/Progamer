@@ -100,8 +100,8 @@ export function growStat(p, key, base, fatigue = 0) {
   const G = CONFIG.growth;
   const af = G.ageFactor[p.age] ?? (p.age < 17 ? 1.3 : 0.1);
   const cur = p.stats[key];
-  const room = Math.max(0, 1 - Math.pow(cur / p.hidden.potential, 2) * (cur >= p.hidden.potential ? 3 : 1));
-  const gain = base * p.hidden.growth * af * (0.25 + room) * (1 - fatigue / 200);
+  const room = cur >= p.hidden.potential ? -0.12 : Math.max(0, 1 - Math.pow(cur / p.hidden.potential, 2));
+  const gain = base * p.hidden.growth * af * (0.15 + room) * (1 - fatigue / 200);
   p.statFrac = p.statFrac || {};
   p.statFrac[key] = (p.statFrac[key] || 0) + gain;
   let up = 0;

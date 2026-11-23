@@ -121,7 +121,8 @@ export const CONFIG = {
     dmgWeight: 4.5,
     roleDmgAvg: { TOP: 0.21, JGL: 0.15, MID: 0.26, ADC: 0.28, SUP: 0.10 },
     visionWeight: 0.012, visionAvg: { TOP: 25, JGL: 40, MID: 30, ADC: 30, SUP: 80 },
-    supportAssistBonus: 0.04,
+    supportAssistBonus: 0.02,
+    choiceWeight: 0.55,        // 선택 장면 누적 점수가 평점에 반영되는 비율
   },
 
   // ---------------- 선수 ----------------
@@ -145,7 +146,7 @@ export const CONFIG = {
 
   // ---------------- 성장 ----------------
   growth: {
-    baseGain: { train: 0.55, scrim: 0.22, replay: 0.45, solo: 0.18, match: 0.30 },
+    baseGain: { train: 0.24, scrim: 0.10, replay: 0.19, solo: 0.08, match: 0.16 },
     ageFactor: { 17: 1.3, 18: 1.25, 19: 1.15, 20: 1.05, 21: 1.0, 22: 0.92, 23: 0.82, 24: 0.72, 25: 0.6, 26: 0.45, 27: 0.3, 28: 0.15 },
     declineStartAge: 26, declinePerYear: [0, 1.2, 2.0, 3.0, 4.0], // 26세부터 매년 하락폭
     masteryGain: { practice: 3.2, solo: 1.6, match: 2.2, scrim: 0.8 },
@@ -158,8 +159,8 @@ export const CONFIG = {
   // ---------------- 일상 ----------------
   daily: {
     slots: ['오전', '오후', '저녁'],
-    fatigue: { scrim: 9, train: 8, practice: 6, solo: 7, replay: 4, rest: -18, stream: 8, bond: 2, match: 14 },
-    nightRecovery: 10,
+    fatigue: { scrim: 8, train: 7, practice: 5, solo: 6, replay: 3, rest: -18, stream: 7, bond: 1, match: 14 },
+    nightRecovery: 18,
     mental: { rest: 3, stream: 1, bond: 2, solo: 0, scrim: 0 },
     streamFans: [300, 1500], streamMoney: [300000, 1500000], streamControversy: 0.04,
     bondChem: [3, 7],
