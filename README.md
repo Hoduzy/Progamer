@@ -27,7 +27,7 @@ node tools/sim-choices.mjs     # 선택 장면 확률 범위(5~95%)·우월 선�
 - [x] 1단계: 데이터 + 경기 엔진 + 경기 화면 (타이틀 → 테스트 경기로 한 경기 플레이)
 - [x] 2단계: 밴픽 화면 (피어리스 드래프트, 퍼스트 셀렉션, 감독 추천, 조합 평가) — 타이틀 → 테스트 경기 → Bo3
 - [x] 3단계: 캐릭터 생성 + 입단 제안 + 메인 허브 + 시즌 캘린더 + 하루 3칸 훈련/루틴 + 패치 + 다른 팀 경기 자동 시뮬레이션 + 순위표 (LCK컵·LCK 정규·CL 정규)
-- [ ] 4단계: 대회 구조 전체
+- [x] 4단계: 대회 구조 전체 — LCK컵, First Stand(GSL 그룹+녹아웃), LCK 1~2R, Road to MSI, MSI(플레이-인+DE8), LCK 3~4R, LCK 플레이오프(플레이-인+DE6), CL 플레이오프, Worlds(플레이-인+스위스+녹아웃), 지역 대표 선발, 대진 화면
 - [ ] 5단계: 연봉·계약·FA·은퇴
 - [ ] 6단계: 커뮤니티·인터뷰·이벤트·수상·기록실, 밸런스
 
@@ -50,6 +50,7 @@ js/engine/            화면 없는 로직 (node에서 실행 가능)
   season.js           시즌 대회 생성·일정·하루 진행·경기 시뮬레이션·기록
   tournament.js       라운드 로빈·브래킷(DE6/DE8/SE8/SE4/GSL)·플레이-인·순위·일정 배정
   roster.js           출전 명단·주전 결정·콜업/강등
+  international.js    First Stand·Road to MSI·MSI·LCK/CL 플레이오프·Worlds(스위스), 해외 지역 대표 선발
   daily.js            하루 3칸 행동(스크림·훈련·연습·솔랭·리플레이·휴식·방송·케미), 피로·부상, 코치 평가
 js/ui/                화면 (app.js 라우터, assets.js 이미지, matchScreen.js 경기, draftScreen.js 밴픽, seriesFlow.js 시리즈 진행, screens/*)
 data/                 챔피언·아이템·팀·이름·선택 장면·해설 문장

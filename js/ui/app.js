@@ -90,10 +90,12 @@ async function boot() {
     import('./screens/pages.js'),
     import('./screens/standings.js'),
     import('./screens/community.js'),
+    import('./screens/intlStandings.js'),
   ]);
   for (const m of mods) if (m.register) m.register(registerScreen);
   await initAssets();
   window.__DD = DD;
+  window.__app = { App, go };
   go('title');
 }
 window.addEventListener('error', e => console.error('[error]', e.message));

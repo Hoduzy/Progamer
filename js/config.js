@@ -214,20 +214,20 @@ export const CONFIG = {
     lckR12: { start: '04-01', bo: 3 },
     roadToMsi: { start: '06-03', bo: 5, toMsi: 2 },
     msi: { start: '06-24', city: '대전', bo: 5 },
-    lckR34: { start: '07-23', bo: 5 },
-    lckPlayoffs: { start: '09-20', bo: 5, toWorlds: 4 },
-    worlds: { start: '10-10', city: '미국', finalCity: '뉴욕', bo: 5 },
+    lckR34: { start: '07-15', bo: 5 },
+    lckPlayoffs: { start: '09-16', bo: 5, toWorlds: 4 },   // toWorlds: LCK 월즈 출전 팀 수
+    worlds: { start: '10-13', city: '미국', finalCity: '뉴욕', bo: 5 },
     cl12: { start: '01-20', bo: 3 },
-    cl34: { start: '06-10', bo: 3 },
-    clPlayoffs: { start: '09-18', bo: 5 },
+    cl34: { start: '06-01', bo: 3 },
+    clPlayoffs: { start: '09-14', bo: 5 },
     matchDays: [3, 4, 5, 6, 0],     // 수목금토일
     seriesPerDay: 2,
     // 해외 지역 출전권 [First Stand, MSI, Worlds]
     regionSlots: {
-      LPL: { fs: 2, msi: 2, worlds: 4 }, LEC: { fs: 1, msi: 2, worlds: 3 }, LCS: { fs: 1, msi: 2, worlds: 2 },
-      CBLOL: { fs: 1, msi: 1, worlds: 1 }, LCP: { fs: 1, msi: 2, worlds: 2 },
+      LPL: { fs: 2, msi: 2, worlds: 4 }, LEC: { fs: 1, msi: 2, worlds: 3 }, LCS: { fs: 1, msi: 2, worlds: 3 },
+      CBLOL: { fs: 1, msi: 1, worlds: 1 }, LCP: { fs: 1, msi: 2, worlds: 3 },
     },
-    worldsDirect: { LCK: 3, LPL: 3, LEC: 2, LCS: 1, LCP: 1, CBLOL: 1 }, // 나머지는 플레이-인
+    worldsDirect: { LCK: 3, LPL: 3, LEC: 3, LCS: 2, LCP: 2, CBLOL: 1 }, // 스위스 직행. 나머지는 플레이-인 (스위스 16팀)
     msiDirect: { LCK: 1, LPL: 1, LEC: 1, LCP: 1 },                    // + First Stand 우승 지역 2번 시드
     regionNoise: 4.0,          // 해외 대표 선발 시 전력 노이즈
   },
