@@ -138,7 +138,8 @@ button { font-family: inherit; color: inherit; }
 .mc-left { position: absolute; top: 594px; left: 6px; width: 170px; display: flex; flex-wrap: wrap; gap: 6px; z-index: 42; }
 .mc-right { position: absolute; top: 594px; right: 6px; width: 170px; display: flex; flex-wrap: wrap; gap: 6px; z-index: 42; justify-content: flex-end; }
 .mc-left .btn, .mc-right .btn { min-width: 50px; padding: 0 8px; font-size: 13px; }
-.mc-left .btn.wide, .mc-right .btn.wide { flex: 1; }
+.mc-left .btn.wide { flex: 1; }
+.mc-right .btn.wide { flex: 1 1 100%; }
 .mc-info { position: absolute; left: 6px; right: 6px; bottom: 8px; font-size: 11px; color: var(--txt3); line-height: 1.4; }
 /* 좌우 선수 카드 */
 .pcol { position: absolute; top: 76px; width: 168px; display: flex; flex-direction: column; gap: 6px; z-index: 30; }
