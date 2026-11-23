@@ -20,6 +20,8 @@ python3 -m http.server 8080      # 또는: npx serve .
 
 ### 검증 도구 (node 18+)
 ```bash
+node tools/validate-match.mjs  # ★ 경기 정합성 검사 500판 (위치·이동·사망·오브젝트·포탑·한타 표기·운영·장면·문자중계) — 엔진 수정 후 필수
+node tools/replay-bug.mjs bug-reports/<파일>.json  # 경기 화면 "🐞 버그 신고" 파일을 그대로 재현
 node tools/sim-choices.mjs     # 선택 장면 확률 범위(5~95%)·우월 선택지 검사
 node tools/sim-season.mjs      # 시즌 10회 자동 진행 통계 (팀별 순위, 국제대회 우승 지역, 경기 시간, 킬 수)
 node tools/sim-season.mjs 5 --chain   # 한 월드에서 5시즌 연속 (시즌 넘김·FA·노화 검증)
@@ -32,6 +34,7 @@ node tools/sim-season.mjs 5 --chain   # 한 월드에서 5시즌 연속 (시즌 
 - [x] 4단계: 대회 구조 전체 — LCK컵, First Stand(GSL 그룹+녹아웃), LCK 1~2R, Road to MSI, MSI(플레이-인+DE8), LCK 3~4R, LCK 플레이오프(플레이-인+DE6), CL 플레이오프, Worlds(플레이-인+스위스+녹아웃), 지역 대표 선발, 대진 화면
 - [x] 5단계: 연봉(월급)·계약·바이아웃·1군/2군·FA 제안/협상/재계약·이적 요청·AI 선수 이적·노화·은퇴·신인 충원·다음 시즌·은퇴와 명예의 전당
 - [x] 6단계: 랜덤 이벤트 35종, 커뮤니티 게시판·뉴스, 승리 인터뷰, 시상(POG·라운드 POM·All-LCK·신인왕·MVP·결승/대회 MVP), 기록실, 밸런스 조정
+- [x] 경기 엔진 정합성 개편: 계획 → 이동 → 도착 → 판정 구조, 팀 운영 AI, 자동 검사기, 디버그 모드, 버그 신고 (`docs/MATCH_FIX.md`)
 
 ## 플레이 흐름
 1. 타이틀 → **새 게임** → 선수 등록(닉네임·포지션·나이·플레이스타일·주력 3) → 입단 제안 중 하나 선택
@@ -40,6 +43,10 @@ node tools/sim-season.mjs 5 --chain   # 한 월드에서 5시즌 연속 (시즌 
 4. 시즌: LCK컵 → First Stand → LCK 1~2R → Road to MSI → MSI → LCK 3~4R → 플레이오프 → Worlds (2군이면 LCK CL)
 5. 월즈 후 FA 기간: 재계약/이적/협상/이적 요청/은퇴 → 다음 시즌
 
+경기 중 도구:
+- **설정 → 디버그 모드**: 미니맵에 선수별 현재 임무(예: "처치 바론", "사이드 운영 탑"), 목표 지점 화살표, 팀 계획 이름, 오브젝트 처치 게이지를 표시
+- **🐞 버그 신고** (경기 화면 오른쪽): 시드·경기 입력·내 선택 기록·최근 30초 상태와 이벤트를 JSON으로 저장 → `bug-reports/`에 넣고 알려 주면 `tools/replay-bug.mjs`로 똑같이 재현
+
 ## 파일 구조
 ```
 index.html            진입점
@@ -47,8 +54,13 @@ css/style.css         전체 스타일 (1180×820 기준)
 js/config.js          ★ 모든 수치 상수
 js/core/              rng.js(시드 난수), util.js
 js/engine/            화면 없는 로직 (node에서 실행 가능)
-  match.js            경기 엔진 (10초 틱)
-  choices.js          선택 장면 확률·판정·효과
+  match.js            경기 엔진 (5초 틱): 팀 계획 → 선수 목표 → 이동 → 판정
+  matchcore.js        경기 공용: 조회·파워·이벤트·킬·구조물 순서
+  teamai.js           팀 운영 AI (라인전·정글 동선·갱킹·사이드·그룹·오브젝트 준비/처치/견제·공성·수비·넥서스) + 이동·귀환·텔레포트
+  combat.js           거리 기반 교전 개시·1초 단위 피해·도주·교전 이름(한타/소규모/끊기/갱킹/솔로킬)
+  world.js            미니언 웨이브·구조물 피해·오브젝트 처치 진행·전령·수입·상점·와드·부활
+  commentary.js       이벤트 → 문자중계 문장 (+ 문장 위치 검사)
+  choices.js          선택 장면: 실제 상황(내 위치·근처 선수·오브젝트)에서 고르기, 확률·판정·효과
   draft.js            밴픽 순서·AI 밴/픽·상성·조합 평가·감독 추천
   series.js           Bo1/3/5 시리즈, 퍼스트 셀렉션, 피어리스, 빠른 시뮬레이션
   meta.js             패치·메타 티어
@@ -57,7 +69,7 @@ js/engine/            화면 없는 로직 (node에서 실행 가능)
   awards.js           시리즈 POM·라운드 POM·All-LCK·신인왕·MVP·결승/대회 MVP
   events.js           랜덤 이벤트 발생·결과 적용
   community.js        커뮤니티 글·댓글 생성, 인터뷰 효과
-  mapgeo.js           미니맵 좌표
+  mapgeo.js           맵 기하 (라인 경로·지역 판정·구조물 위치)
   state.js            새 게임(월드 생성)·사용자 선수·직렬화·뉴스/메시지
   season.js           시즌 대회 생성·일정·하루 진행·경기 시뮬레이션·기록
   tournament.js       라운드 로빈·브래킷(DE6/DE8/SE8/SE4/GSL)·플레이-인·순위·일정 배정
@@ -66,9 +78,12 @@ js/engine/            화면 없는 로직 (node에서 실행 가능)
   career.js           계약·연봉·FA 제안/협상·이적 요청·AI 이적·노화/은퇴·신인·새 시즌·커리어 총정리
   daily.js            하루 3칸 행동(스크림·훈련·연습·솔랭·리플레이·휴식·방송·케미), 피로·부상, 코치 평가
 js/ui/                화면 (app.js 라우터, assets.js 이미지, matchScreen.js 경기, draftScreen.js 밴픽, seriesFlow.js 시리즈 진행, screens/*)
-data/                 챔피언·아이템·팀·이름·선택 장면·해설 문장
-tools/                시뮬레이션 검증 스크립트
+data/                 챔피언·아이템·팀·이름·선택 장면(scenarios + sceneNeeds)·해설 문장·맵 좌표(map.js)
+tools/                검증 스크립트 (validate-match, replay-bug, sim-season, sim-choices, lib/match-checker)
+bug-reports/          버그 신고 JSON을 넣는 곳
 docs/DESIGN.md        전체 설계
+docs/MATCH_FIX.md     경기 엔진 정합성 수정 기록 (원인·새 구조·검사 결과)
+CLAUDE.md             작업 규칙 (엔진 수정 시 검사기 위반 0건 확인 후 커밋)
 assets/               팀 로고, 내 사진 (assets/README.md 참고)
 ```
 

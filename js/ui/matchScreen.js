@@ -1,12 +1,14 @@
 // 경기 화면: 미니맵 + 방송 HUD + 선택 장면 + 결과
 import { CONFIG } from '../config.js';
 import { App } from './app.js';
-import { createMatch, step, summary, goldDiff, teamGold, ultReady, flashReady, allPlayers, LANE_OF } from '../engine/match.js';
+import { createMatch, step, summary, goldDiff, teamGold, ultReady, flashReady, allPlayers } from '../engine/match.js';
 import { buildScene, resolveScene } from '../engine/choices.js';
+import { describe, render as renderLine } from '../engine/commentary.js';
+import { TASK_KO } from '../engine/teamai.js';
 import { computeRatings, pickPOG } from '../engine/rating.js';
 import * as geo from '../engine/mapgeo.js';
+const geoRegion = r => geo.regionKo(r);
 import { champIcon, itemIcon, spellIcon, teamLogo, splashStyle, mapUrl, fallbackMapSVG } from './assets.js';
-import { LINES } from '../../data/commentary.js';
 import { champName } from '../../data/champions.js';
 import { fmtTime, fmtGold, esc, fill, POS, POS_KO, clamp } from '../core/util.js';
 
@@ -27,7 +29,7 @@ function render(root, params) {
   const userState = params.userState || { condition: 75, mental: 65, fatigue: 25 };
   const g = createMatch({
     blue: params.input.blue, red: params.input.red, seed: params.seed, meta: params.meta,
-    userPid: params.userPid, visual: true, userMods: userState, gameNo: params.series ? params.series.gameNo : 1,
+    userPid: params.userPid, visual: true, userMods: userState, gameNo: params.series ? params.series.gameNo : 1, keepInput: true,
   });
   const ui = { speed: App.settings.defaultSpeed || 1, paused: false, mode: 'play', timer: null, lastBigT: -999, captionSpk: 0, bigQueue: [], feedEls: [], destroyed: false, lastGoldLine: 0 };
   const T = [g.sides[0].team, g.sides[1].team];
@@ -62,6 +64,7 @@ function render(root, params) {
     <div class="mc-right">
       <button class="btn sm wide" data-act="big" id="btn-big">큰 장면 연출 ${App.settings.showBigEvents ? 'ON' : 'OFF'}</button>
       <button class="btn sm wide" data-act="auto" title="남은 경기를 자동으로 진행">⏩ 끝까지 자동</button>
+      <button class="btn sm wide" data-act="bug" title="시드·최근 30초 상태·이벤트 로그를 JSON으로 저장">🐞 버그 신고</button>
     </div>
     <div class="pcol blue" id="pc0"></div><div class="pcol red" id="pc1"></div>
     <div class="mm-wrap" id="mmw"><div class="mm" id="mm">
@@ -71,7 +74,10 @@ function render(root, params) {
       <div class="mm-layer" id="mm-minions"></div>
       <div class="mm-layer" id="mm-objs"></div>
       <div class="mm-layer" id="mm-fx"></div>
+      <div class="mm-layer" id="mm-dbg"></div>
+      <div class="mm-layer" id="mm-scene"></div>
       <div class="mm-layer" id="mm-champs"></div>
+      <div class="mm-dbg-plans hidden" id="mm-plans"></div>
     </div></div>
     <div class="killfeed" id="kf"></div>
     <div id="banner-slot"></div>
@@ -166,32 +172,52 @@ function render(root, params) {
       for (let i = 0; i < 2; i++) $(`nt-${s}-${i}`).classList.toggle('dead', side.nexusTowers <= i);
       $(`nx-${s}`).classList.toggle('dead', !side.nexus);
     }
-    // 오브젝트
+    // 오브젝트 (처치 진행 중이면 게이지)
     let oh = '';
     for (const k of ['dragon', 'elder', 'baron', 'herald', 'grubs', 'atakhan']) {
       const o = g.obj[k];
       if (!o.alive) continue;
       const [x, y] = geo.OBJ_POS[k];
       const style = k === 'dragon' ? `background:${dragonColor(o.type)}` : '';
-      oh += `<div class="mm-ent mm-obj ${k}" style="left:${x * 100}%;top:${y * 100}%;${style}" title="${k}">${OBJ_LABEL[k]}</div>`;
+      const gauge = o.prog ? `<div class="mm-gauge ${o.prog.side === 0 ? 'blue' : 'red'}"><i style="width:${Math.min(100, o.prog.val * 100).toFixed(0)}%"></i></div>` : '';
+      oh += `<div class="mm-ent mm-obj ${k}" style="left:${x * 100}%;top:${y * 100}%;${style}" title="${k}">${OBJ_LABEL[k]}${gauge}</div>`;
     }
+    if (g.heraldUnit) oh += `<div class="mm-ent mm-obj herald unit ${g.heraldUnit.side === 0 ? 'blue' : 'red'}" style="left:${g.heraldUnit.x * 100}%;top:${g.heraldUnit.y * 100}%">전</div>`;
     $('mm-objs').innerHTML = oh;
     // 와드
     $('mm-wards').innerHTML = g.sides.map(s => s.wards.map(w => `<div class="mm-ent mm-ward ${s.idx === 0 ? 'blue' : 'red'}" style="left:${w.x * 100}%;top:${w.y * 100}%"></div>`).join('')).join('');
-    // 미니언 웨이브
+    // 미니언 웨이브: 엔진의 웨이브 위치(g.waves)를 그대로 그린다
     let mh = '';
-    const late = g.t >= CONFIG.match.laningEnd;
     for (const l of ['TOP', 'MID', 'BOT']) {
-      const td = g.sides[0].towers[l].filter(x => !x).length - g.sides[1].towers[l].filter(x => !x).length;
-      const front = clamp(late ? 0.5 + td * 0.07 : 0.5 + g.lane[l] * 0.006, 0.12, 0.88);
-      const wob = ((g.t / 10) % 3) * 0.006;
+      const front = g.waves[l].s;
       for (let i = 0; i < 4; i++) {
-        const [bx, by] = geo.pointOnLane(l, front - 0.012 - i * 0.01 - wob);
-        const [rx, ry] = geo.pointOnLane(l, front + 0.012 + i * 0.01 + wob);
+        const [bx, by] = geo.pointOnLane(l, front - 0.008 - i * 0.008);
+        const [rx, ry] = geo.pointOnLane(l, front + 0.008 + i * 0.008);
         mh += `<div class="mm-ent mm-minion blue" style="left:${bx * 100}%;top:${by * 100}%"></div><div class="mm-ent mm-minion red" style="left:${rx * 100}%;top:${ry * 100}%"></div>`;
       }
     }
-    $('mm-minions').innerHTML = g.t > 60 ? mh : '';
+    $('mm-minions').innerHTML = g.t > 65 ? mh : '';
+    updateDebug();
+  }
+  // 디버그: 선수별 임무, 목표 화살표, 팀 계획
+  function updateDebug() {
+    const on = !!App.settings.debugMatch;
+    $('mm-plans').classList.toggle('hidden', !on);
+    if (!on) { $('mm-dbg').innerHTML = ''; return; }
+    let svg = '<svg class="mm-dbg-svg" viewBox="0 0 100 100" preserveAspectRatio="none"><defs><marker id="ah" viewBox="0 0 6 6" refX="5" refY="3" markerWidth="4" markerHeight="4" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#ffe066"/></marker></defs>';
+    let lbl = '';
+    for (const p of allPlayers(g)) {
+      if (!p.alive || !p.task) continue;
+      const [tx, ty] = p.task.target;
+      if (Math.hypot(tx - p.x, ty - p.y) > 0.01) svg += `<line x1="${p.x * 100}" y1="${p.y * 100}" x2="${tx * 100}" y2="${ty * 100}" stroke="${p.side === 0 ? '#8ab8ff' : '#ff9aa5'}" stroke-width=".35" stroke-dasharray="1 .6" marker-end="url(#ah)"/>`;
+      const task = p.chan ? (p.chan.kind === 'recall' ? '귀환 중' : '텔레포트 중') : p.task.label || TASK_KO[p.task.kind] || p.task.kind;
+      const extra = p.task.key ? ` ${({ dragon: '용', baron: '바론', herald: '전령', grubs: '유충', elder: '장로' })[p.task.key] || ''}` : p.task.lane && (p.task.kind === 'side' || p.task.kind === 'gank') ? ` ${LANE_KO[p.task.lane]}` : '';
+      lbl += `<div class="mm-ent mm-dbg-lbl ${p.side === 0 ? 'blue' : 'red'}" style="left:${p.x * 100}%;top:${p.y * 100}%">${esc(task + extra)}</div>`;
+    }
+    svg += '</svg>';
+    $('mm-dbg').innerHTML = svg + lbl;
+    $('mm-plans').innerHTML = g.sides.map(s => `<div class="${s.idx === 0 ? 'blue' : 'red'}"><b>${esc(T[s.idx].code)}</b> ${esc(s.planLabel || '-')}${s.sideLaners && s.sideLaners.length ? ` · 사이드 ${s.sideLaners.length}명` : ''}</div>`).join('')
+      + Object.entries(g.obj).filter(([, o]) => o.prog).map(([k, o]) => `<div>${esc(k)} 처치 ${(o.prog.val * 100).toFixed(0)}% (${o.prog.n}명, ${Math.round(o.prog.need)}초)</div>`).join('');
   }
   function fx(x, y, kind = 'burst') {
     const el = document.createElement('div');
@@ -218,12 +244,9 @@ function render(root, params) {
   function updateAll() { updateScoreboard(); updateCards(); updateMinimap(); updateBottom(); }
 
   // ---------- 이벤트 처리 ----------
+  // 문장은 엔진(commentary.js)이 이벤트 데이터로 고른다. 화면은 위치를 따로 만들지 않는다.
   const tName = i => T[i].name;
-  function lineFor(type, vars) {
-    const arr = LINES[type];
-    if (!arr) return null;
-    return fill(arr[Math.floor(Math.random() * arr.length)], { blue: T[0].name, red: T[1].name, ...vars });
-  }
+  const lineFor = (key, vars) => renderLine({ key, vars: { blue: T[0].name, red: T[1].name, ...vars } });
   function caption(text) {
     if (!text) return;
     const spk = ui.captionSpk++ % 2;
@@ -244,83 +267,32 @@ function render(root, params) {
     kf.prepend(el);
     while (kf.children.length > 6) kf.lastChild.remove();
     setTimeout(() => el.remove(), 9000);
-    fx(v.x, v.y);
+    fx(ev.pos[0], ev.pos[1]);
   }
-  function vars(ev) {
-    const v = {};
-    if (ev.side !== undefined && ev.side !== null) { v.team = tName(ev.side); v.enemy = tName(1 - ev.side); }
-    if (ev.winner !== undefined && ev.winner !== null) { v.team = tName(ev.winner); v.enemy = tName(1 - ev.winner); }
-    if (ev.killer && pById[ev.killer]) { v.p = pById[ev.killer].nick; v.c = champName(pById[ev.killer].champ); }
-    if (ev.victim && pById[ev.victim]) { v.v = pById[ev.victim].nick; v.vc = champName(pById[ev.victim].champ); }
-    if (ev.pid && pById[ev.pid]) { v.p = pById[ev.pid].nick; v.c = champName(pById[ev.pid].champ); }
-    if (ev.lane) v.lane = LANE_KO[ev.lane];
-    if (ev.dragon) v.dragon = ev.dragon;
-    if (ev.kills !== undefined) v.n = ev.kills;
-    return v;
-  }
+  const BIG_TITLE = { soloKill: ev => `${LANE_KO[ev.lane] || ''} 솔로킬!`, teamfight: () => '대규모 한타!', ace: () => '에이스!', soul: ev => `${ev.dragon} 드래곤의 영혼`, elder: () => '장로 드래곤 처치!', baron: ev => (ev.stolen ? '바론 스틸!!!' : '내셔 남작 처치!'), multi: ev => ['', '', '더블 킬', '트리플 킬!', '쿼드라 킬!!', '펜타킬!!!'][Math.min(5, ev.n)] };
   function handleEvents(evs) {
     let best = null, bestPri = -1;
-    const consider = (pri, text) => { if (text && pri > bestPri) { bestPri = pri; best = text; } };
     for (const ev of evs) {
-      const vv = vars(ev);
-      switch (ev.type) {
-        case 'kill':
-          feedKill(ev);
-          if (ev.firstBlood) consider(6, lineFor('firstBlood', vv));
-          else if (ev.shutdown) consider(5, lineFor('shutdown', vv));
-          else consider(2, lineFor('kill', vv));
-          break;
-        case 'soloKill': {
-          const kp = ev.pids && ev.pids[0] ? pById[ev.pids[0]] : null;
-          const kev = evs.find(e => e.type === 'kill' && e.lane === ev.lane);
-          const v2 = kev ? vars(kev) : vv;
-          consider(7, lineFor('soloKill', { ...v2, lane: LANE_KO[ev.lane] }));
-          if (kp && !kp.isUser && kev && !pById[kev.victim].isUser) queueBig({ kind: 'soloKill', title: `${LANE_KO[ev.lane]} 솔로킬!`, side: ev.side, champ: kp.champ, text: lineFor('soloKill', { ...v2, lane: LANE_KO[ev.lane] }) });
-          break;
-        }
-        case 'gank': if (ev.kills) consider(5, lineFor('gank', vv)); break;
-        case 'gankFail': consider(1, lineFor('gankFail', vv)); break;
-        case 'counterGank': consider(5, lineFor('counterGank', vv)); break;
-        case 'multi': consider(6 + ev.n, lineFor('multi' + Math.min(5, ev.n), vv)); if (ev.n >= 3) queueBig({ kind: 'multi', title: ['', '', '더블 킬', '트리플 킬!', '쿼드라 킬!!', '펜타킬!!!'][Math.min(5, ev.n)], side: ev.side, champ: pById[ev.pid].champ, text: lineFor('multi' + Math.min(5, ev.n), vv) }); break;
-        case 'ace': consider(9, lineFor('ace', vv)); banner(`${tName(ev.side)} 에이스!`, ev.side); queueBig({ kind: 'ace', title: '에이스!', side: ev.side, champ: g.sides[ev.side].players[2].champ, text: lineFor('ace', vv) }); break;
-        case 'dragon':
-          if (ev.soul) { consider(8, lineFor('soul', vv)); banner(`${tName(ev.side)} ${ev.dragon} 드래곤의 영혼!`, ev.side); queueBig({ kind: 'soul', title: `${ev.dragon} 드래곤의 영혼`, side: ev.side, champ: g.sides[ev.side].players[1].champ, text: lineFor('soul', vv) }); }
-          else if (ev.stolen) { consider(8, lineFor('dragonSteal', vv)); banner(`드래곤 스틸! ${tName(ev.side)}`, ev.side); }
-          else { consider(4, lineFor('dragon', vv)); banner(`${tName(ev.side)} ${ev.dragon} 드래곤 처치`, ev.side); }
-          fx(...geo.OBJ_POS.dragon, 'clash');
-          break;
-        case 'elder': consider(9, lineFor('elder', vv)); banner(`${tName(ev.side)} 장로 드래곤 처치!`, ev.side); queueBig({ kind: 'elder', title: '장로 드래곤 처치!', side: ev.side, champ: g.sides[ev.side].players[1].champ, text: lineFor('elder', vv) }); break;
-        case 'baron':
-          consider(9, lineFor(ev.stolen ? 'baronSteal' : 'baron', vv)); banner(`${tName(ev.side)} 내셔 남작 처치${ev.stolen ? ' (스틸!)' : ''}`, ev.side);
-          queueBig({ kind: 'baron', title: ev.stolen ? '바론 스틸!!!' : '내셔 남작 처치!', side: ev.side, champ: g.sides[ev.side].players[1].champ, text: lineFor(ev.stolen ? 'baronSteal' : 'baron', vv) });
-          fx(...geo.OBJ_POS.baron, 'clash'); break;
-        case 'herald': consider(4, lineFor('herald', vv)); banner(`${tName(ev.side)} 협곡의 전령 처치`, ev.side); break;
-        case 'grubs': consider(4, lineFor('grubs', vv)); banner(`${tName(ev.side)} 공허 유충 처치`, ev.side); break;
-        case 'atakhan': consider(7, lineFor('atakhan', vv)); banner(`${tName(ev.side)} 아타칸 처치`, ev.side); break;
-        case 'tower': consider(ev.first ? 5 : 3, lineFor(ev.first ? 'firstTower' : 'tower', vv)); if (ev.first) banner(`${tName(ev.side)} 첫 포탑 파괴`, ev.side); break;
-        case 'inhib': consider(6, lineFor('inhib', vv)); banner(`${tName(ev.side)} ${LANE_KO[ev.lane]} 억제기 파괴`, ev.side); break;
-        case 'nexusTower': consider(6, lineFor('nexusTower', vv)); break;
-        case 'nexus': consider(10, lineFor('nexus', vv)); banner(`${tName(ev.side)} 승리!`, ev.side); break;
-        case 'teamfight':
-          if (ev.kills >= 3) {
-            consider(6, lineFor('teamfightWin', vv));
-            if (g.fightLoc) fx(g.fightLoc[0], g.fightLoc[1], 'clash');
-            if (ev.kills >= 4 && !ev.obj) queueBig({ kind: 'teamfight', title: '대규모 한타!', side: ev.winner, champ: g.sides[ev.winner].players[3].champ, text: lineFor('teamfightWin', vv) });
-          }
-          break;
-        case 'pick': consider(3, lineFor('pick', vv)); break;
-        case 'throw': consider(4, lineFor('throw', vv)); break;
-        case 'split': consider(3, lineFor('split', vv)); break;
-        case 'spawn':
-          if (ev.obj === 'baron') consider(4, lineFor('baronSpawn', vv));
-          if (ev.obj === 'elder') consider(6, lineFor('elderSpawn', vv));
-          break;
+      if (ev.type === 'kill') feedKill(ev);
+      if (['teamfight', 'skirmish', 'baron', 'dragon', 'elder', 'herald', 'grubs'].includes(ev.type) && ev.pos) fx(ev.pos[0], ev.pos[1], 'clash');
+      const d = describe(g, ev);
+      if (!d) continue;
+      const text = renderLine(d);
+      if (d.pri > bestPri) { bestPri = d.pri; best = text; }
+      if (d.banner) banner(d.banner, ev.side);
+      if (d.big) {
+        const champ = ev.type === 'soloKill' ? (pById[(ev.partsBySide[ev.winner] || [])[0]] || {}).champ
+          : ev.pid ? pById[ev.pid].champ : g.sides[ev.side >= 0 ? ev.side : 0].players[ev.type === 'teamfight' ? 3 : 1].champ;
+        // 내가 직접 관여한 솔로킬은 연출 생략 (이미 장면으로 봄)
+        const mine = ev.parts && ev.parts.some(pid => pById[pid] && pById[pid].isUser);
+        if (!(ev.type === 'soloKill' && mine)) queueBig({ kind: d.big, title: (BIG_TITLE[ev.type] || BIG_TITLE[d.big] || (() => ''))(ev), side: ev.side >= 0 ? ev.side : ev.winner, champ, text, pos: ev.pos });
       }
     }
-    if (g.t === CONFIG.match.laningEnd) { const gd = goldDiff(g); consider(3, lineFor('laningEnd', { gold: fmtGold(Math.abs(gd)), team: tName(gd >= 0 ? 0 : 1) })); }
+    if (g.t === CONFIG.match.laningEnd) { const gd = goldDiff(g); const tx = lineFor('laningEnd', { gold: fmtGold(Math.abs(gd)), team: tName(gd >= 0 ? 0 : 1) }); if (3 > bestPri) { bestPri = 3; best = tx; } }
     if (g.t - ui.lastGoldLine >= 300 && Math.abs(goldDiff(g)) > 4000) {
       const gd = goldDiff(g); ui.lastGoldLine = g.t;
-      consider(2.5, lineFor('goldLead', { gold: fmtGold(Math.abs(gd)), team: tName(gd >= 0 ? 0 : 1), enemy: tName(gd >= 0 ? 1 : 0) }));
+      const tx = lineFor('goldLead', { gold: fmtGold(Math.abs(gd)), team: tName(gd >= 0 ? 0 : 1), enemy: tName(gd >= 0 ? 1 : 0) });
+      if (2.5 > bestPri) { bestPri = 2.5; best = tx; }
     }
     if (best) caption(best);
   }
@@ -350,19 +322,22 @@ function render(root, params) {
   }
   function skipToScene(noScenes = false) {
     if (ui.mode !== 'play') return;
-    let n = 0, sc = null;
+    let n = 0, sc = null, lastEvs = [];
     const saveBig = App.settings.showBigEvents;
-    while (!g.over && n++ < 500) {
+    while (!g.over && n++ < 1000) {
       const r = step(g);
+      lastEvs = r.events;
       if (r.sceneDue) {
         const s = buildScene(g, userState);
         if (s) { if (noScenes) { resolveScene(g, s, s.safest, userState); continue; } sc = s; break; }
       }
     }
+    $('kf').innerHTML = '';
+    App.settings.showBigEvents = false;
+    handleEvents(lastEvs);      // 마지막 틱 문자중계·배너만 표시
+    App.settings.showBigEvents = saveBig;
     ui.bigQueue = [];
     updateAll();
-    $('kf').innerHTML = '';
-    App.settings.showBigEvents = saveBig;
     if (g.over) return finish();
     if (sc) return openScene(sc);
     schedule();
@@ -370,12 +345,18 @@ function render(root, params) {
 
   // ---------- 주요 장면 ----------
   function shrink(on) { mmw.classList.toggle('mini', on); }
-  function whoCard(p) {
+  // 장면 카드: 장면이 만들어진 틱의 엔진 상태(sc.cards)를 그대로 보여 준다
+  function whoCard(p, c) {
     const enemy = g.userSide >= 0 && p.side !== g.userSide;
     return `<div class="who ${enemy ? 'enemy' : ''}">${champIcon(p.champ, 42, 'sq')}
-      <div class="col" style="gap:3px"><div class="row" style="gap:6px"><b>${esc(p.nick)}</b><span class="tiny dim">${esc(champName(p.champ))} · Lv.${p.level}</span></div>
-      <div class="bar hp"><i style="width:${p.alive ? p.hp * 100 : 0}%"></i></div>
-      <div class="flags"><span class="flag ${ultReady(g, p) ? 'on' : ''}">궁 ${ultReady(g, p) ? '준비' : '대기'}</span><span class="flag ${flashReady(g, p) ? 'on' : ''}">점멸 ${flashReady(g, p) ? '있음' : '없음'}</span><span class="flag">${p.k}/${p.d}/${p.a}</span></div></div></div>`;
+      <div class="col" style="gap:3px"><div class="row" style="gap:6px"><b>${esc(p.nick)}</b><span class="tiny dim">${esc(champName(p.champ))} · Lv.${c.level}</span></div>
+      <div class="bar hp"><i style="width:${c.hp * 100}%"></i></div>
+      <div class="flags"><span class="flag ${c.ult ? 'on' : ''}">궁 ${c.ult ? '준비' : '대기'}</span><span class="flag ${c.flash ? 'on' : ''}">점멸 ${c.flash ? '있음' : '없음'}</span></div></div></div>`;
+  }
+  function sceneMarker(sc) {
+    if (!sc) { $('mm-scene').innerHTML = ''; root.querySelectorAll('.mm-champ.hl').forEach(e => e.classList.remove('hl')); return; }
+    $('mm-scene').innerHTML = `<div class="mm-ent mm-scene-ring" style="left:${sc.loc[0] * 100}%;top:${sc.loc[1] * 100}%;width:${CONFIG.match.sim.sceneRadius * 200}%;height:${CONFIG.match.sim.sceneRadius * 200}%"></div>`;
+    for (const pid of sc.involved) { const el = $('mc-' + pid); if (el) el.classList.add('hl'); }
   }
   function probText(o) { return o.exact ? `${o.p}%` : `${o.lo}~${o.hi}%`; }
   function breakdownText(o) {
@@ -386,6 +367,7 @@ function render(root, params) {
   function openScene(sc) {
     ui.mode = 'scene';
     clearTimeout(ui.timer);
+    sceneMarker(sc);
     shrink(true);
     const slot = $('scene-slot');
     setTimeout(() => {
@@ -393,10 +375,10 @@ function render(root, params) {
       slot.innerHTML = `<div class="scene" id="scene">
         <div class="scene-bg ${splashStyle(sc.splash) ? '' : 'fbbg'}" id="scene-bg" style="${splashStyle(sc.splash)}"></div><div class="scene-shade"></div>
         <div class="scene-inner">
-          <div class="scene-time">${fmtTime(sc.t)} · 내 선택</div>
+          <div class="scene-time">${fmtTime(sc.t)} · ${esc(geoRegion(sc.region))} · 내 선택</div>
           <div class="scene-title">${esc(sc.title)}</div>
           <div class="scene-desc">${esc(sc.desc)}</div>
-          <div class="scene-who">${sc.involved.map(pid => whoCard(pById[pid])).join('')}</div>
+          <div class="scene-who">${sc.involved.slice(0, 6).map(pid => whoCard(pById[pid], sc.cards[pid])).join('')}${sc.involved.length > 6 ? `<span class="tiny dim">외 ${sc.involved.length - 6}명</span>` : ''}</div>
           <div class="scene-opts" id="sopts">${sc.options.map(o => `
             <button class="sopt ${o.idx === sc.safest ? 'safe' : ''}" data-opt="${o.idx}">
               <div class="lb">${esc(o.label)} <span class="risk ${o.risk}">${RISK_KO[o.risk]}</span></div>
@@ -471,6 +453,7 @@ function render(root, params) {
   function closeScene() {
     clearTimeout(ui.contTimer);
     $('scene-slot').innerHTML = '';
+    sceneMarker(null);
     shrink(false);
     ui.mode = 'resume';
     setTimeout(() => {
@@ -482,6 +465,7 @@ function render(root, params) {
   }
   function showBig(b) {
     ui.mode = 'big';
+    if (b.pos) sceneMarker({ loc: b.pos, involved: [] });
     shrink(true);
     setTimeout(() => {
       if (ui.destroyed) return;
@@ -494,6 +478,32 @@ function render(root, params) {
       $('bigskip').addEventListener('click', done);
       ui.contTimer = setTimeout(done, S.bigEventShowSec * 1000);
     }, CONFIG.ui.sceneShrinkMs);
+  }
+
+  // ---------- 버그 신고: 같은 장면을 재현할 수 있는 JSON ----------
+  function bugReport() {
+    const wasPaused = ui.paused;
+    ui.paused = true; clearTimeout(ui.timer);
+    const note = prompt('무엇이 이상했나요? (비워 둬도 됩니다)', '') || '';
+    const report = {
+      kind: 'lckc-bug-report', version: 1, createdAt: new Date().toISOString(), note,
+      seed: g.seed, gameT: g.t, gameTime: fmtTime(g.t),
+      input: g.input,                                           // createMatch 입력 그대로 (재현용)
+      choices: g.sceneLog.map(x => ({ t: x.t, id: x.id, opt: x.opt })), // 내 선택 기록 (재현용)
+      recent: g.history,                                        // 최근 30초 선수 상태
+      events: g.feed.filter(e => e.t >= g.t - 30),               // 최근 30초 이벤트
+      plans: g.sides.map(s => ({ plan: s.plan, label: s.planLabel })),
+      objectives: g.obj, waves: g.waves,
+      structures: g.sides.map(s => ({ towers: s.towers, inhibs: s.inhibs, nexusTowerHp: s.nexusTowerHp, nexusHp: s.nexusHp })),
+    };
+    const blob = new Blob([JSON.stringify(report, null, 1)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `bug-${g.seed}-${fmtTime(g.t).replace(':', '')}.json`;
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    ui.paused = wasPaused;
+    if (!ui.paused) schedule();
   }
 
   // ---------- 종료 ----------
@@ -558,6 +568,7 @@ function render(root, params) {
   });
   root.querySelector('[data-act=skip]').addEventListener('click', () => skipToScene(false));
   root.querySelector('[data-act=auto]').addEventListener('click', () => { if (ui.mode === 'play' && confirm('남은 경기를 자동으로 진행할까요? (선택 장면은 가장 안전한 선택지로 처리)')) skipToScene(true); });
+  root.querySelector('[data-act=bug]').addEventListener('click', () => bugReport());
   root.querySelector('[data-act=big]').addEventListener('click', () => {
     App.settings.showBigEvents = !App.settings.showBigEvents;
     $('btn-big').textContent = `큰 장면 연출 ${App.settings.showBigEvents ? 'ON' : 'OFF'}`;

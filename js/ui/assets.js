@@ -123,7 +123,7 @@ export function fallbackMapSVG() {
   return `<svg class="mm-bg" viewBox="0 0 100 100" preserveAspectRatio="none">
     <defs><radialGradient id="mmg" cx="50%" cy="50%" r="70%"><stop offset="0" stop-color="#1d4a35"/><stop offset="1" stop-color="#0c2419"/></radialGradient></defs>
     <rect width="100" height="100" fill="url(#mmg)"/>
-    <path d="M10 92 L92 10" stroke="#1b5f8a" stroke-width="7" opacity=".55"/>
+    <path d="M14 14 L32.5 30 L50 50 L67.5 70 L86 86" fill="none" stroke="#1b5f8a" stroke-width="9" stroke-linecap="round" opacity=".55"/>
     <g fill="none" stroke="#c9b27a" stroke-width="4.2" stroke-linecap="round" opacity=".55">
       <path d="M11.5 88.5 L8.5 72 L7.5 30 L10 10 L30 7.5 L72 8.5 L88.5 11.5"/>
       <path d="M11.5 88.5 L30 70 L50 50 L70 30 L88.5 11.5"/>

@@ -9,12 +9,12 @@ export const CONFIG = {
 
   // ---------------- 경기 엔진 ----------------
   match: {
-    tickSec: 10,
+    tickSec: 5,
     laningEnd: 840,            // 14:00 라인전 종료
     midEnd: 1500,              // 25:00 이후 후반
-    maxTime: 3600,             // 안전장치: 60분이 넘으면 강제 종료 판정
-    blueSideBonus: 0.6,
-    statScale: 0.27,            // 능력치 차이가 파워에 반영되는 비율 (클수록 강팀이 더 자주 이김)        // 블루 진영 파워 보정
+    maxTime: 4200,             // 안전장치: 70분이 넘으면 강제 종료 판정 (검사기에서 위반으로 집계)
+    blueSideBonus: 0.25,       // 블루 진영 파워 보정 (교전 피해량)
+    statScale: 0.27,           // 능력치 차이가 파워에 반영되는 비율 (클수록 강팀이 더 자주 이김)
     perfSdBase: 2.0,           // 경기 당 개인 컨디션 흔들림 기본값 (+variance 보정)
     // 포지션별 기본 GPM (패시브 골드 포함)
     gpm: { TOP: 345, JGL: 315, MID: 365, ADC: 385, SUP: 215 },
@@ -32,46 +32,82 @@ export const CONFIG = {
       towerOuter: 350, towerInner: 400, towerInhib: 350, inhib: 100, nexusTower: 100,
       dragon: 150, grubs: 180, herald: 200, baron: 1500, elder: 250, atakhan: 300,
     },
-    // 라인전
-    lane: {
-      drift: 0.06,             // 라인 상태 변화 속도
-      revert: 0.985,           // 라인 상태 평균 회귀
-      noise: 1.2,
-      clampAbs: 30,
-      soloKillChance: { TOP: 0.007, MID: 0.0055, BOT: 0.008 }, // 틱당 교전 시도
-      fightScale: 7.0,
-      laneStateWeight: 0.10,
-      tradeChance: 0.12,       // 교전 시 서로 킬 교환
-      gankChance: 0.016,       // 틱당 정글 갱킹 시도
-      counterJungleChance: 0.32,
-      gankFightScale: 7.5,
-      gankBaseAdv: 4.0,        // 갱킹 쪽 기본 유리 (수적 우위)
+    // 선수 파워 (교전 피해량에 반영)
+    power: {
+      goldPerK: 0.9,           // 선수 골드가 같은 포지션 평균보다 1천 많을 때마다
+      levelPer: 0.9,           // 레벨 1 차이당
+      compWeight: 0.55,        // 조합 한타·이니시 (3명 이상 교전에서만)
+      mentalBehindGap: 2000,
     },
-    // 중후반
-    fight: {
-      scale: 11,              // 한타 로지스틱 스케일 (클수록 이변↑)
-      noise: 3.0,              // 한타마다 양 팀 파워 노이즈
-      perMan: 7.5,             // 인원 1명 차이당 파워
-      goldPerK: 0.9,           // 선수 골드가 평균보다 1천 많을 때마다 파워
-      levelPer: 0.9,           // 레벨 1 차이당 파워
-      compWeight: 0.55,        // 조합 한타/이니시 차이 반영
-      buff: { baron: 7, elder: 14, soul: 4, dragonStack: 0.7, atakhan: 2.5 },
-      skirmishChance: 0.011,   // 틱당 소규모 교전
-      teamfightChance: 0.011,  // 틱당 대규모 한타 (오브젝트 없을 때)
-      objFightChance: 0.30,    // 오브젝트 시도 시 상대가 맞서 싸울 확률(기본)
-      pickChance: 0.009,       // 틱당 시야 싸움으로 한 명 끊기
-      throwBase: 0.010,        // 골드 열세 + 멘탈 낮을 때 무리하다 잘리는 확률
-      throwGoldGap: 2500,
-      splitChance: 0.020,
-      siegeBase: 0.022,        // 틱당 포탑 압박 기본 확률
-      siegePerKGold: 0.004,
-      siegePerInhib: 0.05,     // 상대 억제기가 1개 부서질 때마다 공성 확률 +
-      siegeBuff: { baron: 0.16, elder: 0.10, herald: 0.05, grubs: 0.008 },
-      endPushDeadMin: 3,
-      defendFightChance: 0.18, // 공성 시 수비 팀이 한타를 여는 확률
-      pushChance1: 0.6,
-      highgroundMinTime: 1380, // 21분 전에는 4명 이상 잡아야 고지 진입
-      highgroundFreeTime: 1500, // 30분 이후엔 공성만으로 고지 가능       // 1명만 잡았을 때 포탑까지 미는 확률       // 넥서스까지 밀려면 상대 사망 인원 최소
+    // ---- 시뮬레이션 (계획 → 이동 → 도착 → 판정) ----
+    sim: {
+      moveSpeed: 0.0275,       // 초당 이동 거리 (맵 대각선 1.30 ≈ 47초)
+      maxSpeedMult: 1.15,      // 신발·기동성 보정 최대치 (검사기 기준)
+      recallChannel: 8,        // 귀환 채널링(초) → 우물
+      tpChannel: 4,            // 텔레포트 채널링(초) → 아군 포탑·와드·미니언
+      tpCooldown: 300,
+      campClearSec: 10,        // 정글 캠프 하나 정리 시간
+      campRespawn: 135,
+      regenPerSec: 0.004,      // 비전투 체력 회복
+      recallHp: 0.32,          // 이 체력 아래면 귀환
+      recallGoldExtra: 250,    // 다음 아이템 가격 + 이 골드가 모이면 귀환 고려
+      // 교전
+      clusterLink: 0.07,       // 이 거리 안의 선수들을 한 무리로 묶음
+      engageRange: 0.065,      // 적과 이 거리 안이면 교전 개시 판정
+      fightRadius: 0.085,      // 교전 중심에서 이 거리 안이면 참여
+      joinRange: 0.30,         // 아군 교전에 합류하러 가는 거리
+      fightMaxTicks: 5,
+      dps: 0.052,              // 기본 초당 피해 (체력 1 = 한 명)
+      powScale: 10,            // 파워 10 차이당 피해 e배
+      focus: 0.6,              // 같은 대상을 집중 공격할 확률
+      fleeHp: 0.2,             // 이 체력 아래면 도주
+      fleeRatio: 0.5,          // 남은 전력이 상대의 이 비율 아래면 팀 전체 후퇴
+      fleeRatioBig: 0.3,       // 8명 이상 큰 교전 후퇴 기준 (더 오래 버팀)
+      bigFightDps: 1.3,        // 8명 이상 큰 교전 피해 배율 (첫 교환에서 양쪽 모두 쓰러짐)
+      fleeHpBig: 0.1,          // 큰 교전 개인 도주 체력
+      mutualDisengage: 0.36,   // 큰 교전 첫 5초 뒤 팽팽하면 양 팀이 빠질 확률
+      catchSmall: 0.45,        // 5명 이하 교전에서 잡힐 확률 배율 (도주가 쉬움)
+      catchPerChaser: 0.05,    // 추격자 1명 늘 때마다 잡힐 확률 배율 +
+      catchBase: 0.36,         // 도주자가 잡힐 기본 확률
+      trade: { chance: 0.07, intensity: 0.45, fleeHp: 0.45 }, // 라인전 견제
+      engage: { objective: 0.16, structure: 0.13, numbers: 0.15, gank: 0.55, roam: 0.03, late: 0.06 },
+      avoidRatio: 0.8,         // 전력비가 이 아래면 교전을 피해 물러남
+      buffDps: { baron: 0.22, elder: 0.45, soul: 0.10, dragon: 0.025 }, // 피해 배율 가산
+      // 구조물
+      towerRange: 0.05,
+      towerDps: 0.035,         // 미니언 없이 포탑 아래 들어간 챔피언이 초당 잃는 체력
+      champStructDps: 0.0062,  // 챔피언 1명 초당 구조물 피해 (구조물 체력 1)
+      minionStructDps: 0.0018, // 미니언 웨이브 초당 구조물 피해
+      superMinionMult: 3,
+      structHp: { tower: [1, 1.25, 1.35], inhib: 1.0, nexusTower: 1.1, nexus: 1.4 },
+      fortifyUntil: 300,       // 이 시간 전에는 포탑 피해 -70%
+      plateUntil: 840,         // 이 시간 전에는 외곽 포탑 피해 -35% (포탑 방패)
+      grubsStructBonus: 0.06,  // 유충 1마리당 구조물 피해 +6%
+      baronStructBonus: 0.8,   // 바론 버프 중 구조물 피해 +80%
+      nexusMinAttackers: 3,    // 넥서스 공격 최소 인원 (상대 기지 안)
+      // 웨이브
+      wavePush: 0.012,         // 라인 앞 챔피언 전력 1당 웨이브 이동 (s/틱)
+      waveMaxStep: 0.03,
+      waveRelax: 0.006,        // 아무도 없을 때 가운데로 돌아가는 속도
+      // 오브젝트 처치 시간 [최소, 최대] 초 (인원·골드가 많을수록 최소 쪽)
+      objTime: { grubs: [30, 45], herald: [35, 50], dragon: [25, 40], baron: [40, 70], elder: [30, 45], atakhan: [35, 55] },
+      baronEarlyMult: 1.3,     // 25분 이전 바론 처치 시간 배율
+      baronFewMult: 1.2,       // 4명 미만 바론 처치 시간 배율
+      setupLead: 60,           // 오브젝트 등장 이 시간 전부터 시야 장악
+      stealBase: 0.10, stealPerMech: 0.004,
+      heraldSpeed: 0.022, heraldStructDmg: 0.65, heraldHp: 1, heraldHoldSec: 240,
+      // 장면·검사
+      sceneRadius: 0.09,       // 장면 참여자 범위
+      eventRadius: 0.17,       // 이벤트 참여자가 있어야 하는 거리
+      historyTicks: 7,         // 버그 신고용 최근 상태 보관 (7틱 = 35초)
+    },
+    // 검사기 목표 범위
+    validate: {
+      earlyMidStackMax: 0.10,  // 0~14분 5명이 미드에 함께 있는 시간 비율 상한
+      sideLaneMin: 0.35,       // 14분 이후 사이드 라인에 1명 이상 있는 시간 비율 하한
+      durationMin: [27, 35],   // 평균 경기 시간(분)
+      killsAvg: [18, 32],
+      tfDeaths: { '0-1': [0.04, 0.18], '2-4': [0.33, 0.57], '5-7': [0.20, 0.40], ace: [0.08, 0.24] },
     },
     objectives: {
       dragonSpawn: 300, dragonRespawn: 300,
@@ -83,7 +119,6 @@ export const CONFIG = {
       atakhanEnabled: false,   // 패치마다 바뀌는 오브젝트: 켜고 끌 수 있음
       atakhanSpawn: 1200,
       inhibRespawn: 300,
-      takeChance: 0.16,        // 오브젝트가 살아 있을 때 틱당 시도 확률
     },
     dragonTypes: ['화염', '대지', '바다', '바람', '화학공학', '마법공학'],
     dragonIds: { '화염': 'infernal', '대지': 'mountain', '바다': 'ocean', '바람': 'cloud', '화학공학': 'chemtech', '마법공학': 'hextech' },

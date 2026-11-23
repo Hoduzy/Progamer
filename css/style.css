@@ -252,8 +252,8 @@ button { font-family: inherit; color: inherit; }
 .scene-time { font-size: 12px; color: var(--gold2); font-weight: 800; letter-spacing: 1px; }
 .scene-title { font-size: 32px; font-weight: 900; margin: 4px 0 6px; text-shadow: 0 2px 12px rgba(0,0,0,.8); }
 .scene-desc { font-size: 15px; line-height: 1.6; color: #dfe6ff; white-space: pre-line; text-shadow: 0 1px 6px rgba(0,0,0,.8); max-width: 640px; }
-.scene-who { display: flex; gap: 12px; margin: 12px 0; }
-.who { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 10px; background: rgba(8,14,34,.75); border: 1px solid #23407c; min-width: 220px; }
+.scene-who { display: flex; flex-wrap: wrap; gap: 8px 10px; margin: 12px 0; }
+.who { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 10px; background: rgba(8,14,34,.75); border: 1px solid #23407c; min-width: 200px; }
 .who.enemy { border-color: #7a2b3a; }
 .who img, .who .fb { width: 42px; height: 42px; border-radius: 8px; }
 .who .bar { width: 110px; }
@@ -461,3 +461,18 @@ button { font-family: inherit; color: inherit; }
 .day-log .dl-h { font-weight: 800; color: var(--gold2); margin-top: 6px; }
 .lineup-tbl td { padding: 5px 8px; }
 .lineup-tbl .better { color: var(--green); font-weight: 800; }
+
+/* ---- 경기 미니맵: 장면 위치·디버그 ---- */
+.mm-champ.hl { box-shadow: 0 0 0 3px #ffe066, 0 0 14px #ffe066; z-index: 8; }
+.mm-scene-ring { border-radius: 50%; border: 3px solid #ffe066; box-shadow: 0 0 18px #ffe066; animation: scenering 0.8s ease-in-out infinite alternate; pointer-events: none; z-index: 6; }
+@keyframes scenering { from { opacity: .35; transform: translate(-50%, -50%) scale(.9); } to { opacity: 1; transform: translate(-50%, -50%) scale(1.08); } }
+.mm-gauge { position: absolute; left: 50%; bottom: -9px; transform: translateX(-50%); width: 34px; height: 5px; background: #0008; border-radius: 3px; overflow: hidden; }
+.mm-gauge i { display: block; height: 100%; }
+.mm-gauge.blue i { background: #3d8bff; } .mm-gauge.red i { background: #ff4d5e; }
+.mm-obj.unit { width: 18px; height: 18px; font-size: 10px; border: 2px solid #fff; }
+.mm-obj.unit.blue { background: #3d8bff; } .mm-obj.unit.red { background: #ff4d5e; }
+.mm-dbg-svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.mm-dbg-lbl { margin-top: 24px; font-size: 10px; font-weight: 700; white-space: nowrap; padding: 0 4px; border-radius: 4px; background: #000b; pointer-events: none; z-index: 9; }
+.mm-dbg-lbl.blue { color: #9cc4ff; } .mm-dbg-lbl.red { color: #ffa2ac; }
+.mm-dbg-plans { position: absolute; left: 6px; top: 6px; z-index: 10; font-size: 12px; background: #000c; padding: 4px 8px; border-radius: 6px; line-height: 1.5; pointer-events: none; }
+.mm-dbg-plans .blue { color: #9cc4ff; } .mm-dbg-plans .red { color: #ffa2ac; }
