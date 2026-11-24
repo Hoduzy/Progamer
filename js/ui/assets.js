@@ -4,6 +4,7 @@ import { CHAMPIONS, applyOnlineNames } from '../../data/champions.js';
 import { ITEMS, applyOnlineItemNames, applyOnlineSpellNames } from '../../data/items.js';
 import { esc } from '../core/util.js';
 import { ASSET_FILES } from '../assetList.js';
+import { setResolver, BLANK_SRC, loadedUrl } from './imgLoader.js';
 
 const CDN = 'https://ddragon.leagueoflegends.com';
 const KEY = CONFIG.storagePrefix + '.ddragon';
@@ -25,6 +26,21 @@ function applyCache(c) {
   applyOnlineSpellNames(c.spellNames || {});
   DD.validChamps = new Set(c.champIds || []);
   DD.validItems = new Set(c.itemIds || []);
+  DD.champKeys = c.champKeys || {};
+}
+const CDRAGON = 'https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons';
+// 이미지 주소는 Data Dragon 준비가 끝난 뒤 로더가 그릴 때 만든다 (버전이 정해지기 전에 주소를 만들지 않음)
+function resolveImage(kind, id) {
+  if (!DD.online || !DD.version || !id) return null;
+  if (kind === 'champ') {
+    const u = champIconUrl(id);
+    if (!u) return null;
+    const key = DD.champKeys && DD.champKeys[id];
+    return { urls: key ? [u, `${CDRAGON}/${key}.png`] : [u] };
+  }
+  if (kind === 'item') { const u = itemIconUrl(id); return u ? { urls: [u] } : null; }
+  if (kind === 'spell') { const u = spellIconUrl(id); return u ? { urls: [u] } : null; }
+  return null;
 }
 
 export async function initAssets() {
@@ -32,21 +48,21 @@ export async function initAssets() {
   try {
     const versions = await fetchJSON(`${CDN}/api/versions.json`, 5000);
     const ver = versions[0];
-    if (cached && cached.version === ver && cached.champNames) {
-      applyCache(cached); DD.online = true; DD.source = 'cache+online'; return DD;
+    if (cached && cached.version === ver && cached.champNames && cached.champKeys) {
+      applyCache(cached); DD.online = true; DD.source = 'cache+online'; return done();
     }
     const [champ, item, spell] = await Promise.all([
       fetchJSON(`${CDN}/cdn/${ver}/data/ko_KR/champion.json`),
       fetchJSON(`${CDN}/cdn/${ver}/data/ko_KR/item.json`).catch(() => null),
       fetchJSON(`${CDN}/cdn/${ver}/data/ko_KR/summoner.json`).catch(() => null),
     ]);
-    const champNames = {};
-    for (const k in champ.data) champNames[k] = champ.data[k].name;
+    const champNames = {}, champKeys = {};
+    for (const k in champ.data) { champNames[k] = champ.data[k].name; champKeys[k] = champ.data[k].key; }
     const itemNames = {};
     if (item) for (const id in ITEMS) if (item.data[id]) itemNames[id] = item.data[id].name;
     const spellNames = {};
     if (spell) for (const k in spell.data) spellNames[k] = spell.data[k].name;
-    const c = { version: ver, savedAt: Date.now(), champNames, itemNames, spellNames, champIds: Object.keys(champ.data), itemIds: item ? Object.keys(item.data) : [] };
+    const c = { version: ver, savedAt: Date.now(), champNames, champKeys, itemNames, spellNames, champIds: Object.keys(champ.data), itemIds: item ? Object.keys(item.data) : [] };
     saveCache(c);
     applyCache(c);
     DD.online = true; DD.source = 'online';
@@ -54,6 +70,11 @@ export async function initAssets() {
     if (cached) { applyCache(cached); DD.online = true; DD.source = 'cache'; }
     else { DD.online = false; DD.source = 'offline'; }
   }
+  return done();
+}
+function done() {
+  setResolver(resolveImage);
+  if (typeof console !== 'undefined') console.info(`[img] Data Dragon ${DD.source} · 버전 ${DD.version || '-'} · 챔피언 ${DD.validChamps ? DD.validChamps.size : 0}개`);
   return DD;
 }
 
@@ -89,27 +110,31 @@ if (typeof window !== 'undefined') {
     img.replaceWith(span);
   };
 }
-function imgOr(url, size, text, color, cls = '', extra = '') {
-  if (!url) return fbHTML(text, color, size, cls);
-  return `<img class="ic ${cls}" src="${url}" width="${size}" height="${size}" loading="lazy" draggable="false" data-fbt="${esc(text)}" data-fbc="${color}" data-cls="${cls}" onerror="window.__fb(this)" ${extra}>`;
+// 로더가 불러올 자리 (주소는 로더가 Data Dragon 준비 후에 만든다)
+function imgOr(kind, id, ok, size, text, color, cls = '', extra = '') {
+  if (!ok) return fbHTML(text, color, size, cls);
+  const done = loadedUrl(kind, id);
+  if (done) return `<img class="ic ld ${cls}" src="${done}" crossorigin="anonymous" width="${size}" height="${size}" draggable="false" data-fbt="${esc(text)}" data-fbc="${color}" data-cls="${cls}" onerror="window.__fb(this)" ${extra}>`;
+  return `<img class="ic lz ${cls}" src="${BLANK_SRC}" data-k="${kind}" data-id="${esc(String(id))}" width="${size}" height="${size}" draggable="false" data-fbt="${esc(text)}" data-fbc="${color}" data-cls="${cls}" ${extra}>`;
 }
 
 export function champIcon(id, size = 32, cls = '') {
   const c = CHAMPIONS[id];
-  return imgOr(champIconUrl(id), size, initials(c ? c.name : id), hashColor(id), cls, `alt="${esc(c ? c.name : id)}"`);
+  return imgOr('champ', id, !!champIconUrl(id), size, initials(c ? c.name : id), hashColor(id), cls, `alt="${esc(c ? c.name : id)}"`);
 }
 export function itemIcon(id, size = 20) {
   const it = ITEMS[id];
-  return imgOr(itemIconUrl(id), size, initials(it ? it.name : id), '#3a3320', 'sq', `title="${esc(it ? it.name : id)}"`);
+  return imgOr('item', id, !!itemIconUrl(id), size, initials(it ? it.name : id), '#3a3320', 'sq', `title="${esc(it ? it.name : id)}"`);
 }
 export function spellIcon(id, size = 18, cls = '') {
-  return imgOr(spellIconUrl(id), size, id.replace('Summoner', '').slice(0, 1), '#334', 'sq ' + cls);
+  return imgOr('spell', id, !!spellIconUrl(id), size, id.replace('Summoner', '').slice(0, 1), '#334', 'sq ' + cls);
 }
 export function teamLogo(team, size = 36) {
   if (!team) return fbHTML('?', '#333', size);
   if (!ASSET_FILES.has(`teams/${team.code}.png`)) return fbHTML(team.code, team.color || '#335', size);
   const url = `assets/teams/${team.code}.png`;
-  return `<img class="ic logo" src="${url}" width="${size}" height="${size}" draggable="false" data-fbt="${esc(team.code)}" data-fbc="${team.color || '#335'}" onerror="window.__fb(this)">`;
+  // 흰색 원형 배경판 (어두운 로고도 보이게): 안쪽 여백 = 크기의 12%
+  return `<img class="ic logo" src="${url}" width="${size}" height="${size}" style="padding:${Math.max(2, Math.round(size * 0.12))}px" alt="${esc(team.name || team.code)}" draggable="false" data-fbt="${esc(team.code)}" data-fbc="${team.color || '#335'}" onerror="window.__fb(this)">`;
 }
 export function playerPhoto(isUser, nick, color, size = 64) {
   if (!isUser || !ASSET_FILES.has('player/me.png')) return fbHTML(initials(nick), color || hashColor(nick), size);

@@ -1,5 +1,7 @@
 import { App, go, modal, toast } from '../app.js';
-import { DD, teamLogo } from '../assets.js';
+import { DD, teamLogo, champIconUrl } from '../assets.js';
+import { preloadIcons } from '../imgLoader.js';
+import { CHAMP_IDS } from '../../../data/champions.js';
 import { LCK_TEAMS } from '../../../data/teams.js';
 import { SLOT_KEYS, SLOT_NAMES, slotInfo, loadFrom, importJSON, describeSlot } from '../save.js';
 import { esc } from '../../core/util.js';
@@ -29,7 +31,7 @@ function render(root) {
       <button class="btn ghost" id="hof">명예의 전당</button>
       <button class="btn ghost" data-go="testMatch">테스트 경기</button>
     </div>
-    <div class="net-badge">Data Dragon: ${DD.online ? '연결됨 (' + DD.version + ', ' + DD.source + ')' : '오프라인 — 대체 그래픽 사용'}</div>
+    <div class="net-badge">Data Dragon: ${DD.online ? '연결됨 (' + DD.version + ', ' + DD.source + ')' : '오프라인 — 대체 그래픽 사용'}<span id="preload"></span></div>
   </div>`;
   root.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => go(b.dataset.go)));
   root.querySelector('#new').addEventListener('click', () => go('create'));
@@ -37,6 +39,12 @@ function render(root) {
   if (c) c.addEventListener('click', () => { const r = loadFrom('auto'); if (r) startLoaded(r); });
   root.querySelector('#load').addEventListener('click', () => loadDialog());
   root.querySelector('#hof').addEventListener('click', () => go('hof'));
+  // 챔피언 아이콘 전체를 뒤에서 미리 받아 둔다 (밴픽 화면에서 바로 뜨게)
+  if (DD.online) preloadIcons(CHAMP_IDS.filter(id => champIconUrl(id)).map(id => ['champ', id]), (d, t, f) => {
+    const el = root.querySelector('#preload');
+    if (!el) return;
+    el.textContent = d >= t ? ` · 챔피언 아이콘 ${t - f}/${t} 준비됨${f ? ` (실패 ${f})` : ''}` : ` · 챔피언 아이콘 받는 중 ${d}/${t}`;
+  });
 }
 
 export async function loadDialog() {

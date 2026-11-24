@@ -14,6 +14,7 @@ import { REGIONS } from '../../../data/teams.js';
 import { SLOT_KEYS, SLOT_NAMES, slotInfo, saveTo, loadFrom, deleteSlot, exportJSON, importJSON, describeSlot } from '../save.js';
 import { startLoaded } from './title.js';
 import { copyCodeFlow, pasteCodeFlow, importFile } from '../saveTransfer.js';
+import { setImgDebug } from '../imgLoader.js';
 
 export function register(reg) {
   reg('calendar', { render: calendar });
@@ -199,7 +200,7 @@ function settingsPage(root) {
     </div>
     <div class="panel"><h3>연출·진행</h3>
       <label class="row" style="min-height:44px"><input type="checkbox" id="big" ${App.settings.showBigEvents ? 'checked' : ''} style="width:24px;height:24px"> 큰 장면(바론·장로·대규모 한타·다른 라인 솔로킬) 연출 보기</label>
-      <label class="row" style="min-height:44px"><input type="checkbox" id="debugMatch" ${App.settings.debugMatch ? 'checked' : ''} style="width:24px;height:24px"> 디버그 모드 (경기 미니맵에 선수별 계획·목표 화살표·팀 계획·오브젝트 처치 게이지 표시)</label>
+      <label class="row" style="min-height:44px"><input type="checkbox" id="debugMatch" ${App.settings.debugMatch ? 'checked' : ''} style="width:24px;height:24px"> 디버그 모드 (경기 미니맵에 선수별 계획·목표 화살표·팀 계획·오브젝트 처치 게이지 표시, 화면 왼쪽 아래 🖼 이미지 상태 패널)</label>
       <label class="row" style="min-height:44px"><input type="checkbox" id="fastDraft" ${App.settings.fastDraft ? 'checked' : ''} style="width:24px;height:24px"> AI 밴픽 빠르게</label>
       <div class="row wrap" style="min-height:44px">커뮤니티 수위 ${[['mild', '순한맛'], ['normal', '보통'], ['spicy', '매운맛']].map(([k, l]) => `<button class="btn sm ${(App.settings.communityTone || 'spicy') === k ? 'active' : ''}" data-tone="${k}">${l}</button>`).join('')}</div>
       <div class="small muted">순한맛: 욕을 ㅇㅇ 처리하거나 빼고 순하게 · 보통: 센 욕만 가림 · 매운맛: 실제 커뮤니티처럼</div>
@@ -216,7 +217,7 @@ function settingsPage(root) {
   c.querySelector('#code-copy').addEventListener('click', () => copyCodeFlow());
   c.querySelector('#code-paste').addEventListener('click', () => pasteCodeFlow());
   c.querySelector('#big').addEventListener('change', e => { App.settings.showBigEvents = e.target.checked; saveSettings(); });
-  c.querySelector('#debugMatch').addEventListener('change', e => { App.settings.debugMatch = e.target.checked; saveSettings(); });
+  c.querySelector('#debugMatch').addEventListener('change', e => { App.settings.debugMatch = e.target.checked; saveSettings(); setImgDebug(e.target.checked); });
   c.querySelector('#fastDraft').addEventListener('change', e => { App.settings.fastDraft = e.target.checked; saveSettings(); });
   c.querySelectorAll('[data-tone]').forEach(b => b.addEventListener('click', () => { App.settings.communityTone = b.dataset.tone; saveSettings(); go('settings'); }));
   c.querySelectorAll('[data-spd]').forEach(b => b.addEventListener('click', () => { App.settings.defaultSpeed = Number(b.dataset.spd); saveSettings(); go('settings'); }));

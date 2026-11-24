@@ -300,6 +300,7 @@ export const CONFIG = {
 
   ui: {
     msPerGameMinute: 4000,     // 1배속: 게임 1분 = 4초
+    images: { concurrency: 6, retryDelays: [1000, 3000, 8000] },   // 이미지 동시 요청 수, 실패 후 다시 시도 간격(ms)
     speeds: [1, 2, 4],
     sceneShrinkMs: 600,
     showBigEvents: true,

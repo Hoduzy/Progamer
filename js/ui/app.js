@@ -2,6 +2,7 @@
 import { initAssets, DD } from './assets.js';
 import { esc } from '../core/util.js';
 import { initPWA } from './pwa.js';
+import { initImageLoader, setImgDebug } from './imgLoader.js';
 
 const screens = {};
 export function registerScreen(name, mod) { screens[name] = mod; }
@@ -132,7 +133,9 @@ async function boot() {
     import('./screens/contract.js'),
   ]);
   for (const m of mods) if (m.register) m.register(registerScreen);
+  initImageLoader();
   await initAssets();
+  setImgDebug(!!App.settings.debugMatch);
   window.__DD = DD;
   window.__app = { App, go };
   go('title');

@@ -3,7 +3,7 @@
 // 알림의 새로고침을 누르면 SKIP_WAITING → 새 버전으로 바뀐 뒤 페이지를 다시 불러온다.
 
 // BUILD:BEGIN (node tools/build-pages.mjs 가 채움)
-const VERSION = 'a5ef709bfe2e';
+const VERSION = '1cfb9c6c20ba';
 const FILES = [
   "./",
   "assets/teams/BFX.png",
@@ -70,6 +70,7 @@ const FILES = [
   "js/ui/dayFlow.js",
   "js/ui/draftScreen.js",
   "js/ui/hooks.js",
+  "js/ui/imgLoader.js",
   "js/ui/layout.js",
   "js/ui/matchScreen.js",
   "js/ui/pwa.js",
@@ -91,9 +92,10 @@ const FILES = [
 // BUILD:END
 
 const CACHE = 'lckc-app-' + VERSION;
-const DD_CACHE = 'lckc-ddragon';
-const DD_MAX = 700;           // Data Dragon 항목 최대 개수 (오래된 것부터 지움)
-const DD_HOST = 'ddragon.leagueoflegends.com';
+// v2: 예전 캐시에는 실패한 응답(opaque)까지 저장돼 있을 수 있어 이름을 바꿔 한 번 비운다
+const DD_CACHE = 'lckc-img-v2';
+const DD_MAX = 900;           // 이미지·데이터 항목 최대 개수 (오래된 것부터 지움)
+const IMG_HOSTS = ['ddragon.leagueoflegends.com', 'raw.communitydragon.org'];
 
 self.addEventListener('install', e => {
   // cache: 'reload' — 브라우저 HTTP 캐시(Pages 기본 10분)를 건너뛰고 서버에서 새로 받는다
@@ -102,7 +104,10 @@ self.addEventListener('install', e => {
 
 self.addEventListener('activate', e => {
   e.waitUntil((async () => {
-    for (const k of await caches.keys()) if (k.startsWith('lckc-app-') && k !== CACHE) await caches.delete(k);
+    for (const k of await caches.keys()) {
+      if (k.startsWith('lckc-app-') && k !== CACHE) await caches.delete(k);
+      if ((k === 'lckc-ddragon' || k.startsWith('lckc-img-')) && k !== DD_CACHE) await caches.delete(k);
+    }
     await self.clients.claim();
   })());
 });
@@ -128,10 +133,8 @@ async function fromApp(req) {
   return fetch(req);
 }
 
-// 네트워크가 잠깐 끊겨도 한 번 더 시도
-async function fetchRetry(req) {
-  try { return await fetch(req); } catch (err) { await new Promise(r => setTimeout(r, 400)); return fetch(req); }
-}
+// 캐시 키: 다시 시도용 ?r=n 은 떼고 저장 (같은 이미지)
+function keyOf(url) { const u = new URL(url); u.searchParams.delete('r'); return u.toString(); }
 
 async function fromDD(req, url, e) {
   const cache = await caches.open(DD_CACHE);
@@ -139,7 +142,7 @@ async function fromDD(req, url, e) {
   if (url.pathname.endsWith('/api/versions.json')) {
     try {
       const res = await fetch(req);
-      if (res.ok) cache.put(req, res.clone());
+      if (res.status === 200 && res.type !== 'opaque') cache.put(req, res.clone());
       return res;
     } catch (err) {
       const hit = await cache.match(req);
@@ -148,12 +151,13 @@ async function fromDD(req, url, e) {
     }
   }
   // 나머지(버전이 들어간 주소)는 바뀌지 않으므로 캐시 먼저
-  const hit = await cache.match(req);
+  const key = keyOf(req.url);
+  const hit = await cache.match(key);
   if (hit) return hit;
-  const res = await fetchRetry(req);
-  if (res.ok || res.type === 'opaque') {
-    // 응답은 바로 돌려주고 저장은 뒤에서
-    e.waitUntil(cache.put(req, res.clone()).then(() => trimDD(cache)).catch(() => { }));
+  const res = await fetch(req);   // 실패하면 그대로 실패 → 화면의 이미지 로더가 1·3·8초 뒤 다시 시도
+  // 성공(200)만 저장. 상태를 알 수 없는 opaque 응답이나 오류 응답은 저장하지 않는다
+  if (res.status === 200 && res.type !== 'opaque') {
+    e.waitUntil(cache.put(key, res.clone()).then(() => trimDD(cache)).catch(() => { }));
   }
   return res;
 }
@@ -165,7 +169,7 @@ self.addEventListener('fetch', e => {
   if (url.origin === self.location.origin) {
     if (VERSION === 'dev') return;
     e.respondWith(fromApp(req));
-  } else if (url.hostname === DD_HOST) {
+  } else if (IMG_HOSTS.includes(url.hostname)) {
     e.respondWith(fromDD(req, url, e));
   }
 });
