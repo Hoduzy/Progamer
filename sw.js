@@ -121,7 +121,12 @@ async function fromApp(req) {
   return fetch(req);
 }
 
-async function fromDD(req, url) {
+// 네트워크가 잠깐 끊겨도 한 번 더 시도
+async function fetchRetry(req) {
+  try { return await fetch(req); } catch (err) { await new Promise(r => setTimeout(r, 400)); return fetch(req); }
+}
+
+async function fromDD(req, url, e) {
   const cache = await caches.open(DD_CACHE);
   // 버전 목록은 새 패치를 알기 위해 네트워크 먼저
   if (url.pathname.endsWith('/api/versions.json')) {
@@ -138,10 +143,10 @@ async function fromDD(req, url) {
   // 나머지(버전이 들어간 주소)는 바뀌지 않으므로 캐시 먼저
   const hit = await cache.match(req);
   if (hit) return hit;
-  const res = await fetch(req);
+  const res = await fetchRetry(req);
   if (res.ok || res.type === 'opaque') {
-    await cache.put(req, res.clone());
-    trimDD(cache);
+    // 응답은 바로 돌려주고 저장은 뒤에서
+    e.waitUntil(cache.put(req, res.clone()).then(() => trimDD(cache)).catch(() => { }));
   }
   return res;
 }
@@ -154,6 +159,6 @@ self.addEventListener('fetch', e => {
     if (VERSION === 'dev') return;
     e.respondWith(fromApp(req));
   } else if (url.hostname === DD_HOST) {
-    e.respondWith(fromDD(req, url));
+    e.respondWith(fromDD(req, url, e));
   }
 });
