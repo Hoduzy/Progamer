@@ -201,6 +201,8 @@ function settingsPage(root) {
       <label class="row" style="min-height:44px"><input type="checkbox" id="big" ${App.settings.showBigEvents ? 'checked' : ''} style="width:24px;height:24px"> 큰 장면(바론·장로·대규모 한타·다른 라인 솔로킬) 연출 보기</label>
       <label class="row" style="min-height:44px"><input type="checkbox" id="debugMatch" ${App.settings.debugMatch ? 'checked' : ''} style="width:24px;height:24px"> 디버그 모드 (경기 미니맵에 선수별 계획·목표 화살표·팀 계획·오브젝트 처치 게이지 표시)</label>
       <label class="row" style="min-height:44px"><input type="checkbox" id="fastDraft" ${App.settings.fastDraft ? 'checked' : ''} style="width:24px;height:24px"> AI 밴픽 빠르게</label>
+      <div class="row wrap" style="min-height:44px">커뮤니티 수위 ${[['mild', '순한맛'], ['normal', '보통'], ['spicy', '매운맛']].map(([k, l]) => `<button class="btn sm ${(App.settings.communityTone || 'spicy') === k ? 'active' : ''}" data-tone="${k}">${l}</button>`).join('')}</div>
+      <div class="small muted">순한맛: 욕을 ㅇㅇ 처리하거나 빼고 순하게 · 보통: 센 욕만 가림 · 매운맛: 실제 커뮤니티처럼</div>
       <div class="row" style="min-height:44px">기본 경기 속도 ${CONFIG.ui.speeds.map(s => `<button class="btn sm ${App.settings.defaultSpeed === s ? 'active' : ''}" data-spd="${s}">${s}배</button>`).join('')}</div>
       <div class="small muted">수치(확률·성장·연봉 등)는 js/config.js에서 조정합니다.</div>
       <div style="margin-top:20px"><button class="btn danger" id="title">타이틀로 (자동 저장 후)</button></div>
@@ -216,6 +218,7 @@ function settingsPage(root) {
   c.querySelector('#big').addEventListener('change', e => { App.settings.showBigEvents = e.target.checked; saveSettings(); });
   c.querySelector('#debugMatch').addEventListener('change', e => { App.settings.debugMatch = e.target.checked; saveSettings(); });
   c.querySelector('#fastDraft').addEventListener('change', e => { App.settings.fastDraft = e.target.checked; saveSettings(); });
+  c.querySelectorAll('[data-tone]').forEach(b => b.addEventListener('click', () => { App.settings.communityTone = b.dataset.tone; saveSettings(); go('settings'); }));
   c.querySelectorAll('[data-spd]').forEach(b => b.addEventListener('click', () => { App.settings.defaultSpeed = Number(b.dataset.spd); saveSettings(); go('settings'); }));
   c.querySelector('#title').addEventListener('click', () => { saveTo('auto', App.state, App.rng); go('title'); });
 }

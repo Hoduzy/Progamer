@@ -12,6 +12,7 @@ import { STAT_KO } from '../core/util.js';
 import { champName } from '../../data/champions.js';
 import * as hooks from './hooks.js';
 import { seasonTick, newSeason } from '../engine/career.js';
+import { generateTopicPosts } from '../engine/community.js';
 
 export function todaySlots(state) {
   const u = state.user;
@@ -95,7 +96,7 @@ export async function finishDay(extraLines = []) {
   const sevs = seasonTick(st, rng);
   autosave();
   const lines = [...extraLines];
-  if (r.patch) lines.push(`📝 패치 ${r.patch}가 적용됐습니다. 메타가 바뀌었습니다.`);
+  if (r.patch) { lines.push(`📝 패치 ${r.patch}가 적용됐습니다. 메타가 바뀌었습니다.`); generateTopicPosts(st, rng, 'patch'); }
   if (r.review && r.review.type === 'callup') lines.push('🎉 1군으로 콜업됐습니다!');
   if (r.review && r.review.type === 'demote') lines.push('⬇ 2군으로 내려갔습니다.');
   go('hub');
@@ -126,7 +127,7 @@ export async function autoAdvance(maxDays = 60) {
     const sevs = seasonTick(st, rng);
     days++;
     if (sevs.length) { autosave(); await handleSeasonEvents(sevs); if (sevs.some(e => e.type !== 'seasonEnd')) return; stopReason = '시즌 종료'; break; }
-    if (r.patch) notes.push(`${st.date} 📝 패치 ${r.patch}`);
+    if (r.patch) { notes.push(`${st.date} 📝 패치 ${r.patch}`); generateTopicPosts(st, rng, 'patch'); }
     if (r.review) { notes.push(`${st.date} ${r.review.type === 'callup' ? '🎉 1군 콜업!' : '⬇ 2군 이동'}`); stopReason = '로스터 변동'; break; }
     if (!before.inj && st.user.injury) { stopReason = '부상'; break; }
     if (hooks.shouldStop(st)) { stopReason = '중요 일정'; break; }

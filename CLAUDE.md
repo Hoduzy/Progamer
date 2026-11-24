@@ -17,6 +17,8 @@
 - 주요 장면 설명에 사실(체력, 점멸, 근처의 적, 오브젝트 진행)을 쓰면 `data/sceneNeeds.js`에 그 조건을 넣는다.
 - 수치 상수는 `js/config.js`에만 둔다.
 - 실제 프로 선수 이름은 쓰지 않는다 (`data/names.js` 차단 목록).
+- **커뮤니티(`js/engine/community.js`, `data/community/`, `CONFIG.community`)를 고치면** `node tools/validate-community.mjs`로 위반 0건을 확인한 뒤 커밋한다.
+  욕은 플레이·경기력·판단·운영에 대한 것만. 혐오(성별·지역·장애·국적), 가족 욕, 성적인 내용, 살해·자해 협박, 실존 인물은 넣지 않는다 (`data/community/words.js`의 BANNED).
 
 ## 배포 (GitHub Pages)
 
@@ -30,5 +32,6 @@
 - `node tools/replay-bug.mjs bug-reports/<파일>.json` — 경기 화면 "🐞 버그 신고" 파일을 그대로 재현하고 검사·타임라인 출력
 - `node tools/sim-season.mjs [시즌 수] [--chain]` — 시즌 전체 시뮬레이션 통계
 - `node tools/sim-choices.mjs [반복]` — 선택 장면 확률·우월 선택지 검사
+- `node tools/validate-community.mjs [설정 수] [--show N]` — 커뮤니티 템플릿·중복·금지 표현 검사
 - `node tools/build-pages.mjs [--check]` — 배포 준비·경로 검사
 - 브라우저 확인: `python3 -m http.server 8080` 후 `http://localhost:8080` (iPad 가로 1180×820 기준)

@@ -279,7 +279,23 @@ export const CONFIG = {
   eventWeightMult: 1.0,
 
   // ---------------- 커뮤니티 ----------------
-  community: { postsMin: 3, postsMax: 5, commentsMin: 3, commentsMax: 5 },
+  community: {
+    postsMin: 3, postsMax: 5,            // 시리즈 하나 끝나면 올라오는 글 수
+    commentsMin: 4, commentsMax: 8,      // 글 하나의 댓글 수
+    repliesMax: 6,                       // 글 하나의 대댓글 최대 수
+    fightAnti: 0.38, fightFan: 0.2, fightTeam: 0.3,   // 안티 댓글에 팬이 / 팬 댓글에 안티가 / 다른 팀 팬끼리 대댓글 싸움을 걸 확률
+    cooldown: { t: 60, b: 40, c: 150, r: 80 },  // 같은 템플릿을 다시 쓰기까지: 제목 60글, 본문 40글, 댓글 150개, 대댓글 80개
+    keepPosts: 40,                       // 게시판에 남기는 글 수
+    fixedShare: 0.38,                    // 댓글 중 고정 유저(고닉)가 쓰는 비율
+    fanAt: 40, antiAt: -40,              // 호감도가 이 값 이상이면 팬처럼, 이하면 안티처럼 행동
+    favorStep: 6,                        // 시리즈 하나·인터뷰 하나로 바뀌는 호감도 최대폭
+    favorRate: 0.6,                      // 경기 성적이 호감도에 주는 영향 배율
+    favorPull: 0.015,                    // 시리즈마다 원래 호감도로 돌아가려는 비율 (안티는 압도적으로 잘해야 돌아섬)
+    favorHyst: 15,                       // 팬·안티에서 벗어나려면 경계선보다 이만큼 더 넘어가야 함
+    grudgingChance: 0.25,                // 내가 압도적으로 잘했을 때 안티가 "이번엔 인정함"을 남길 확률
+    comebackGold: 3500,                  // 역전승·역전패로 치는 최대 골드 차
+    defaultTone: 'spicy',                // 커뮤니티 수위 기본값 (mild 순한맛 / normal 보통 / spicy 매운맛)
+  },
   fans: { winBase: 400, ratingMult: 250, pogBonus: 1500, trophyBonus: 20000 },
 
   ui: {

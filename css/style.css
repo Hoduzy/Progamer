@@ -693,3 +693,9 @@ button { font-family: inherit; color: inherit; }
 .ph .sopt { grid-template-columns: 1fr; }
 .ph .sopt .pr { grid-row: auto; grid-column: auto; text-align: left; font-size: 18px; }
 .ph .sopt .bd { grid-column: auto; }
+
+/* 커뮤니티 댓글·대댓글 */
+.cm { padding: 7px 0; border-bottom: 1px solid rgba(36,52,102,.5); font-size: 13px; line-height: 1.5; }
+.cm-who { flex: none; width: 118px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.cm-re { margin: 5px 0 0 14px; padding: 4px 8px; border-left: 2px solid var(--line2); background: rgba(10,17,40,.5); border-radius: 0 6px 6px 0; }
+.ph .cm-who { width: 86px; }

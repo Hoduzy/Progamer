@@ -1,5 +1,7 @@
 // 커뮤니티 게시판 · 뉴스 피드 · 기록실
-import { App, go } from '../app.js';
+import { App, go, saveSettings } from '../app.js';
+import { CONFIG } from '../../config.js';
+import { toneText, fixedUserList } from '../../engine/community.js';
 import { shell } from '../layout.js';
 import { esc, fmtWon, POS_KO, fmtDate } from '../../core/util.js';
 import { teamInfo } from '../../engine/roster.js';
@@ -10,27 +12,46 @@ import { champName } from '../../../data/champions.js';
 
 export function register(reg) { reg('community', { render }); reg('records', { render: records }); }
 
+const TONES = [['mild', '순한맛'], ['normal', '보통'], ['spicy', '매운맛']];
+const ROLE_KO = { anti: '안티', fan: '팬', teamFan: '다른 팀 팬', analyst: '분석충', joker: '드립충', asker: '질문충', neutral: '중립' };
+
 function render(root, params) {
   const st = App.state;
   const tab = params.tab || 'board';
   const open = params.open ?? 0;
+  const tone = App.settings.communityTone || CONFIG.community.defaultTone;
+  const T = t => esc(toneText(t, tone));
+  const nick = (who, uid) => uid ? `<b class="gold" title="고정 유저">${esc(who)}</b>` : `<b style="color:var(--txt2)">${esc(who)}</b>`;
   let body = '';
   if (tab === 'board') {
-    const posts = st.community;
+    const posts = st.community || [];
+    const p = posts[open];
+    const ncom = q => q.comments.length + q.comments.reduce((a, c) => a + (c.replies ? c.replies.length : 0), 0);
     body = posts.length ? `<div class="grid2" style="grid-template-columns:400px 1fr;align-items:start">
-      <div class="panel scroll" style="max-height:640px;padding:6px">${posts.map((p, i) => `<div class="news-item" data-open="${i}" style="cursor:pointer;padding:8px;border-radius:6px;${i === open ? 'background:rgba(212,175,55,.1)' : ''}"><div class="grow"><div class="bold" style="white-space:normal">${esc(p.title)} <span class="gold small">[${p.comments.length}]</span></div><div class="tiny dim">${esc(p.who)} · ${p.date.slice(5)} · 조회 ${p.views.toLocaleString()} · 추천 ${p.up}</div></div></div>`).join('')}</div>
-      ${posts[open] ? `<div class="panel"><div class="tiny dim">${esc(posts[open].who)} · ${fmtDate(posts[open].date)} · 조회 ${posts[open].views.toLocaleString()}</div>
-        <h3 style="margin-top:6px;font-size:19px">${esc(posts[open].title)}</h3><div style="line-height:1.7;margin-bottom:12px">${esc(posts[open].body)}</div>
-        <div class="row" style="margin-bottom:10px"><span class="chip gold">추천 ${posts[open].up}</span></div>
-        ${posts[open].comments.map(c => `<div class="news-item"><b class="small" style="width:110px;flex:none;color:var(--txt2)">${esc(c.who)}</b><span class="grow">${esc(c.text)}</span><span class="tiny dim">👍 ${c.up}</span></div>`).join('')}</div>` : ''}</div>`
+      <div class="panel scroll" style="max-height:640px;padding:6px">${posts.map((q, i) => `<div class="news-item" data-open="${i}" style="cursor:pointer;padding:8px;border-radius:6px;${i === open ? 'background:rgba(212,175,55,.1)' : ''}"><div class="grow"><div class="bold" style="white-space:normal">${q.story ? '<span class="chip gold">고닉</span> ' : ''}${T(q.title)} <span class="gold small">[${ncom(q)}]</span></div><div class="tiny dim">${esc(q.who)} · ${q.date.slice(5)} · 조회 ${q.views.toLocaleString()} · 추천 ${q.up}</div></div></div>`).join('')}</div>
+      ${p ? `<div class="panel"><div class="tiny dim">${nick(p.who, p.uid)} · ${fmtDate(p.date)} · 조회 ${p.views.toLocaleString()}</div>
+        <h3 style="margin-top:6px;font-size:19px">${T(p.title)}</h3><div style="line-height:1.7;margin-bottom:12px">${T(p.body)}</div>
+        <div class="row" style="margin-bottom:10px"><span class="chip gold">추천 ${p.up}</span><span class="tiny dim">댓글 ${ncom(p)}</span></div>
+        ${p.comments.map(c => `<div class="cm"><div class="row" style="gap:8px;align-items:flex-start"><span class="cm-who">${nick(c.who, c.uid)}</span><span class="grow">${T(c.text)}</span><span class="tiny dim" style="flex:none">👍 ${c.up}</span></div>
+          ${(c.replies || []).map(r => `<div class="cm-re row" style="gap:8px;align-items:flex-start"><span class="dim">ㄴ</span><span class="cm-who">${nick(r.who, r.uid)}</span><span class="grow">${T(r.text)}</span><span class="tiny dim" style="flex:none">👍 ${r.up}</span></div>`).join('')}</div>`).join('')}</div>` : ''}</div>`
       : '<div class="panel muted">아직 글이 없습니다. 경기를 치르면 커뮤니티 반응이 올라옵니다.</div>';
+  } else if (tab === 'users') {
+    const list = fixedUserList(st);
+    const bar = f => `<div class="bar" style="width:120px;height:8px;position:relative;background:#0a0f22"><i style="position:absolute;top:0;bottom:0;${f >= 0 ? `left:50%;width:${f / 2}%` : `right:50%;width:${-f / 2}%`};background:${f >= 0 ? 'var(--green)' : 'var(--red)'}"></i></div>`;
+    body = `<div class="panel"><h3>고정 유저 (고닉)</h3><div class="small muted" style="margin-bottom:8px">내 경기력·인터뷰·논란에 따라 호감도가 천천히 바뀝니다. 호감도 ${CONFIG.community.fanAt} 이상이면 팬처럼, ${CONFIG.community.antiAt} 이하면 안티처럼 행동합니다.</div>
+      <div class="grid3" style="grid-template-columns:1fr 1fr 1fr">${list.sort((a, b) => b.favor - a.favor).map(u => `<div class="panel" style="padding:10px"><div class="row between"><b>${esc(u.nick)}</b>${u.now === 'fan' ? '<span class="chip green">팬</span>' : u.now === 'anti' ? '<span class="chip red">안티</span>' : `<span class="chip">${esc(ROLE_KO[u.now] || u.now)}</span>`}</div>
+        <div class="tiny dim" style="margin:2px 0 6px">원래 ${ROLE_KO[u.role] || u.role}${u.team ? ' · ' + esc(u.team) + ' 팬' : ''}</div>
+        <div class="row" style="gap:6px">${bar(u.favor)}<b class="small">${Math.round(u.favor)}</b></div>
+        <div class="small muted" style="margin-top:6px;line-height:1.45">${esc(u.desc)}</div></div>`).join('')}</div></div>`;
   } else {
     body = `<div class="panel">${st.news.slice(0, 120).map(n => `<div class="news-item"><span class="nd">${n.date.slice(5).replace('-', '/')}</span><span>${esc(n.text)}</span></div>`).join('') || '<div class="muted">뉴스 없음</div>'}</div>`;
   }
-  const html = `<div class="tabs"><button class="btn sm ${tab === 'board' ? 'active' : ''}" data-tab="board">💬 게시판</button><button class="btn sm ${tab === 'news' ? 'active' : ''}" data-tab="news">📰 뉴스 피드</button></div>${body}`;
+  const html = `<div class="tabs"><button class="btn sm ${tab === 'board' ? 'active' : ''}" data-tab="board">💬 게시판</button><button class="btn sm ${tab === 'users' ? 'active' : ''}" data-tab="users">🧑‍🤝‍🧑 고닉</button><button class="btn sm ${tab === 'news' ? 'active' : ''}" data-tab="news">📰 뉴스 피드</button>
+    <div class="grow"></div><span class="small muted" style="align-self:center">수위</span>${TONES.map(([k, l]) => `<button class="btn sm ${tone === k ? 'active' : ''}" data-tone="${k}">${l}</button>`).join('')}</div>${body}`;
   const c = shell(root, 'community', html);
   c.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => go('community', { tab: b.dataset.tab })));
   c.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => go('community', { tab, open: Number(b.dataset.open) })));
+  c.querySelectorAll('[data-tone]').forEach(b => b.addEventListener('click', () => { App.settings.communityTone = b.dataset.tone; saveSettings(); go('community', { tab, open }); }));
 }
 
 function records(root, params) {

@@ -2,7 +2,7 @@
 import { App, go, modal, toast } from './app.js';
 import { esc, avg, POS_KO } from '../core/util.js';
 import { rollEvent, resolveEvent } from '../engine/events.js';
-import { generatePosts, interviewQuestion, applyInterview } from '../engine/community.js';
+import { generatePosts, interviewQuestion, applyInterview, seriesPostInfo, communityReact, toneText } from '../engine/community.js';
 import { teamInfo } from '../engine/roster.js';
 import { champName } from '../../data/champions.js';
 import { teamLogo, champIcon } from './assets.js';
@@ -17,6 +17,7 @@ export async function afterActivities(state, rng, opts) {
     buttons: ev.choices.map((c, i) => ({ label: esc(c), value: i, primary: i === 0 })),
   });
   const res = resolveEvent(state, rng, ev, idx ?? 0);
+  if (ev.id === 'controversy') communityReact(state, 'controversy');
   await modal({
     title: esc(ev.title),
     body: `<div style="font-size:16px">${esc(res.text)}</div>${res.lines.length ? `<div class="small gold" style="margin-top:8px">${res.lines.map(esc).join(' · ')}</div>` : ''}`,
@@ -47,17 +48,10 @@ export async function afterSeries(state, rng, match, info) {
   const u = state.players[state.user.pid];
   const comp = state.season.comps[match.compId];
   const myRef = match.teams.find(t => t.replace(':A', '') === u.teamId);
-  const oppRef = match.teams.find(t => t !== myRef);
-  const win = match.winner === myRef;
-  const myGames = match.games.filter(g => g.me);
-  const logs = state.user.matchLog.slice(0, myGames.length);
-  const rating = logs.length ? avg(logs.map(l => l.rating)) : null;
-  const kda = logs.length ? `${logs.reduce((a, l) => a + l.k, 0)}/${logs.reduce((a, l) => a + l.d, 0)}/${logs.reduce((a, l) => a + l.a, 0)}` : '';
-  const champ = logs.length ? logs[0].champ : null;
   const scenes = info.scenes || [];
   const ext = scenes.filter(s => s.tier === 'crit' || s.tier === 'fumble').sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))[0] || scenes[0];
-  const played = info.played && logs.length > 0;
-  const pinfo = { played, win, rating, kda, champ, moment: ext ? ext.text : null, opp: teamInfo(state, oppRef).name, oppRef, score: `${match.wins.join(':')}`, compName: comp.name, cl: comp.league === 'CL' };
+  const pinfo = seriesPostInfo(state, match, { played: info.played, moment: ext ? ext.text : null });
+  const { played, win, rating } = pinfo;
   // 인터뷰 (승리 + 출전)
   if (played && win && (comp.league !== 'CL' || rng.chance(0.5))) {
     const q = interviewQuestion(state, rng, pinfo);
@@ -71,7 +65,7 @@ export async function afterSeries(state, rng, match, info) {
   }
   // 커뮤니티
   const posts = generatePosts(state, rng, pinfo);
-  toast(`💬 커뮤니티에 새 글 ${posts.length}개: "${esc(posts[0].title)}"`, 3500);
+  if (posts.length) toast(`💬 커뮤니티에 새 글 ${posts.length}개: "${esc(toneText(posts[0].title, App.settings.communityTone))}"`, 3500);
   await showPendingAwards(state);
 }
 

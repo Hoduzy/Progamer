@@ -230,6 +230,18 @@ export function simulateMatch(state, rng, match) {
   return s;
 }
 
+// 커뮤니티 글에 쓰는 경기 사실 (내가 뛴 경기만): 라인 상대, 역전승/역전패, 오브젝트
+function gameFacts(sum, upid) {
+  const si = sum.sides.findIndex(sd => sd.players.some(p => p.pid === upid));
+  const me = sum.sides[si].players.find(p => p.pid === upid);
+  const opp = sum.sides[1 - si].players.find(p => p.pos === me.pos);
+  const sign = si === 0 ? 1 : -1;                     // goldHist.diff 는 블루 - 레드
+  const diffs = (sum.goldHist || []).map(h => h.diff * sign);
+  const minD = Math.min(0, ...diffs), maxD = Math.max(0, ...diffs);
+  const mine = sum.sides[si], theirs = sum.sides[1 - si];
+  return { ln: opp ? opp.nick : null, lo: Math.round(minD), hi: Math.round(maxD), mb: mine.barons, ob: theirs.barons, me: mine.elders, oe: theirs.elders, soul: mine.soul || null };
+}
+
 export function recordSeries(state, rng, match, s) {
   const comp = state.season.comps[match.compId];
   match.done = true;
@@ -244,6 +256,7 @@ export function recordSeries(state, rng, match, s) {
       w: match.teams[gm.winnerIdx], d: gm.duration, pog: gm.pog, blue: blueRef, red: redRef,
       k: gm.blueIdx === 0 ? [gm.summary.sides[0].kills, gm.summary.sides[1].kills] : [gm.summary.sides[1].kills, gm.summary.sides[0].kills],
       picks: me ? gm.summary.sides.map(sd => sd.players.map(p => p.champ)).flat().join(',') : undefined, me: me || undefined,
+      x: me ? gameFacts(gm.summary, upid) : undefined,
     };
   });
   if (comp.standings && (comp.stage === 'groups' || comp.stage === 'league' || comp.stage === 'swiss')) addResult(comp.standings, match);
