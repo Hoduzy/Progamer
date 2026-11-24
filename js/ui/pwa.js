@@ -6,9 +6,10 @@ export function initPWA() {
   if (local && !/[?&]sw=1/.test(location.search)) return;
   if (location.protocol !== 'https:' && !local) return;
 
-  let reloading = false;
+  // 처음 접속할 때도 서비스 워커가 자리를 잡으면서 controllerchange가 온다.
+  // 그때 새로고침하면 진행 중인 화면이 날아가므로, 사용자가 "새로고침"을 누른 경우에만 다시 불러온다.
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (reloading) return;
+    if (!userAsked || reloading) return;
     reloading = true;
     location.reload();
   });
@@ -28,6 +29,7 @@ export function initPWA() {
   }).catch(e => console.warn('서비스 워커 등록 실패', e));
 }
 
+let userAsked = false, reloading = false;
 function showUpdate(worker) {
   const root = document.getElementById('update-root');
   if (!root || root.querySelector('.upd')) return;
@@ -37,9 +39,10 @@ function showUpdate(worker) {
   root.appendChild(el);
   el.querySelector('[data-act=reload]').addEventListener('click', () => {
     el.querySelector('span').textContent = '업데이트 중…';
+    userAsked = true;
     worker.postMessage('SKIP_WAITING');
     // 혹시 controllerchange가 오지 않으면 그냥 새로고침
-    setTimeout(() => location.reload(), 3000);
+    setTimeout(() => { if (!reloading) { reloading = true; location.reload(); } }, 3000);
   });
   el.querySelector('[data-act=later]').addEventListener('click', () => el.remove());
 }
