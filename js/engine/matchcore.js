@@ -11,6 +11,26 @@ import * as geo from './mapgeo.js';
 export const LANE_OF = { TOP: 'TOP', JGL: null, MID: 'MID', ADC: 'BOT', SUP: 'BOT' };
 export const ROLE_DMG = { TOP: 1.0, JGL: 0.85, MID: 1.15, ADC: 1.25, SUP: 0.55 };
 export const ROLE_KILL = { TOP: 1.0, JGL: 0.9, MID: 1.25, ADC: 1.4, SUP: 0.35 };
+// 딜 서폿: 서폿 중 마법사·원딜·암살자형
+const DMG_SUP = new Set(['mageBurst', 'mageControl', 'mageBattle', 'adcCrit', 'adcLethal', 'adcOnhit', 'lethality', 'apAssassin']);
+// 마무리 일격 가중치 (포지션 × 챔피언 성향, 딜 서폿은 따로)
+export function killWeight(p) {
+  const K = CONFIG.match.sim.kill;
+  const cls = CHAMPIONS[p.champ] ? CHAMPIONS[p.champ].cls : 'bruiser';
+  if (p.pos === 'SUP') return DMG_SUP.has(cls) ? K.dmgSup : K.pos.SUP * (K.cls[cls] || 1);
+  return (K.pos[p.pos] || 0.7) * (K.cls[cls] || 1);
+}
+// 처치한 선수 고르기: 그 대상에게 준 피해(기여) × 킬 가중치. 기여 기록이 없으면 가중치만
+export function pickKiller(g, cands, dmgMap) {
+  const K = CONFIG.match.sim.kill;
+  const list = cands.filter(c => c && c.alive);
+  if (!list.length) return null;
+  const tot = list.reduce((a, c) => a + ((dmgMap && dmgMap.get(c)) || 0), 0);
+  return g.rng.weighted(list.map(c => {
+    const share = tot > 0 ? ((dmgMap.get(c) || 0) / tot) : 1 / list.length;
+    return [c, Math.max(1e-4, Math.pow(share, K.dmgExp) * killWeight(c))];
+  }));
+}
 export const TANK = { tank: 1.6, apTank: 1.45, bruiser: 1.3, skirm: 1.1, apFighter: 1.15, enchanter: 0.9, mage: 0.85, adc: 0.8, lethality: 0.9 };
 export const FRONT = { tank: 1.8, apTank: 1.6, bruiser: 1.4, skirm: 1.1, apFighter: 1.2 };
 
@@ -131,11 +151,12 @@ export function killPlayer(g, killer, victim, assisters = [], opts = {}) {
   const as = assisters.filter(a => a && a !== killer && a.alive && a.side === killerSide && pdist(a, victim) <= R);
   for (const a of as) { a.a++; a.gold += G.assistPool / Math.max(1, as.length); a.xp += 70; }
   g.sides[killerSide].kills++;
+  if (opts.ks) { g.ksBy = g.ksBy || [0, 0]; g.ksBy[killerSide]++; }
   return emit(g, {
     type: 'kill', killer: killer ? killer.pid : null, victim: victim.pid, side: killerSide,
     assisters: as.map(a => a.pid), shutdown, firstBlood: fb, reason: opts.reason || 'fight', fightId: opts.fightId || null,
     lane: opts.lane || null, pos: [victim.x, victim.y], region: geo.regionOf(victim.x, victim.y),
-    parts: [victim.pid, ...(killer ? [killer.pid] : []), ...as.map(a => a.pid)], big: !!opts.big,
+    parts: [victim.pid, ...(killer ? [killer.pid] : []), ...as.map(a => a.pid)], big: !!opts.big, ks: !!opts.ks || undefined,
   });
 }
 

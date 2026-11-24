@@ -239,7 +239,7 @@ function gameFacts(sum, upid) {
   const diffs = (sum.goldHist || []).map(h => h.diff * sign);
   const minD = Math.min(0, ...diffs), maxD = Math.max(0, ...diffs);
   const mine = sum.sides[si], theirs = sum.sides[1 - si];
-  return { ln: opp ? opp.nick : null, lo: Math.round(minD), hi: Math.round(maxD), mb: mine.barons, ob: theirs.barons, me: mine.elders, oe: theirs.elders, soul: mine.soul || null };
+  return { ln: opp ? opp.nick : null, lo: Math.round(minD), hi: Math.round(maxD), mb: mine.barons, ob: theirs.barons, me: mine.elders, oe: theirs.elders, soul: mine.soul || null, ks: mine.ks || 0 };
 }
 
 export function recordSeries(state, rng, match, s) {

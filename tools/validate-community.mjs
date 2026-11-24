@@ -36,7 +36,7 @@ console.log(`템플릿: 제목 ${cnt.titles} · 본문 ${cnt.bodies} · 댓글 $
 const allTpl = [...TPL.t, ...TPL.b, ...TPL.c, ...TPL.r];
 for (const t of allTpl) checkText(t.text, `템플릿 ${t.id}`, true);
 // 조건 태그 오타 검사
-const KNOWN = new Set('win lose played bench good bad great awful pog comeback thrown stomp swept close cl lck intl playoff final streakW streakL patch rookie provoked humble rival baron elder fa academy grudging'.split(' '));
+const KNOWN = new Set('win lose played bench good bad great awful pog comeback thrown stomp swept close cl lck intl playoff final streakW streakL patch rookie provoked humble rival baron elder fa academy grudging ks'.split(' '));
 for (const t of allTpl) for (const n of [...t.need, ...t.not]) if (!KNOWN.has(n)) v('태그', `${t.id} 알 수 없는 태그 "${n}" (${t.text})`);
 const KNOWN_VARS = new Set('선수 팀 상대팀 챔피언 스코어 KDA 평점 분 오브젝트 대회 라이벌 상대선수 포지션 장면 다른팀 다른팀2 순위 메타챔 패치 다음상대 연승 연패 국제대회 다른선수 고닉 대상'.split(' '));
 for (const t of allTpl) for (const x of t.vars) if (!KNOWN_VARS.has(x)) v('변수', `${t.id} 알 수 없는 변수 {${x}}`);

@@ -3,7 +3,7 @@
 // 알림의 새로고침을 누르면 SKIP_WAITING → 새 버전으로 바뀐 뒤 페이지를 다시 불러온다.
 
 // BUILD:BEGIN (node tools/build-pages.mjs 가 채움)
-const VERSION = '2facaa35daf2';
+const VERSION = 'b62ebaf9743a';
 const FILES = [
   "./",
   "assets/teams/BFX.png",
@@ -31,6 +31,7 @@ const FILES = [
   "data/items.js",
   "data/map.js",
   "data/names.js",
+  "data/objScenes.js",
   "data/scenarios.js",
   "data/sceneNeeds.js",
   "data/teams.js",
@@ -56,6 +57,7 @@ const FILES = [
   "js/engine/match.js",
   "js/engine/matchcore.js",
   "js/engine/meta.js",
+  "js/engine/objScenes.js",
   "js/engine/players.js",
   "js/engine/rating.js",
   "js/engine/roster.js",

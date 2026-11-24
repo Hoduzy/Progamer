@@ -43,6 +43,7 @@ export function createMatch(opts) {
     waves: { TOP: { s: 0.5 }, MID: { s: 0.5 }, BOT: { s: 0.5 } },
     fights: [], nextFightId: 1, nextEvId: 1, heraldUnit: null,
     scenePlan: [], sceneLog: [], choiceScore: 0, history: [],
+    recentTitles: new Set(opts.recentSceneTitles || []),   // 최근 경기에서 쓴 장면 제목 (생성 장면이 피함)
     gameNo: opts.gameNo || 1,
     input: opts.keepInput ? { blue, red, seed, meta, userPid, userMods, gameNo: opts.gameNo || 1 } : null,
   };
@@ -181,6 +182,7 @@ export function laneOpponent(g, p) { return byPos(enemyOf(g, p.side), p.pos); }
 export function summary(g) {
   const sides = g.sides.map(s => ({
     teamId: s.team.id, kills: s.kills, gold: Math.round(teamGold(s)), towers: s.towersDestroyed,
+    ks: (g.ksBy || [0, 0])[s.idx],   // 서폿이 원딜 킬을 가져간 횟수 (커뮤니티 밈)
     dragons: s.dragons.slice(), soul: s.soul, barons: s.barons, elders: s.elders, grubs: s.grubs, heralds: s.heralds,
     players: s.players.map(p => ({
       pid: p.pid, nick: p.nick, pos: p.pos, champ: p.champ, k: p.k, d: p.d, a: p.a, cs: p.cs,

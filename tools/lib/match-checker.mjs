@@ -35,6 +35,7 @@ export const stats = {
   games: 0, dur: [], kills: [], tf: { '0-1': 0, '2-4': 0, '5-7': 0, ace: 0 }, tfN: 0, labels: {},
   objTime: {}, plan: {}, task: {}, earlyMid: [0, 0], side: [0, 0], scenes: 0, blueWins: 0, timeouts: 0,
   firstTower: [], objCount: {}, violByGame: {}, sceneIds: {}, killBy: {}, killLabel: {}, fr: {},
+  kpos: {}, apos: {}, supRank: [0, 0, 0, 0, 0], objScenes: 0, objCombos: {}, recentTitles: [], ks: 0,
 };
 
 function makeTeam(rng, id, target) {
@@ -51,7 +52,9 @@ export function makeGame(seed, scenes = true) {
   const meta = newMeta(rng, 2026);
   const A = makeTeam(rng, 'A', rng.int(72, 85)), B = makeTeam(rng, 'B', rng.int(72, 85));   // 리그 티어 범위(C~S)
   const userPid = scenes ? rng.pick([...A.players, ...B.players]).id : null;
-  return createMatch({ blue: A, red: B, seed: rng.int(1, 2 ** 30), meta, userPid, keepInput: true });
+  // 최근 경기 장면 제목 (생성 장면이 피해야 함) — 연속한 검사 경기를 한 사람의 경기처럼 본다
+  const recentSceneTitles = stats.recentTitles.slice(-V.recentTitleGames).flat();
+  return createMatch({ blue: A, red: B, seed: rng.int(1, 2 ** 30), meta, userPid, keepInput: true, recentSceneTitles });
 }
 
 // 경기를 끝까지(또는 stopAt까지) 돌리며 매 틱 검사.
@@ -154,6 +157,18 @@ function finishGame(g, seed) {
   stats.dur.push(g.t / 60);
   stats.kills.push(g.sides[0].kills + g.sides[1].kills);
   if (g.winner === 0) stats.blueWins++;
+  // 포지션별 킬·어시스트
+  for (const s of g.sides) {
+    for (const p of s.players) { stats.kpos[p.pos] = (stats.kpos[p.pos] || 0) + p.k; stats.apos[p.pos] = (stats.apos[p.pos] || 0) + p.a; }
+    stats.supRank[s.players.slice().sort((a, b) => b.a - a.a).findIndex(p => p.pos === 'SUP')]++;
+  }
+  stats.ks += g.feed.filter(e => e.type === 'kill' && e.ks).length;
+  // 최근 경기 장면 제목 반복 검사
+  const titles = g.sceneLog.filter(r => r.combo).map(r => r.title);
+  const recent = new Set(stats.recentTitles.slice(-V.recentTitleGames).flat());
+  for (const t of titles) if (recent.has(t)) V_('9 주요 장면', seed, g.t, `생성 장면 제목이 최근 ${V.recentTitleGames}경기 안에서 반복: ${t}`);
+  if (new Set(titles).size !== titles.length) V_('9 주요 장면', seed, g.t, '같은 경기 안에서 생성 장면 제목 반복');
+  if (g.userSide >= 0) stats.recentTitles.push(titles);
 }
 
 const respawned = (g, pid) => g.newEvents.some(e => e.type === 'move' && e.kind === 'respawn' && e.pid === pid);
@@ -289,20 +304,49 @@ function checkScene(g, sc, seed) {
   const t = g.t;
   if (!sc.loc) { V_('9 주요 장면', seed, t, '장면 위치 없음'); return; }
   const me = userPlayer(g);
+  const R = sc.R || S.sceneRadius;
   if (!me.alive) V_('9 주요 장면', seed, t, '죽은 상태에서 장면');
+  if (sc.gen) checkObjScene(g, sc, seed, me);
   for (const pid of sc.involved) {
     const p = g.byId[pid];
     if (!p.alive) V_('9 주요 장면', seed, t, `장면 참여자 ${p.nick} 사망 상태`);
     const d = d2([p.x, p.y], sc.loc);
-    if (d > S.sceneRadius + TOL) V_('9 주요 장면', seed, t, `장면 참여자 ${p.nick}이(가) 장면 위치에서 ${d.toFixed(3)} 떨어짐`);
+    if (d > R + TOL) V_('9 주요 장면', seed, t, `장면 참여자 ${p.nick}이(가) 장면 위치에서 ${d.toFixed(3)} 떨어짐`);
     const c = sc.cards && sc.cards[pid];
     if (!c || Math.abs(c.hp - p.hp) > 1e-6 || c.ult !== ultReady(g, p) || c.flash !== flashReady(g, p) || c.level !== p.level) V_('9 주요 장면', seed, t, `장면 카드 ${p.nick} 상태 불일치`);
   }
   // 근처에 있는데 빠진 선수
-  for (const p of allPlayers(g)) if (p.alive && d2([p.x, p.y], sc.loc) <= S.sceneRadius - TOL && !sc.involved.includes(p.pid)) V_('9 주요 장면', seed, t, `장면 위치 근처 ${p.nick} 누락`);
+  for (const p of allPlayers(g)) if (p.alive && d2([p.x, p.y], sc.loc) <= R - TOL && !sc.involved.includes(p.pid)) V_('9 주요 장면', seed, t, `장면 위치 근처 ${p.nick} 누락`);
   if (sc.region !== geo.regionOf(...sc.loc)) V_('9 주요 장면', seed, t, '장면 지역 이름 불일치');
 }
 
+// 생성 장면: 설명 속 수치가 그 틱의 엔진 상태와 같은지 (검사기가 직접 다시 계산)
+const OBJ_KO = { baron: '바론', dragon: '드래곤', elder: '장로 드래곤' };
+function checkObjScene(g, sc, seed, me) {
+  const t = g.t, f = sc.facts, key = sc.gen.key;
+  stats.objScenes++;
+  stats.objCombos[sc.combo] = (stats.objCombos[sc.combo] || 0) + 1;
+  const pit = geo.OBJ_POS[key], R = CONFIG.scene.obj.radius;
+  const near = allPlayers(g).filter(p => p.alive && d2([p.x, p.y], pit) <= R);
+  const nA = near.filter(p => p.side === me.side).length, nE = near.length - nA;
+  const o = g.obj[key];
+  const hp = o.alive ? Math.round((o.prog ? 1 - o.prog.val : 1) * 100) : null;
+  const ej = g.sides[1 - me.side].players.find(p => p.pos === 'JGL');
+  const eSmite = ej.alive && d2([ej.x, ej.y], pit) <= R && t >= (ej.smiteAt || 0);
+  const bad = [];
+  if (f.nA !== nA || f.nE !== nE) bad.push(`인원 ${f.nA}대${f.nE} ≠ 실제 ${nA}대${nE}`);
+  if (!sc.desc.includes(`${nA}대${nE}`)) bad.push('설명에 실제 인원 없음');
+  if (hp !== null && !sc.desc.includes(`${OBJ_KO[key]} 체력 ${hp}%`)) bad.push(`설명의 ${OBJ_KO[key]} 체력이 실제 ${hp}%와 다름`);
+  if (!sc.desc.includes(`상대 정글 강타 ${eSmite ? '있음' : '없음'}`)) bad.push(`강타 표기 불일치 (실제 ${eSmite ? '있음' : '없음'})`);
+  if (!sc.desc.includes(`내 체력 ${Math.round(me.hp * 100)}%`)) bad.push('내 체력 표기 불일치');
+  const sit = f.sit;
+  if (sit === 'weTake' && !(o.prog && o.prog.side === me.side)) bad.push('우리가 치는 중이 아닌데 weTake');
+  if (sit === 'theyTake' && !(o.prog && o.prog.side !== me.side)) bad.push('상대가 치는 중이 아닌데 theyTake');
+  if (sit === 'spawnVision' && o.alive) bad.push('이미 등장했는데 등장 전 장면');
+  if (sit === 'pickedEnemy' && g.sides[1 - me.side].players.every(p => p.alive)) bad.push('상대가 모두 살아 있는데 "잘림"');
+  if (sit === 'pickedAlly' && g.sides[me.side].players.every(p => p.alive)) bad.push('아군이 모두 살아 있는데 "잘림"');
+  for (const b of bad) V_('9 주요 장면', seed, t, `생성 장면 ${sc.id}: ${b}`);
+}
 
 // 결과 출력. 반환: 통과 여부
 export function printReport(sec) {
@@ -346,9 +390,27 @@ console.log('  팀 계획 시간 비율: ' + Object.entries(stats.plan).sort((a,
 const taskTot = Object.values(stats.task).reduce((a, b) => a + b, 0);
 console.log('  선수 임무 시간 비율: ' + Object.entries(stats.task).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${pct(v, taskTot)}`).join(' · '));
 console.log(`  0~14분 5명 미드 비율 ${pct(stats.earlyMid[0], stats.earlyMid[1])} (상한 ${V.earlyMidStackMax * 100}%) · 14분 이후 사이드 체류 ${pct(stats.side[0], stats.side[1])} (하한 ${V.sideLaneMin * 100}%)`);
+// 포지션별 킬 비율·서폿 어시스트 순위
+const kTot = Object.values(stats.kpos).reduce((a, b) => a + b, 0);
+const shareOk = Object.entries(V.killShare).map(([pos, [lo, hi]]) => { const r = (stats.kpos[pos] || 0) / Math.max(1, kTot); console.log(`  ${r >= lo && r <= hi ? '✓' : '✗'} 킬 비율 ${pos.padEnd(3)} ${(r * 100).toFixed(1)}% (목표 ${Math.round(lo * 100)}~${Math.round(hi * 100)}%)`); return r >= lo && r <= hi; });
+const aAvg = Object.fromEntries(Object.entries(stats.apos).map(([k, v]) => [k, v / Math.max(1, stats.games * 2)]));
+const aOrder = Object.keys(aAvg).sort((a, b) => aAvg[b] - aAvg[a]);
+const supRankAvg = aOrder.indexOf('SUP') + 1;
+const assistOk = supRankAvg >= 1 && supRankAvg <= V.supAssistRankMax;
+console.log(`  ${assistOk ? '✓' : '✗'} 경기당 어시스트: ${aOrder.map(k => `${k} ${aAvg[k].toFixed(1)}`).join(' · ')} → 서폿 ${supRankAvg}위 (팀별 서폿 순위 1~5위: ${stats.supRank.join('/')}) · 서폿 킬스틸 경기당 ${(stats.ks / Math.max(1, stats.games)).toFixed(2)}회`);
+// 생성 장면 조합
+const comboN = Object.keys(stats.objCombos).length;
+const comboTop = Object.entries(stats.objCombos).sort((a, b) => b[1] - a[1]).slice(0, 5);
+const comboMax = comboTop.length ? comboTop[0][1] / Math.max(1, stats.objScenes) : 0;
+const comboOk = !opts.SCENES || (comboN >= V.objCombosMin && comboMax <= V.objComboMaxShare);
+if (opts.SCENES) {
+  console.log(`  ${comboOk ? '✓' : '✗'} 바론·드래곤·장로 생성 장면 ${stats.objScenes}개 · 상황+장소+인원 조합 ${comboN}종 (하한 ${V.objCombosMin}) · 최다 조합 비율 ${(comboMax * 100).toFixed(1)}% (상한 ${V.objComboMaxShare * 100}%)`);
+  for (const [k, n] of comboTop) console.log(`      ${k}  ${n}회 (${(n / Math.max(1, stats.objScenes) * 100).toFixed(1)}%)`);
+}
+statOk.push(...shareOk, assistOk, comboOk);
 const durOk = avg(stats.dur) >= V.durationMin[0] && avg(stats.dur) <= V.durationMin[1];
 const killOk = avg(stats.kills) >= V.killsAvg[0] && avg(stats.kills) <= V.killsAvg[1];
-console.log(`\n[목표 범위] 경기 시간 ${durOk ? '✓' : '✗'} · 킬 ${killOk ? '✓' : '✗'} · 한타 분포 ${statOk.every(Boolean) ? '✓' : '✗'}`);
+console.log(`\n[목표 범위] 경기 시간 ${durOk ? '✓' : '✗'} · 킬 ${killOk ? '✓' : '✗'} · 한타 분포·킬 비율·어시스트·장면 조합 ${statOk.every(Boolean) ? '✓' : '✗'}`);
 console.log(violTotal === 0 && durOk && killOk && statOk.every(Boolean) ? '\n결과: 통과 ✓' : '\n결과: 실패 ✗');
   return violTotal === 0 && durOk && killOk && statOk.every(Boolean);
 }

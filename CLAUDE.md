@@ -5,7 +5,7 @@
 
 ## 반드시 지킬 것
 
-- **경기 엔진(`js/engine/match.js`, `matchcore.js`, `teamai.js`, `combat.js`, `world.js`, `mapgeo.js`, `choices.js`, `commentary.js`, `data/map.js`, `data/scenarios.js`, `data/sceneNeeds.js`, `data/commentary.js`, `CONFIG.match`)을 고칠 때마다**
+- **경기 엔진(`js/engine/match.js`, `matchcore.js`, `teamai.js`, `combat.js`, `world.js`, `mapgeo.js`, `choices.js`, `objScenes.js`, `commentary.js`, `data/map.js`, `data/scenarios.js`, `data/sceneNeeds.js`, `data/objScenes.js`, `data/commentary.js`, `CONFIG.match`, `CONFIG.scene`)을 고칠 때마다**
   ```
   node tools/validate-match.mjs 500
   ```

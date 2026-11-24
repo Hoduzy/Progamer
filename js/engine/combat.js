@@ -6,7 +6,7 @@ import { CONFIG } from '../config.js';
 import { clamp } from '../core/util.js';
 import * as geo from './mapgeo.js';
 import {
-  SIM, dt, allPlayers, alive, emit, killPlayer, pdist, distTo, dpsOf, ehpOf, champCls, FRONT, ROLE_KILL, trait,
+  SIM, dt, allPlayers, alive, emit, killPlayer, pdist, distTo, dpsOf, ehpOf, champCls, FRONT, ROLE_KILL, trait, pickKiller, killWeight,
 } from './matchcore.js';
 
 const TASK_OBJ = new Set(['objTake', 'objContest', 'objSetup']);
@@ -127,7 +127,9 @@ function fightTick(g, f) {
   const intensity = trade ? S.trade.intensity : n >= 8 ? S.bigFightDps : 1;
   const dps = new Map(ps.map(p => [p, dpsOf(g, p, n) * intensity]));
   const tw = towerSupport(g, f.center);
-  const lastHit = new Map();
+  // 이 교전에서 각 대상에게 누가 얼마나 피해를 줬는지 (킬 배분용)
+  if (!f.dmgOn) f.dmgOn = new Map();
+  const dmgOn = v => { let m = f.dmgOn.get(v); if (!m) { m = new Map(); f.dmgOn.set(v, m); } return m; };
   const sides = [A, B];
   for (let sub = 0; sub < dt(); sub++) {
     for (const side of [0, 1]) {
@@ -140,7 +142,7 @@ function fightTick(g, f) {
         const dmg = dps.get(a) * g.rng.float(0.7, 1.3);
         tgt.hp -= dmg / ehpOf(tgt);
         a.dmg += dmg * 1.4; tgt.taken += dmg;
-        lastHit.set(tgt, a);
+        const m = dmgOn(tgt); m.set(a, (m.get(a) || 0) + dmg);
       }
       if (tw === 1 - side) {
         // 포탑이 근처 공격자를 때림
@@ -150,9 +152,11 @@ function fightTick(g, f) {
     }
     for (const p of ps) {
       if (p.alive && p.hp <= 0) {
-        const killer = lastHit.get(p) && lastHit.get(p).alive ? lastHit.get(p) : nearestAlive(sides[1 - p.side], p);
+        const contrib = f.dmgOn.get(p);
+        const cands = sides[1 - p.side].filter(q => q.alive && contrib && contrib.has(q));
+        const killer = cands.length ? pickKiller(g, cands, contrib) : nearestAlive(sides[1 - p.side], p);
         const as = sides[1 - p.side].filter(q => q.alive && q !== killer);
-        killPlayer(g, killer, p, as, { reason: f.kind, fightId: f.id, big: !trade });
+        killPlayer(g, killer, p, as, { reason: f.kind, fightId: f.id, big: !trade, ks: ksOf(killer, as, contrib) });
         f.deaths[p.side]++;
         if (killer) f.killsBy[killer.pid] = (f.killsBy[killer.pid] || 0) + 1;
       }
@@ -182,6 +186,13 @@ function fightTick(g, f) {
   if (!remA.length || !remB.length || f.ticks >= S.fightMaxTicks) endFight(g, f);
 }
 
+// "서폿이 원딜 킬을 뺏어감": 서폿이 마무리했는데 같은 팀 원딜이 더 많이 때렸을 때
+function ksOf(killer, mates, contrib) {
+  if (!killer || killer.pos !== 'SUP' || !contrib) return false;
+  const adc = mates.find(q => q.pos === 'ADC');
+  return !!adc && (contrib.get(adc) || 0) > (contrib.get(killer) || 0) * 1.5;
+}
+
 function nearestAlive(arr, p) {
   let best = null, bd = 9;
   for (const q of arr) if (q.alive) { const d = pdist(q, p); if (d < bd) { bd = d; best = q; } }
@@ -195,8 +206,9 @@ function flee(g, f, p, enemies, trade, n) {
     const mob = clamp((trait(p, 'mobility') - 5) * 0.05, -0.2, 0.25);
     let pc = S.catchBase * (1.25 - p.hp) * (g.t >= p.flashAt ? 0.6 : 1) * (1 + S.catchPerChaser * (chasers.length - 1)) * (1 - mob) * (n <= 5 ? S.catchSmall : 1);
     if (g.rng.chance(clamp(pc, 0, 0.9))) {
-      const k = g.rng.weighted(chasers.map(c => [c, ROLE_KILL[c.pos]]));
-      killPlayer(g, k, p, chasers.filter(c => c !== k), { reason: f.kind, fightId: f.id, big: true });
+      const contrib = f.dmgOn && f.dmgOn.get(p);
+      const k = pickKiller(g, chasers, contrib || null);
+      killPlayer(g, k, p, chasers.filter(c => c !== k), { reason: f.kind, fightId: f.id, big: true, ks: ksOf(k, chasers, contrib) });
       f.deaths[p.side]++;
       f.killsBy[k.pid] = (f.killsBy[k.pid] || 0) + 1;
       return;

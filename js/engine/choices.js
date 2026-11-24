@@ -8,6 +8,8 @@ import { nextItemCost, inPit } from './world.js';
 import {
   userPlayer, enemyOf, byPos, alive, goldDiff, ultReady, flashReady, killPlayer, allPlayers, LANE_OF,
 } from './match.js';
+import { killWeight } from './matchcore.js';
+import { buildObjScene, genEffect, genText } from './objScenes.js';
 import * as geo from './mapgeo.js';
 
 export function phaseOf(t) {
@@ -119,6 +121,12 @@ function reqOf(sc) {
   REQ.set(sc, r);
   return r;
 }
+// 바론·드래곤·장로가 걸린 고정 시나리오 (생성기로 대체)
+const OBJ_KEYS = ['baron', 'dragon', 'elder'];
+export function isObjScenario(sc) {
+  const r = reqOf(sc);
+  return r.objs.some(k => OBJ_KEYS.includes(k)) || (sc.cond && /c\.obj\.(baron|dragon|elder)/.test(sc.cond.toString()));
+}
 // 장면 설명이 기대는 실제 상황 (data/sceneNeeds.js 의 need/desc 에서 사용)
 export function situation(g, ctx, loc, near) {
   const me = ctx.me, S = ctx.S, E = ctx.E;
@@ -200,8 +208,13 @@ export function buildScene(g, userState) {
     if (r.objs.length && !r.objs.some(k => g.obj[k] && g.obj[k].alive && Math.hypot(me.x - geo.OBJ_POS[k][0], me.y - geo.OBJ_POS[k][1]) <= 0.22)) return false;
     return true;
   };
-  let pool = SCENARIOS.filter(sc => fits(sc) && !used.has(sc.id));
-  if (!pool.length) pool = SCENARIOS.filter(fits);
+  // 바론·드래곤·장로 장면은 고정 목록 대신 생성기가 실제 상황으로 만든다
+  if (g.rng.chance(CONFIG.scene.obj.chance)) {
+    const gen = buildObjScene(g, ctx, userState, { calcProb, nearPlayers });
+    if (gen) { g.scenePlan.shift(); return gen; }
+  }
+  let pool = SCENARIOS.filter(sc => fits(sc) && !used.has(sc.id) && !isObjScenario(sc));
+  if (!pool.length) pool = SCENARIOS.filter(sc => fits(sc) && !isObjScenario(sc));
   if (!pool.length) return retry();
   g.scenePlan.shift();
   const refOf = (sc) => ({ me, opp: ctx.opp, ejg: ctx.ejg, emid: byPos(ctx.E, 'MID'), eadc: byPos(ctx.E, 'ADC'), esup: byPos(ctx.E, 'SUP'), etop: byPos(ctx.E, 'TOP') }[sc.splash] || ctx.opp);
@@ -237,6 +250,7 @@ export function rollOutcome(rng, p, risk) {
 }
 
 export function resolveScene(g, scene, optIdx, userState) {
+  if (scene.gen) return resolveGen(g, scene, optIdx);
   const sc = SCENARIOS.find(s => s.id === scene.id);
   const op = sc.opts[optIdx];
   const opt = scene.options[optIdx];
@@ -251,14 +265,31 @@ export function resolveScene(g, scene, optIdx, userState) {
   const text = fill(op.text[tier], scene.vars);
   const newEvents = g.feed.slice(before);
   const kills = newEvents.filter(e => e.type === 'kill');
-  const rec = { id: scene.id, t: g.t, opt: optIdx, tier, p: opt.p, roll, risk: op.risk, delta, text, label: opt.label };
+  const rec = { id: scene.id, t: g.t, opt: optIdx, tier, p: opt.p, roll, risk: op.risk, delta, text, label: opt.label, title: scene.title };
+  g.sceneLog.push(rec);
+  return { ...rec, kills, events: newEvents, win: g.over && g.winner === g.userSide };
+}
+// 생성 장면 판정: 효과는 그 자리 실제 선수에게만, 결과 문장은 실제로 일어난 일로
+function resolveGen(g, scene, optIdx) {
+  const opt = scene.options[optIdx];
+  const { tier, roll } = rollOutcome(g.rng, opt.p, opt.risk);
+  const eff = genEffect(scene, optIdx, tier);
+  const ctx = buildContext(g);
+  const before = g.feed.length;
+  applyEffects(g, ctx, eff, scene);
+  const S = CONFIG.scene;
+  const delta = (S.ratingDelta[tier === 'succ' ? 'success' : tier]) * S.riskMult[opt.risk];
+  g.choiceScore += delta;
+  const newEvents = g.feed.slice(before);
+  const text = genText(g, scene, optIdx, tier, newEvents, eff, g.rng);
+  const kills = newEvents.filter(e => e.type === 'kill');
+  const rec = { id: scene.id, t: g.t, opt: optIdx, tier, p: opt.p, roll, risk: opt.risk, delta, text, label: opt.label, title: scene.title, combo: scene.combo };
   g.sceneLog.push(rec);
   return { ...rec, kills, events: newEvents, win: g.over && g.winner === g.userSide };
 }
 
 // 아군 마무리: 근처 아군 중 포지션 킬 성향으로 (서포터가 킬을 다 가져가지 않도록)
-const KILL_W = { TOP: 1.0, JGL: 0.9, MID: 1.25, ADC: 1.4, SUP: 0.35 };
-function finisher(g, al) { return g.rng.weighted(al.map(p => [p, KILL_W[p.pos]])); }
+function finisher(g, al) { return g.rng.weighted(al.map(p => [p, killWeight(p)])); }
 
 // 효과는 장면 위치 근처의 실제 선수에게만 적용한다
 function targetPlayer(ctx, spec, pool) {
@@ -279,10 +310,17 @@ export function applyEffects(g, ctx, eff, scene = null) {
   const me = ctx.me, S = ctx.S, E = ctx.E;
   const myIdx = me.side;
   const loc = scene && scene.loc ? scene.loc : [me.x, me.y];
-  const R = CONFIG.match.sim.sceneRadius;
+  const R = scene && scene.R ? scene.R : CONFIG.match.sim.sceneRadius;
+  const ER = CONFIG.match.sim.eventRadius;
   const d = p => Math.hypot(p.x - loc[0], p.y - loc[1]);
-  const nearE = () => alive(E).filter(p => d(p) <= R).sort((a, b) => d(a) - d(b));
-  const nearA = () => alive(S).filter(p => p !== me && d(p) <= R).sort((a, b) => d(a) - d(b));
+  const pd = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+  // 장면 반경 안이면서, 킬에 관여하는 선수끼리는 서로 가까이 있어야 한다 (처치 반경)
+  const nearE = (ref = me) => alive(E).filter(p => d(p) <= R && pd(p, ref) <= ER).sort((a, b) => pd(a, ref) - pd(b, ref));
+  const nearA = (ref = me) => alive(S).filter(p => p !== me && d(p) <= R && pd(p, ref) <= ER).sort((a, b) => pd(a, ref) - pd(b, ref));
+  const pairAE = () => {   // 서로 처치 반경 안에 있는 (아군, 적) 짝
+    for (const a of alive(S).filter(p => p !== me && d(p) <= R)) for (const e of alive(E).filter(p => d(p) <= R)) if (pd(a, e) <= ER) return [a, e];
+    return null;
+  };
   const t = g.t;
   if (eff.flashUsed) me.flashAt = t + 300;
   if (eff.ultUsed) me.ultAt = t + 80;
@@ -294,14 +332,16 @@ export function applyEffects(g, ctx, eff, scene = null) {
   }
   for (let i = 0; i < (eff.assist || 0); i++) {
     const v = targetPlayer(ctx, i === 0 && !eff.kill ? eff.target : null, nearE());
-    const al = nearA();
+    const al = v ? nearA(v) : [];
     if (v && al.length && me.alive) { const k = finisher(g, al); killPlayer(g, k, v, [me, ...al.filter(q => q !== k)], { reason: 'choice' }); }
     else if (v && me.alive) killPlayer(g, me, v, [], { reason: 'choice' });
     else spare++;
   }
   for (let i = 0; i < (eff.allyKill || 0); i++) {
-    const v = targetPlayer(ctx, null, nearE()); const al = nearA();
-    if (v && al.length) { const k = finisher(g, al); killPlayer(g, k, v, al.filter(q => q !== k), { reason: 'choice' }); }
+    const pr = pairAE();
+    if (!pr) break;
+    const v = pr[1]; const al = nearA(v);
+    if (al.length) { const k = finisher(g, al); killPlayer(g, k, v, al.filter(q => q !== k), { reason: 'choice' }); }
   }
   if (eff.death && me.alive) {
     const pool = nearE();
@@ -310,8 +350,10 @@ export function applyEffects(g, ctx, eff, scene = null) {
     else me.hp = Math.min(me.hp, 0.25);
   }
   for (let i = 0; i < (eff.allyDeath || 0); i++) {
-    const al = nearA(); const ek = nearE();
-    if (al.length && ek.length) killPlayer(g, ek[0], al[0], ek.slice(1), { reason: 'choice' });
+    const pr = pairAE();
+    if (!pr) break;
+    const [a, e] = pr;
+    killPlayer(g, e, a, alive(E).filter(q => q !== e && d(q) <= R && pd(q, a) <= ER), { reason: 'choice' });
   }
   if (spare) me.gold += spare * 150;
   if (eff.gold) me.gold = Math.max(0, me.gold + eff.gold);

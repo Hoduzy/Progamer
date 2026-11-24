@@ -30,6 +30,8 @@ function render(root, params) {
   const g = createMatch({
     blue: params.input.blue, red: params.input.red, seed: params.seed, meta: params.meta,
     userPid: params.userPid, visual: true, userMods: userState, gameNo: params.series ? params.series.gameNo : 1, keepInput: true,
+    // 최근 경기에서 나온 생성 장면 제목 (같은 제목이 반복되지 않게)
+    recentSceneTitles: App.state && App.state.user && App.state.user.recentSceneTitles ? App.state.user.recentSceneTitles.flat() : [],
   });
   const ui = { speed: App.settings.defaultSpeed || 1, paused: false, mode: 'play', timer: null, lastBigT: -999, captionSpk: 0, bigQueue: [], feedEls: [], destroyed: false, lastGoldLine: 0 };
   const T = [g.sides[0].team, g.sides[1].team];
@@ -355,7 +357,7 @@ function render(root, params) {
   }
   function sceneMarker(sc) {
     if (!sc) { $('mm-scene').innerHTML = ''; root.querySelectorAll('.mm-champ.hl').forEach(e => e.classList.remove('hl')); return; }
-    $('mm-scene').innerHTML = `<div class="mm-ent mm-scene-ring" style="left:${sc.loc[0] * 100}%;top:${sc.loc[1] * 100}%;width:${CONFIG.match.sim.sceneRadius * 200}%;height:${CONFIG.match.sim.sceneRadius * 200}%"></div>`;
+    $('mm-scene').innerHTML = `<div class="mm-ent mm-scene-ring" style="left:${sc.loc[0] * 100}%;top:${sc.loc[1] * 100}%;width:${(sc.R || CONFIG.match.sim.sceneRadius) * 200}%;height:${(sc.R || CONFIG.match.sim.sceneRadius) * 200}%"></div>`;
     for (const pid of sc.involved) { const el = $('mc-' + pid); if (el) el.classList.add('hl'); }
   }
   function probText(o) { return o.exact ? `${o.p}%` : `${o.lo}~${o.hi}%`; }
@@ -514,6 +516,11 @@ function render(root, params) {
     const up = g.userSide >= 0 ? g.sides[g.userSide].players.find(p => p.isUser) : null;
     const ratings = computeRatings(sum, up ? { pid: up.pid, score: g.choiceScore } : null);
     const pog = pickPOG(sum, ratings);
+    // 생성 장면 제목을 최근 경기 기록에 남긴다 (세이브에 저장, 최근 CONFIG 경기 수만)
+    if (App.state && App.state.user && params.userPid) {
+      const u = App.state.user;
+      u.recentSceneTitles = (u.recentSceneTitles || []).concat([g.sceneLog.filter(r => r.combo).map(r => r.title)]).slice(-CONFIG.match.validate.recentTitleGames);
+    }
     const result = { summary: sum, ratings, pog, sceneLog: g.sceneLog.slice(), userSide: g.userSide, userPid: up ? up.pid : null, winnerTeamId: T[sum.winner].id, blueTeamId: T[0].id, redTeamId: T[1].id };
     setTimeout(() => showResult(result), 1600);
   }

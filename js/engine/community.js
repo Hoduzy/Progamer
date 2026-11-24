@@ -185,6 +185,7 @@ export function seriesPostInfo(state, match, opts = {}) {
     lo: xs.length ? Math.min(...xs.map(x => x.lo)) : 0, hi: xs.length ? Math.max(...xs.map(x => x.hi)) : 0,
     myBarons: xs.reduce((a, x) => a + x.mb, 0), oppBarons: xs.reduce((a, x) => a + x.ob, 0),
     myElders: xs.reduce((a, x) => a + x.me, 0), oppElders: xs.reduce((a, x) => a + x.oe, 0), soul: xs.map(x => x.soul).find(Boolean) || null,
+    ks: xs.reduce((a, x) => a + (x.ks || 0), 0),
   };
 }
 
@@ -264,6 +265,7 @@ export function buildContext(state, rng, info = {}) {
     add(/po|playoff|knock|bracket|final/i.test(String(info.stage) + info.compId) || /플레이오프|결승|4강|8강/.test(info.label), 'playoff');
     add(/결승/.test(info.label), 'final');
     add(info.win && info.myBarons > 0, 'baron'); add(info.win && info.myElders > 0, 'elder');
+    add(info.ks > 0, 'ks');   // 우리 서폿이 원딜 킬을 가져감
   } else add(!!team && !(u.season && u.season.games), 'bench');
   add(st.w >= 3, 'streakW'); add(st.l >= 3, 'streakL');
   add(state.season.nextPatch && dateDiff(state.date, state.season.nextPatch) >= CONFIG.patch.everyDays - 7, 'patch');

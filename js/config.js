@@ -72,6 +72,14 @@ export const CONFIG = {
       trade: { chance: 0.07, intensity: 0.45, fleeHp: 0.45 }, // 라인전 견제
       engage: { objective: 0.16, structure: 0.13, numbers: 0.15, gank: 0.55, roam: 0.03, late: 0.06 },
       avoidRatio: 0.8, retreatSlack: 0.02, retreatBehind: 0.02, siegeChainRadius: 0.2, siegeChainRatio: 0.9,         // 전력비가 이 아래면 교전을 피해 물러남
+      // 킬 배분: 마무리 일격 = 그 대상에게 준 피해(기여) × 포지션 가중치 × 챔피언 성향
+      kill: {
+        pos: { ADC: 0.82, MID: 0.65, JGL: 0.72, TOP: 0.72, SUP: 0.18 },
+        dmgSup: 0.4,             // 딜 서폿(마법사·원딜·암살자형 서폿)은 서폿 중 높게
+        dmgExp: 0.5,              // 피해 기여 반영 지수 (1 = 기여에 비례)
+        cls: { apAssassin: 1.3, lethality: 1.25, mageBurst: 1.15, adcCrit: 1.1, adcLethal: 1.15, adcOnhit: 1.05, ezreal: 1.05, smolder: 1.05, yasuo: 1.15, gpCrit: 1.05,
+               skirm: 1.1, mageControl: 1.0, mageBattle: 1.0, apFighter: 1.0, bruiser: 0.9, tank: 0.6, apTank: 0.65, tankSup: 0.55, enchant: 0.5 },
+      },
       buffDps: { baron: 0.22, elder: 0.45, soul: 0.10, dragon: 0.025 }, // 피해 배율 가산
       // 구조물
       towerRange: 0.05,
@@ -108,6 +116,11 @@ export const CONFIG = {
       durationMin: [27, 35],   // 평균 경기 시간(분)
       killsAvg: [18, 32],
       tfDeaths: { '0-1': [0.04, 0.18], '2-4': [0.33, 0.57], '5-7': [0.20, 0.40], ace: [0.08, 0.24] },
+      killShare: { ADC: [0.27, 0.32], MID: [0.22, 0.27], JGL: [0.17, 0.22], TOP: [0.14, 0.19], SUP: [0.03, 0.08] },  // 팀 킬 중 포지션 비율
+      supAssistRankMax: 2,     // 서폿 평균 어시스트가 팀 안에서 이 순위 안
+      objCombosMin: 40,        // 바론·드래곤·장로 생성 장면 "상황+장소+인원" 조합 종류 하한
+      objComboMaxShare: 0.10,  // 한 조합이 전체 생성 장면에서 차지하는 비율 상한
+      recentTitleGames: 10,    // 최근 몇 경기 안에서 같은 장면 제목 금지
     },
     objectives: {
       dragonSpawn: 300, dragonRespawn: 300,
@@ -126,6 +139,12 @@ export const CONFIG = {
 
   // ---------------- 선택 장면 ----------------
   scene: {
+    obj: {   // 바론·드래곤·장로 생성 장면
+      radius: 0.3,      // 둥지 반경 (인원 계산·장면 참여자)
+      chance: 0.65,     // 상황이 맞을 때 생성 장면을 쓸 확률 (나머지는 다른 장면)
+      visionOnlyChance: 0.25,  // '등장 전 시야 싸움'만 성립할 때 생성 장면을 쓸 확률
+      sitWeight: { theyTake: 3, weTake: 3, pickedEnemy: 3, pickedAlly: 3, standoff: 2.5, lateDouble: 2.5, buffSiege: 2, spawnVision: 0.8, sideOut: 0.6 },
+    },
     perGameMin: 5, perGameMax: 8,
     firstAt: 150,              // 2:30 이후부터
     timeLimitSec: 15,
