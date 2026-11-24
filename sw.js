@@ -3,7 +3,7 @@
 // 알림의 새로고침을 누르면 SKIP_WAITING → 새 버전으로 바뀐 뒤 페이지를 다시 불러온다.
 
 // BUILD:BEGIN (node tools/build-pages.mjs 가 채움)
-const VERSION = '1cfb9c6c20ba';
+const VERSION = 'decdfb224dfa';
 const FILES = [
   "./",
   "assets/teams/BFX.png",
@@ -92,14 +92,15 @@ const FILES = [
 // BUILD:END
 
 const CACHE = 'lckc-app-' + VERSION;
-// v2: 예전 캐시에는 실패한 응답(opaque)까지 저장돼 있을 수 있어 이름을 바꿔 한 번 비운다
-const DD_CACHE = 'lckc-img-v2';
+// v3: 사파리에서 이미지 응답이 실패로 처리되던 서비스 워커를 교체하면서 이미지 캐시도 새로 시작
+const DD_CACHE = 'lckc-img-v3';
 const DD_MAX = 900;           // 이미지·데이터 항목 최대 개수 (오래된 것부터 지움)
 const IMG_HOSTS = ['ddragon.leagueoflegends.com', 'raw.communitydragon.org'];
 
 self.addEventListener('install', e => {
   // cache: 'reload' — 브라우저 HTTP 캐시(Pages 기본 10분)를 건너뛰고 서버에서 새로 받는다
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES.map(f => new Request(f, { cache: 'reload' })))));
+  self.skipWaiting();   // 새 서비스 워커를 기다리지 않고 바로 적용
 });
 
 self.addEventListener('activate', e => {
@@ -114,12 +115,16 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('message', e => {
   if (e.data === 'SKIP_WAITING') self.skipWaiting();
-  if (e.data === 'VERSION' && e.source) e.source.postMessage({ type: 'VERSION', version: VERSION });
+  if (e.data === 'VERSION' && e.source) e.source.postMessage({ type: 'VERSION', version: VERSION, imgCache: DD_CACHE });
 });
 
 async function trimDD(cache) {
   const keys = await cache.keys();
   for (let i = 0; i < keys.length - DD_MAX; i++) await cache.delete(keys[i]);
+}
+// 캐시 저장은 응답과 따로 (사파리는 응답을 돌려준 뒤 e.waitUntil()을 부르면 오류를 던져 응답 전체가 실패한다)
+function store(cacheName, key, res) {
+  caches.open(cacheName).then(c => c.put(key, res).then(() => (cacheName === DD_CACHE ? trimDD(c) : null))).catch(() => { });
 }
 
 async function fromApp(req) {
@@ -136,30 +141,21 @@ async function fromApp(req) {
 // 캐시 키: 다시 시도용 ?r=n 은 떼고 저장 (같은 이미지)
 function keyOf(url) { const u = new URL(url); u.searchParams.delete('r'); return u.toString(); }
 
-async function fromDD(req, url, e) {
-  const cache = await caches.open(DD_CACHE);
-  // 버전 목록은 새 패치를 알기 위해 네트워크 먼저
-  if (url.pathname.endsWith('/api/versions.json')) {
-    try {
-      const res = await fetch(req);
-      if (res.status === 200 && res.type !== 'opaque') cache.put(req, res.clone());
-      return res;
-    } catch (err) {
-      const hit = await cache.match(req);
-      if (hit) return hit;
-      throw err;
-    }
-  }
-  // 나머지(버전이 들어간 주소)는 바뀌지 않으므로 캐시 먼저
+// 다른 도메인(Data Dragon·Community Dragon): 네트워크 먼저, 실패하면 캐시. 둘 다 실패할 때만 에러를 넘긴다.
+async function fromRemote(req, url) {
   const key = keyOf(req.url);
-  const hit = await cache.match(key);
-  if (hit) return hit;
-  const res = await fetch(req);   // 실패하면 그대로 실패 → 화면의 이미지 로더가 1·3·8초 뒤 다시 시도
-  // 성공(200)만 저장. 상태를 알 수 없는 opaque 응답이나 오류 응답은 저장하지 않는다
-  if (res.status === 200 && res.type !== 'opaque') {
-    e.waitUntil(cache.put(key, res.clone()).then(() => trimDD(cache)).catch(() => { }));
+  const isImg = /\.(png|jpe?g|webp|gif)$/i.test(url.pathname) || req.destination === 'image';
+  let res = null;
+  try { res = await fetch(req); } catch (err) { res = null; }
+  // 저장 조건: 이미지는 200 또는 불투명 응답(no-cors로 받은 이미지), 데이터는 200만
+  if (res && (res.status === 200 || (isImg && res.type === 'opaque'))) {
+    store(DD_CACHE, key, res.clone());
+    return res;
   }
-  return res;
+  const hit = await caches.open(DD_CACHE).then(c => c.match(key)).catch(() => null);
+  if (hit) return hit;
+  if (res) return res;                       // 404 등은 그대로 (화면의 로더가 다시 시도)
+  return Response.error();
 }
 
 self.addEventListener('fetch', e => {
@@ -170,6 +166,6 @@ self.addEventListener('fetch', e => {
     if (VERSION === 'dev') return;
     e.respondWith(fromApp(req));
   } else if (IMG_HOSTS.includes(url.hostname)) {
-    e.respondWith(fromDD(req, url, e));
+    e.respondWith(fromRemote(req, url));
   }
 });

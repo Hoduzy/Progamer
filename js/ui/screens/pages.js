@@ -15,6 +15,7 @@ import { SLOT_KEYS, SLOT_NAMES, slotInfo, saveTo, loadFrom, deleteSlot, exportJS
 import { startLoaded } from './title.js';
 import { copyCodeFlow, pasteCodeFlow, importFile } from '../saveTransfer.js';
 import { setImgDebug } from '../imgLoader.js';
+import { resetCaches } from '../pwa.js';
 
 export function register(reg) {
   reg('calendar', { render: calendar });
@@ -205,6 +206,7 @@ function settingsPage(root) {
       <div class="row wrap" style="min-height:44px">커뮤니티 수위 ${[['mild', '순한맛'], ['normal', '보통'], ['spicy', '매운맛']].map(([k, l]) => `<button class="btn sm ${(App.settings.communityTone || 'spicy') === k ? 'active' : ''}" data-tone="${k}">${l}</button>`).join('')}</div>
       <div class="small muted">순한맛: 욕을 ㅇㅇ 처리하거나 빼고 순하게 · 보통: 센 욕만 가림 · 매운맛: 실제 커뮤니티처럼</div>
       <div class="row" style="min-height:44px">기본 경기 속도 ${CONFIG.ui.speeds.map(s => `<button class="btn sm ${App.settings.defaultSpeed === s ? 'active' : ''}" data-spd="${s}">${s}배</button>`).join('')}</div>
+      <div class="row wrap" style="min-height:44px;margin-top:6px"><button class="btn sm" id="cache-reset">🧹 캐시 초기화</button><span class="small muted">이미지가 안 뜰 때: 앱 캐시·챔피언 데이터 캐시를 지우고 새로고침 (세이브는 그대로)</span></div>
       <div class="small muted">수치(확률·성장·연봉 등)는 js/config.js에서 조정합니다.</div>
       <div style="margin-top:20px"><button class="btn danger" id="title">타이틀로 (자동 저장 후)</button></div>
     </div></div>`;
@@ -219,6 +221,10 @@ function settingsPage(root) {
   c.querySelector('#big').addEventListener('change', e => { App.settings.showBigEvents = e.target.checked; saveSettings(); });
   c.querySelector('#debugMatch').addEventListener('change', e => { App.settings.debugMatch = e.target.checked; saveSettings(); setImgDebug(e.target.checked); });
   c.querySelector('#fastDraft').addEventListener('change', e => { App.settings.fastDraft = e.target.checked; saveSettings(); });
+  c.querySelector('#cache-reset').addEventListener('click', async () => {
+    const ok = await modal({ title: '캐시 초기화', body: '앱 파일·이미지 캐시와 챔피언 데이터 캐시를 지우고 새로고침합니다.<br><b>세이브와 설정은 지우지 않습니다.</b>', buttons: [{ label: '취소', value: false }, { label: '지우고 새로고침', primary: true, value: true }] });
+    if (ok) resetCaches();
+  });
   c.querySelectorAll('[data-tone]').forEach(b => b.addEventListener('click', () => { App.settings.communityTone = b.dataset.tone; saveSettings(); go('settings'); }));
   c.querySelectorAll('[data-spd]').forEach(b => b.addEventListener('click', () => { App.settings.defaultSpeed = Number(b.dataset.spd); saveSettings(); go('settings'); }));
   c.querySelector('#title').addEventListener('click', () => { saveTo('auto', App.state, App.rng); go('title'); });

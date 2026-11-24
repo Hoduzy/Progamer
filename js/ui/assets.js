@@ -4,7 +4,7 @@ import { CHAMPIONS, applyOnlineNames } from '../../data/champions.js';
 import { ITEMS, applyOnlineItemNames, applyOnlineSpellNames } from '../../data/items.js';
 import { esc } from '../core/util.js';
 import { ASSET_FILES } from '../assetList.js';
-import { setResolver, BLANK_SRC, loadedUrl } from './imgLoader.js';
+import { setResolver, BLANK_SRC, loadedUrl, isPlain } from './imgLoader.js';
 
 const CDN = 'https://ddragon.leagueoflegends.com';
 const KEY = CONFIG.storagePrefix + '.ddragon';
@@ -114,7 +114,7 @@ if (typeof window !== 'undefined') {
 function imgOr(kind, id, ok, size, text, color, cls = '', extra = '') {
   if (!ok) return fbHTML(text, color, size, cls);
   const done = loadedUrl(kind, id);
-  if (done) return `<img class="ic ld ${cls}" src="${done}" crossorigin="anonymous" width="${size}" height="${size}" draggable="false" data-fbt="${esc(text)}" data-fbc="${color}" data-cls="${cls}" onerror="window.__fb(this)" ${extra}>`;
+  if (done) return `<img class="ic ld ${cls}" src="${done}" ${isPlain(kind, id) ? '' : 'crossorigin="anonymous"'} width="${size}" height="${size}" draggable="false" data-fbt="${esc(text)}" data-fbc="${color}" data-cls="${cls}" onerror="window.__fb(this)" ${extra}>`;
   return `<img class="ic lz ${cls}" src="${BLANK_SRC}" data-k="${kind}" data-id="${esc(String(id))}" width="${size}" height="${size}" draggable="false" data-fbt="${esc(text)}" data-fbc="${color}" data-cls="${cls}" ${extra}>`;
 }
 

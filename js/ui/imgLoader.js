@@ -7,18 +7,20 @@
 import { CONFIG } from '../config.js';
 
 const BLANK = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
-export const IMG_STATS = { ok: 0, retrying: new Map(), failed: new Map(), inflight: 0, queued: 0 };
+export const IMG_STATS = { ok: 0, plain: 0, retrying: new Map(), failed: new Map(), inflight: 0, queued: 0 };
+const plainKeys = new Set();   // CORS 없이만 받아진 이미지
+export const isPlain = (kind, id) => plainKeys.has(kind + ':' + id);
 // 이번 세션에 성공한 주소 (성공만 기억 — 다시 그릴 때 깜빡이지 않게 바로 그린다)
 const loaded = new Map();
 export function loadedUrl(kind, id) { return loaded.get(kind + ':' + id) || null; }
 // 같은 이미지를 기다리는 다른 칸들 (요청은 하나만 보내고 결과를 나눠 씀)
 const active = new Map();    // key → [ { el?, onDone? } ]
-function settle(key, url) {
+function settle(key, url, cors = true) {
   const ws = active.get(key) || [];
   active.delete(key);
   for (const w of ws) {
     if (w.el && w.el.isConnected) {
-      if (url) { w.el.crossOrigin = 'anonymous'; w.el.src = url; w.el.classList.remove('lz'); w.el.classList.add('ld'); }
+      if (url) { if (cors) w.el.crossOrigin = 'anonymous'; else w.el.removeAttribute('crossorigin'); w.el.src = url; w.el.classList.remove('lz'); w.el.classList.add('ld'); }
       else if (window.__fb) window.__fb(w.el);
     }
     if (w.onDone) w.onDone(!!url);
@@ -64,27 +66,37 @@ function attemptUrl(job) {
   const u = job.urls[job.ui];
   return job.tries > 0 ? u + (u.includes('?') ? '&' : '?') + 'r=' + job.tries : u;   // 다시 시도할 땐 주소를 살짝 바꿔 브라우저 메모리 캐시를 피함
 }
+// 한 번 시도 = CORS로 요청 → 실패하면 같은 주소를 일반 <img src>(CORS 없이)로 한 번 더
 function start(job) {
   IMG_STATS.inflight++;
   const url = attemptUrl(job);
   const img = job.el || new Image();
-  let done = false;
+  let done = false, cors = true;
   const finish = ok => {
     if (done) return; done = true;
     IMG_STATS.inflight--;
     img.onload = img.onerror = null;
     if (ok) {
       IMG_STATS.ok++;
+      if (!cors) IMG_STATS.plain++;
       IMG_STATS.retrying.delete(job.urls[0]);
-      if (job.key) loaded.set(job.key, url);
+      if (job.key) { loaded.set(job.key, url); if (!cors) plainKeys.add(job.key); }
       if (job.el) { job.el.classList.remove('lz'); job.el.classList.add('ld'); }
       if (job.onDone) job.onDone(true);
-      if (job.key) settle(job.key, url);
+      if (job.key) settle(job.key, url, cors);
     } else fail(job, url);
     pump();
   };
   img.onload = () => finish(img.naturalWidth > 0);
-  img.onerror = () => finish(false);
+  img.onerror = () => {
+    if (cors) {                    // CORS 실패 → 일반 이미지로 직접
+      cors = false;
+      img.removeAttribute('crossorigin');
+      img.src = url;
+      return;
+    }
+    finish(false);
+  };
   img.crossOrigin = 'anonymous';
   img.src = url;
 }
@@ -122,7 +134,7 @@ function queueEl(el, front = false) {
   if (!r || !r.urls.length) { if (window.__fb) window.__fb(el); return; }
   const key = el.dataset.k + ':' + el.dataset.id;
   const done = loaded.get(key);
-  if (done) { el.crossOrigin = 'anonymous'; el.src = done; el.classList.remove('lz'); el.classList.add('ld'); return; }
+  if (done) { if (!plainKeys.has(key)) el.crossOrigin = 'anonymous'; el.src = done; el.classList.remove('lz'); el.classList.add('ld'); return; }
   if (joinActive(key, { el })) {
     // 미리 받기 줄에 뒤처져 있던 같은 이미지라면 앞으로 당긴다
     const i = queue.findIndex(j => j.key === key && !j.el);
@@ -170,6 +182,20 @@ export function preloadIcons(list, onProgress) {
 }
 export const BLANK_SRC = BLANK;
 
+// ---------- 실행 모드·서비스 워커 정보 ----------
+export function appMode() {
+  const mm = q => typeof matchMedia !== 'undefined' && matchMedia(q).matches;
+  return navigator.standalone || mm('(display-mode: standalone)') || mm('(display-mode: fullscreen)') ? '홈 화면 앱' : '브라우저 탭';
+}
+let swInfo = null;
+function askSw() {
+  const sw = navigator.serviceWorker;
+  if (!sw) { swInfo = '지원 안 함'; return; }
+  if (!sw.controller) { swInfo = '작동 안 함 (이 페이지를 관리하지 않음)'; return; }
+  sw.addEventListener('message', e => { if (e.data && e.data.type === 'VERSION') swInfo = `${e.data.version} · ${e.data.imgCache || ''}`; }, { once: true });
+  sw.controller.postMessage('VERSION');
+}
+
 // ---------- 디버그: 이미지 상태 패널 ----------
 let dbgTimer = null;
 export function setImgDebug(on) {
@@ -184,10 +210,12 @@ export function setImgDebug(on) {
     if (p) { p.remove(); clearInterval(dbgTimer); return; }
     p = document.createElement('div'); p.id = 'img-dbg';
     document.body.appendChild(p);
+    askSw();
     const draw = () => {
       const S = IMG_STATS;
       p.innerHTML = `<div class="row between"><b>이미지 상태</b><span class="tiny dim">동시 ${S.inflight}/${C().concurrency} · 대기 ${S.queued}</span></div>
-        <div class="small" style="margin:4px 0">성공 <b class="pos">${S.ok}</b> · 재시도 중 <b class="warn">${S.retrying.size}</b> · 실패 <b class="neg">${S.failed.size}</b></div>
+        <div class="tiny dim">${appMode()} · 서비스 워커 ${swInfo || '확인 중…'}</div>
+        <div class="small" style="margin:4px 0">성공 <b class="pos">${S.ok}</b>${S.plain ? ` (CORS 없이 ${S.plain})` : ''} · 재시도 중 <b class="warn">${S.retrying.size}</b> · 실패 <b class="neg">${S.failed.size}</b></div>
         ${S.retrying.size ? `<div class="tiny dim">재시도 중</div>${[...S.retrying].slice(0, 10).map(([u, n]) => `<div class="tiny mono">${n}회 · ${u.replace(/^https:\/\//, '')}</div>`).join('')}` : ''}
         ${S.failed.size ? `<div class="tiny neg" style="margin-top:4px">실패 (주 주소 → 예비 주소까지 모두)</div>${[...S.failed.values()].slice(0, 30).map(us => `<div class="tiny mono">${us.map(u => u.replace(/^https:\/\//, '')).join(' → ')}</div>`).join('')}` : ''}`;
     };
