@@ -71,7 +71,7 @@ export const CONFIG = {
       catchBase: 0.36,         // 도주자가 잡힐 기본 확률
       trade: { chance: 0.07, intensity: 0.45, fleeHp: 0.45 }, // 라인전 견제
       engage: { objective: 0.16, structure: 0.13, numbers: 0.15, gank: 0.55, roam: 0.03, late: 0.06 },
-      avoidRatio: 0.8, retreatSlack: 0.02, retreatBehind: 0.02,         // 전력비가 이 아래면 교전을 피해 물러남
+      avoidRatio: 0.8, retreatSlack: 0.02, retreatBehind: 0.02, siegeChainRadius: 0.2, siegeChainRatio: 0.9,         // 전력비가 이 아래면 교전을 피해 물러남
       buffDps: { baron: 0.22, elder: 0.45, soul: 0.10, dragon: 0.025 }, // 피해 배율 가산
       // 구조물
       towerRange: 0.05,

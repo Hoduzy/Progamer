@@ -69,11 +69,30 @@ function structureStill(g, attIdx, t) {
   return attackableStructures(g, attIdx).find(x => x.kind === t.kind && x.lane === t.lane && x.idx === t.idx) || null;
 }
 
+// 공성하던 구조물이 깨지면, 그 자리에 공성 팀이 남아 있고 근처 전력이 밀리지 않으면
+// 같은 라인 다음 구조물(→ 억제기 → 넥서스 포탑·넥서스)로 이어 간다 (버그 신고 342066142: 억제기 깨고 미드로 빠짐)
+function continueSiege(g, s, plan) {
+  if (plan.kind !== 'siege' || !plan.target || plan.until <= g.t || plan.trade) return null;
+  if (structureStill(g, s.idx, plan.target)) return null;
+  const here = plan.target.pos;
+  const crew = available(g, s).filter(p => distTo(p, here) < SIM().siegeChainRadius);
+  if (crew.length < 3) return null;
+  const E = g.sides[1 - s.idx];
+  const next = plan.target.lane ? nextLaneStructure(g, s.idx, plan.target.lane) : null;
+  const base = attackableStructures(g, s.idx).filter(x => x.kind === 'nexusTower' || x.kind === 'nexus');
+  const tg = next || base.sort((a, b) => Math.hypot(a.pos[0] - here[0], a.pos[1] - here[1]) - Math.hypot(b.pos[0] - here[0], b.pos[1] - here[1]))[0];
+  if (!tg) return null;
+  if (ratioNear(g, s, tg.pos, 0.3, crew) < SIM().siegeChainRatio) return null;
+  const left = Math.max(20, plan.until - g.t);
+  if (tg.kind === 'nexusTower' || tg.kind === 'nexus') return mk(g, 'nexus', Math.max(plan.pri, 7), { dur: Math.max(left, 40) });
+  return mk(g, 'siege', plan.pri, { target: tg, lane: tg.lane, dur: Math.max(left, 35) });
+}
+
 function updatePlan(g, s) {
   const t = g.t;
   if (s.plan && (s.plan.until <= t || !planValid(g, s, s.plan))) {
     if (s.plan.kind === 'objSetup' && g.obj[s.plan.key] && g.obj[s.plan.key].alive) s.plan = { ...s.plan, kind: 'objTake', since: t, until: t + 90, pri: s.plan.pri + 0.5 };
-    else s.plan = null;
+    else s.plan = continueSiege(g, s, s.plan);
   }
   const cand = choosePlan(g, s);
   if (!s.plan || cand.pri > s.plan.pri + 0.6) s.plan = cand;
@@ -232,6 +251,11 @@ function chooseSideLaners(g, s) {
   const plan = s.plan;
   if (plan && plan.pri >= 7) return [];
   const top = byPos(s, 'TOP');
+  // 공성·넥서스 공성 중 그 자리에 와 있는 탑 선수는 사이드로 빼지 않는다 (공성 도중 혼자 빠지는 문제)
+  if (plan && (plan.kind === 'siege' || plan.kind === 'nexus') && !plan.trade) {
+    const at = plan.target ? plan.target.pos : geo.nexusPos(1 - s.idx);
+    if (top.alive && distTo(top, at) < SIM().siegeChainRadius * 1.5) return [];
+  }
   const out = [];
   const lanes = sideLanesFor(g, s);
   if (top.alive) out.push(top.pid);
