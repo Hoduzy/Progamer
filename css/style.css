@@ -689,3 +689,7 @@ button { font-family: inherit; color: inherit; }
 .pl .sopt { grid-template-columns: 1fr; }
 .pl .sopt .pr { grid-row: auto; grid-column: auto; text-align: left; font-size: 18px; }
 .pl .sopt .bd { grid-column: auto; }
+/* 폰: 선택지 확률은 제목 아래 줄로 (오른쪽 끝 잘림·구석 미니맵과 겹침 방지) */
+.ph .sopt { grid-template-columns: 1fr; }
+.ph .sopt .pr { grid-row: auto; grid-column: auto; text-align: left; font-size: 18px; }
+.ph .sopt .bd { grid-column: auto; }
