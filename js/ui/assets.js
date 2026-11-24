@@ -3,6 +3,7 @@ import { CONFIG } from '../config.js';
 import { CHAMPIONS, applyOnlineNames } from '../../data/champions.js';
 import { ITEMS, applyOnlineItemNames, applyOnlineSpellNames } from '../../data/items.js';
 import { esc } from '../core/util.js';
+import { ASSET_FILES } from '../assetList.js';
 
 const CDN = 'https://ddragon.leagueoflegends.com';
 const KEY = CONFIG.storagePrefix + '.ddragon';
@@ -106,11 +107,12 @@ export function spellIcon(id, size = 18, cls = '') {
 }
 export function teamLogo(team, size = 36) {
   if (!team) return fbHTML('?', '#333', size);
+  if (!ASSET_FILES.has(`teams/${team.code}.png`)) return fbHTML(team.code, team.color || '#335', size);
   const url = `assets/teams/${team.code}.png`;
   return `<img class="ic logo" src="${url}" width="${size}" height="${size}" draggable="false" data-fbt="${esc(team.code)}" data-fbc="${team.color || '#335'}" onerror="window.__fb(this)">`;
 }
 export function playerPhoto(isUser, nick, color, size = 64) {
-  if (!isUser) return fbHTML(initials(nick), color || hashColor(nick), size);
+  if (!isUser || !ASSET_FILES.has('player/me.png')) return fbHTML(initials(nick), color || hashColor(nick), size);
   return `<img class="ic" src="assets/player/me.png" width="${size}" height="${size}" draggable="false" data-fbt="${esc(initials(nick))}" data-fbc="${color || '#5a4a12'}" onerror="window.__fb(this)">`;
 }
 export function splashStyle(id) {

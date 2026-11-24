@@ -18,10 +18,17 @@
 - 수치 상수는 `js/config.js`에만 둔다.
 - 실제 프로 선수 이름은 쓰지 않는다 (`data/names.js` 차단 목록).
 
+## 배포 (GitHub Pages)
+
+- `main`에 push하면 `.github/workflows/pages.yml`이 배포한다. 주소: https://hoduzy.github.io/Progamer/
+- 모든 경로는 상대 경로(`/`로 시작 금지), 파일 이름 대소문자 일치. `node tools/build-pages.mjs`가 검사하고 `js/assetList.js`·`sw.js` 캐시 목록·버전을 갱신한다. 파일을 추가·삭제했으면 커밋 전에 실행한다.
+- 화면은 태블릿·PC(1180×820 배율)와 폰(`html.ph` + 세로 `.pt` / 가로 `.pl`) 두 모드. 화면을 고치면 폰 세로(390×664)·가로(760×340)도 확인한다.
+
 ## 자주 쓰는 도구
 
 - `node tools/validate-match.mjs [판 수] [--no-scenes] [--verbose] [--max N]` — 경기 정합성 검사 (기본 500판)
 - `node tools/replay-bug.mjs bug-reports/<파일>.json` — 경기 화면 "🐞 버그 신고" 파일을 그대로 재현하고 검사·타임라인 출력
 - `node tools/sim-season.mjs [시즌 수] [--chain]` — 시즌 전체 시뮬레이션 통계
 - `node tools/sim-choices.mjs [반복]` — 선택 장면 확률·우월 선택지 검사
+- `node tools/build-pages.mjs [--check]` — 배포 준비·경로 검사
 - 브라우저 확인: `python3 -m http.server 8080` 후 `http://localhost:8080` (iPad 가로 1180×820 기준)

@@ -1,6 +1,6 @@
 // 경기 화면: 미니맵 + 방송 HUD + 선택 장면 + 결과
 import { CONFIG } from '../config.js';
-import { App } from './app.js';
+import { App, fit } from './app.js';
 import { createMatch, step, summary, goldDiff, teamGold, ultReady, flashReady, allPlayers } from '../engine/match.js';
 import { buildScene, resolveScene } from '../engine/choices.js';
 import { describe, render as renderLine } from '../engine/commentary.js';
@@ -59,12 +59,12 @@ function render(root, params) {
     <div class="mc-left">
       <button class="btn sm" data-act="pause" id="btn-pause">⏸</button>
       ${CONFIG.ui.speeds.map(s => `<button class="btn sm spd" data-spd="${s}">${s}배</button>`).join('')}
-      <button class="btn sm wide" data-act="skip" title="다음 주요 장면까지">⏭ 다음 장면</button>
+      <button class="btn sm wide" data-act="skip" data-short="⏭ 다음" title="다음 주요 장면까지">⏭ 다음 장면</button>
     </div>
     <div class="mc-right">
       <button class="btn sm wide" data-act="big" id="btn-big">큰 장면 연출 ${App.settings.showBigEvents ? 'ON' : 'OFF'}</button>
-      <button class="btn sm wide" data-act="auto" title="남은 경기를 자동으로 진행">⏩ 끝까지 자동</button>
-      <button class="btn sm wide" data-act="bug" title="시드·최근 30초 상태·이벤트 로그를 JSON으로 저장">🐞 버그 신고</button>
+      <button class="btn sm wide" data-act="auto" data-short="⏩ 자동" title="남은 경기를 자동으로 진행">⏩ 끝까지 자동</button>
+      <button class="btn sm wide" data-act="bug" data-short="🐞" title="시드·최근 30초 상태·이벤트 로그를 JSON으로 저장">🐞 버그 신고</button>
     </div>
     <div class="pcol blue" id="pc0"></div><div class="pcol red" id="pc1"></div>
     <div class="mm-wrap" id="mmw"><div class="mm" id="mm">
@@ -84,7 +84,7 @@ function render(root, params) {
     <div class="caption" id="cap"><span class="spk">캐스터</span><span class="ln">경기 시작을 기다리고 있습니다.</span></div>
     <div class="bpanel">
       <div class="bp-tabs"><button class="bp-tab active" data-tab="mu">라인 맞대결</button><button class="bp-tab" data-tab="gg">골드 차이 그래프</button>
-        <div class="grow"></div><span class="tiny dim" style="align-self:center">${esc(params.meta ? '패치 ' + params.meta.version : '')}</span></div>
+        <div class="grow"></div><span class="tiny dim" style="align-self:center">${esc(params.meta ? '패치 ' + params.meta.version : '')}</span><button class="bp-tab bp-fold" data-act="fold">접기 ▾</button></div>
       <div class="bp-body" id="bp"></div>
     </div>
     <div id="scene-slot"></div>
@@ -573,9 +573,15 @@ function render(root, params) {
     App.settings.showBigEvents = !App.settings.showBigEvents;
     $('btn-big').textContent = `큰 장면 연출 ${App.settings.showBigEvents ? 'ON' : 'OFF'}`;
   });
-  root.querySelectorAll('.bp-tab').forEach(b => b.addEventListener('click', () => {
+  root.querySelector('[data-act=fold]').addEventListener('click', e => {
+    const m = root.querySelector('#match');
+    const closed = m.classList.toggle('bp-closed');
+    e.currentTarget.textContent = closed ? '펼치기 ▴' : '접기 ▾';
+    fit();
+  });
+  root.querySelectorAll('.bp-tab:not(.bp-fold)').forEach(b => b.addEventListener('click', () => {
     bpTab = b.dataset.tab;
-    root.querySelectorAll('.bp-tab').forEach(x => x.classList.toggle('active', x === b));
+    root.querySelectorAll('.bp-tab:not(.bp-fold)').forEach(x => x.classList.toggle('active', x === b));
     updateBottom();
   }));
 

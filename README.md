@@ -5,7 +5,29 @@
 
 > 실제 LCK 팀 이름과 챔피언·아이템·오브젝트 명칭을 사용하지만, **모든 선수·감독은 가상의 닉네임**입니다. 개인 플레이 전용입니다.
 
-## 실행 방법
+## 바로 플레이 (GitHub Pages)
+
+**주소: https://hoduzy.github.io/Progamer/**
+
+폰·아이패드·PC 브라우저에서 위 주소를 열면 바로 플레이할 수 있습니다 (A-Shell 로컬 서버 필요 없음).
+
+### 홈 화면에 추가 (앱처럼 전체 화면으로 쓰기)
+- **아이폰·아이패드 (Safari)**: 주소를 연 뒤 공유 버튼(□↑) → **홈 화면에 추가** → 추가. 홈 화면의 "LoL 커리어" 아이콘으로 열면 주소창 없이 전체 화면으로 열립니다.
+- **안드로이드 (Chrome)**: 오른쪽 위 ⋮ → **홈 화면에 추가**(또는 **앱 설치**).
+- 한 번 열었던 화면과 게임 파일, 챔피언 이미지 등은 기기에 저장되어 인터넷이 약하거나 끊겨도 다시 열립니다.
+- 세이브는 기기(브라우저)마다 따로 저장됩니다. 사파리와 홈 화면 앱도 서로 저장 공간이 다를 수 있으니 한쪽을 정해서 쓰세요.
+
+### 새 버전 반영 (업데이트 방법)
+- 코드를 고친 뒤 **`main` 브랜치에 push 하면 끝**입니다. GitHub Actions(`.github/workflows/pages.yml`)가 1~2분 안에 자동 배포합니다.
+- 이미 앱을 쓰고 있던 기기에서는 다음에 열 때 위쪽에 **"업데이트가 있어요 · 새로고침"** 알림이 뜹니다. 누르면 새 버전으로 바뀝니다. (알림을 닫아도 앱을 완전히 껐다 켜면 새 버전이 적용됩니다.)
+- 배포 과정에서 `node tools/build-pages.mjs`가 자동으로 실행되어 이미지 목록·캐시 목록·버전을 새로 만들고, `/`로 시작하는 절대 경로나 대소문자가 틀린 파일 경로가 있으면 배포를 멈추고 알려 줍니다. 로컬에서 미리 확인하려면 직접 실행해 보세요.
+
+### 기기 간 세이브 옮기기
+- 보내는 기기: **설정·저장 → 📋 세이브 코드 복사** → 메모나 메신저(나에게 보내기)에 붙여넣기
+- 받는 기기: **설정·저장 → 세이브 코드 붙여넣기** (처음 여는 기기라면 **타이틀 → 불러오기 → 세이브 코드 붙여넣기**) → "현재 세이브를 덮어씁니다" 확인
+- JSON 파일 내보내기/불러오기도 그대로 쓸 수 있습니다.
+
+## 로컬에서 실행 (개발용)
 
 ES 모듈은 `file://`로 열면 동작하지 않으므로 간단한 정적 서버로 엽니다.
 
@@ -15,8 +37,10 @@ python3 -m http.server 8080      # 또는: npx serve .
 # 브라우저에서 http://localhost:8080 접속
 ```
 
-- 아이패드: 같은 와이파이의 PC에서 서버를 띄우고 `http://<PC IP>:8080`으로 접속하거나, 정적 호스팅(비공개 저장소라면 로컬 서버 권장)에 올려서 사용합니다. 가로 화면(1180×820) 기준이며 화면 크기에 맞게 자동으로 배율이 조정됩니다.
-- 인터넷이 되면 Riot Data Dragon에서 챔피언 아이콘·스플래시·아이템·미니맵을 받아 localStorage에 캐시합니다. 오프라인이면 대체 그래픽을 씁니다.
+- 화면: 태블릿·PC는 1180×820 기준 화면을 배율 조정해서 보여 주고, 폰(세로·가로)은 화면 크기에 맞춘 전용 배치를 씁니다.
+- 로컬 서버(localhost)에서는 개발 중 캐시가 헷갈리지 않게 서비스 워커(오프라인 캐시)를 켜지 않습니다. 확인하려면 주소 뒤에 `?sw=1`을 붙입니다.
+- 인터넷이 되면 Riot Data Dragon에서 챔피언 아이콘·스플래시·아이템·미니맵을 받아 캐시합니다. 오프라인이면 대체 그래픽을 씁니다.
+- `assets/`에 이미지를 새로 넣었으면 `node tools/build-pages.mjs`를 한 번 실행해야 로컬에서도 보입니다 (배포 때는 자동).
 
 ### 검증 도구 (node 18+)
 ```bash
@@ -25,6 +49,7 @@ node tools/replay-bug.mjs bug-reports/<파일>.json  # 경기 화면 "🐞 버�
 node tools/sim-choices.mjs     # 선택 장면 확률 범위(5~95%)·우월 선택지 검사
 node tools/sim-season.mjs      # 시즌 10회 자동 진행 통계 (팀별 순위, 국제대회 우승 지역, 경기 시간, 킬 수)
 node tools/sim-season.mjs 5 --chain   # 한 월드에서 5시즌 연속 (시즌 넘김·FA·노화 검증)
+node tools/build-pages.mjs     # 배포 준비: 이미지 목록·서비스 워커 캐시 목록·버전 생성 + 경로(절대 경로·대소문자) 검사
 ```
 
 ## 진행 상황
@@ -35,6 +60,7 @@ node tools/sim-season.mjs 5 --chain   # 한 월드에서 5시즌 연속 (시즌 
 - [x] 5단계: 연봉(월급)·계약·바이아웃·1군/2군·FA 제안/협상/재계약·이적 요청·AI 선수 이적·노화·은퇴·신인 충원·다음 시즌·은퇴와 명예의 전당
 - [x] 6단계: 랜덤 이벤트 35종, 커뮤니티 게시판·뉴스, 승리 인터뷰, 시상(POG·라운드 POM·All-LCK·신인왕·MVP·결승/대회 MVP), 기록실, 밸런스 조정
 - [x] 경기 엔진 정합성 개편: 계획 → 이동 → 도착 → 판정 구조, 팀 운영 AI, 자동 검사기, 디버그 모드, 버그 신고 (`docs/MATCH_FIX.md`)
+- [x] GitHub Pages 자동 배포, 홈 화면 앱(PWA·오프라인 캐시·업데이트 알림), 폰 세로·가로 화면, 세이브 코드로 기기 간 옮기기
 
 ## 플레이 흐름
 1. 타이틀 → **새 게임** → 선수 등록(닉네임·포지션·나이·플레이스타일·주력 3) → 입단 제안 중 하나 선택
@@ -50,7 +76,12 @@ node tools/sim-season.mjs 5 --chain   # 한 월드에서 5시즌 연속 (시즌 
 ## 파일 구조
 ```
 index.html            진입점
-css/style.css         전체 스타일 (1180×820 기준)
+manifest.json         홈 화면 앱 정보 (이름·아이콘·테마 색)
+sw.js                 서비스 워커 (게임 파일 미리 캐시, Data Dragon 캐시, 새 버전 감지) — 캐시 목록은 build-pages.mjs가 채움
+icons/                앱 아이콘 (180·192·512px)
+.nojekyll             GitHub Pages가 파일을 가공하지 않게 함
+.github/workflows/pages.yml  main에 push하면 Pages로 자동 배포
+css/style.css         전체 스타일 (1180×820 기준 + 폰 세로 .pt / 가로 .pl)
 js/config.js          ★ 모든 수치 상수
 js/core/              rng.js(시드 난수), util.js
 js/engine/            화면 없는 로직 (node에서 실행 가능)
@@ -77,7 +108,8 @@ js/engine/            화면 없는 로직 (node에서 실행 가능)
   international.js    First Stand·Road to MSI·MSI·LCK/CL 플레이오프·Worlds(스위스), 해외 지역 대표 선발
   career.js           계약·연봉·FA 제안/협상·이적 요청·AI 이적·노화/은퇴·신인·새 시즌·커리어 총정리
   daily.js            하루 3칸 행동(스크림·훈련·연습·솔랭·리플레이·휴식·방송·케미), 피로·부상, 코치 평가
-js/ui/                화면 (app.js 라우터, assets.js 이미지, matchScreen.js 경기, draftScreen.js 밴픽, seriesFlow.js 시리즈 진행, screens/*)
+js/ui/                화면 (app.js 라우터·화면 모드, assets.js 이미지, matchScreen.js 경기, draftScreen.js 밴픽, seriesFlow.js 시리즈 진행, pwa.js 업데이트 알림, save.js·saveTransfer.js 저장·세이브 코드, screens/*)
+js/assetList.js       assets/ 안의 실제 이미지 목록 (자동 생성 — 없는 이미지는 요청하지 않음)
 data/                 챔피언·아이템·팀·이름·선택 장면(scenarios + sceneNeeds)·해설 문장·맵 좌표(map.js)
 tools/                검증 스크립트 (validate-match, replay-bug, sim-season, sim-choices, lib/match-checker)
 bug-reports/          버그 신고 JSON을 넣는 곳

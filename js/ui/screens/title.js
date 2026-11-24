@@ -3,6 +3,7 @@ import { DD, teamLogo } from '../assets.js';
 import { LCK_TEAMS } from '../../../data/teams.js';
 import { SLOT_KEYS, SLOT_NAMES, slotInfo, loadFrom, importJSON, describeSlot } from '../save.js';
 import { esc } from '../../core/util.js';
+import { pasteCodeFlow, importFile } from '../saveTransfer.js';
 
 export function register(reg) { reg('title', { render }); }
 
@@ -42,14 +43,15 @@ export async function loadDialog() {
   const rows = SLOT_KEYS.map(k => { const i = slotInfo(k); return `<div class="row between" style="padding:8px 0;border-bottom:1px solid var(--line)"><div><b>${SLOT_NAMES[k]}</b><div class="small muted">${esc(describeSlot(i))}</div></div><button class="btn sm" data-k="${k}" ${i ? '' : 'disabled'}>불러오기</button></div>`; }).join('');
   modal({
     title: '불러오기',
-    body: `${rows}<div style="margin-top:14px"><label class="btn sm" style="cursor:pointer">JSON 파일 불러오기<input type="file" id="file" accept=".json,application/json" style="display:none"></label></div>`,
+    body: `${rows}<div class="small muted" style="margin-top:14px">다른 기기에서 가져오기</div><div class="row wrap" style="margin-top:6px"><button class="btn sm primary" id="code-paste">세이브 코드 붙여넣기</button><label class="btn sm" style="cursor:pointer">JSON 파일 불러오기<input type="file" id="file" accept=".json,application/json" style="display:none"></label></div>`,
     buttons: [{ label: '닫기' }],
     onOpen: (bg, close) => {
       bg.querySelectorAll('[data-k]').forEach(b => b.addEventListener('click', () => { const r = loadFrom(b.dataset.k); close(); if (r) startLoaded(r); }));
-      bg.querySelector('#file').addEventListener('change', async e => {
-        const f = e.target.files[0]; if (!f) return;
-        try { const r = await importJSON(f); close(); startLoaded(r); toast('파일에서 불러왔습니다.'); } catch (err) { toast('불러오기 실패: ' + esc(err.message)); }
+      bg.querySelector('#file').addEventListener('change', e => {
+        const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+        close(); importFile(f);
       });
+      bg.querySelector('#code-paste').addEventListener('click', () => { close(); pasteCodeFlow(); });
     },
   });
 }

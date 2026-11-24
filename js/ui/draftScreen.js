@@ -89,7 +89,8 @@ function render(root, params) {
     else if (ui.sort === 'tier' && meta) { const o = { OP: 0, '1': 1, '2': 2, '3': 3, '4': 4 }; list.sort((a, b) => o[meta.tiers[a]] - o[meta.tiers[b]]); }
     else list.sort((a, b) => CHAMPIONS[a].name.localeCompare(CHAMPIONS[b].name, 'ko'));
     list.sort((a, b) => isTaken(d, a) - isTaken(d, b));
-    $('center').innerHTML = `
+    sheet();
+    $('center').innerHTML = `${sheetHandle()}
       ${ui.waitingUser ? `<div class="dr-recs"><span class="tiny gold bold">감독 추천</span>${recs.map(r => `<button class="dr-rec ${ui.selected === r.champ ? 'sel' : ''}" data-id="${r.champ}">${champIcon(r.champ, 36, 'sq')}<div class="col" style="gap:0;align-items:flex-start"><b>${esc(CHAMPIONS[r.champ].name)}</b><span class="tiny muted">${r.reasons.map(esc).join(' · ')}</span></div></button>`).join('')}</div>` : `<div class="dr-recs dim small">${ui.fast ? '빠른 진행 중…' : 'AI가 밴픽을 진행하고 있습니다…'} 내 포지션(${POS_KO[uPos] || '-'}) 픽 차례가 되면 직접 고릅니다.</div>`}
       <div class="dr-filter">
         ${['ALL', ...POS].map(p => `<button class="btn sm ${ui.filter === p ? 'active' : ''}" data-f="${p}">${p === 'ALL' ? '전체' : POS_KO[p]}</button>`).join('')}
@@ -113,14 +114,23 @@ function render(root, params) {
       if (!CHAMPIONS[id].pos.includes(uPos)) { if (!confirm(`${CHAMPIONS[id].name}은(는) ${POS_KO[uPos]} 챔피언이 아닙니다. 그래도 고를까요?`)) return; }
       ui.selected = id; renderCenter(); renderCols();
     }));
+    bindSheet();
     $('fast').addEventListener('change', e => { ui.fast = e.target.checked; App.settings.fastDraft = ui.fast; });
     const lock = $('lock');
     if (lock) lock.addEventListener('click', () => {
       if (!ui.selected) return;
       applyDecision(d, { type: 'pick', champ: ui.selected, pos: uPos });
-      ui.waitingUser = false; ui.selected = null;
+      ui.waitingUser = false; ui.selected = null; ui.sheet = null;
       refresh(); next();
     });
+  }
+
+  // 폰: 챔피언 목록은 아래쪽 시트 (내 차례면 자동으로 열림, 손잡이로 접기·펼치기)
+  function sheetOpen() { return ui.sheet !== undefined && ui.sheet !== null ? ui.sheet : ui.waitingUser || d.done; }
+  function sheet() { $('center').classList.toggle('collapsed', !sheetOpen()); }
+  function sheetHandle() { return `<button class="dr-sheet-h" id="sheet-h">${d.done ? '조합 평가' : ui.waitingUser ? '챔피언 고르기' : '챔피언 목록'} <span>${sheetOpen() ? '▼' : '▲'}</span></button>`; }
+  function bindSheet() {
+    $('sheet-h').addEventListener('click', () => { ui.sheet = !sheetOpen(); sheet(); $('sheet-h').querySelector('span').textContent = sheetOpen() ? '▼' : '▲'; });
   }
 
   function bars(a, b) {
@@ -134,12 +144,14 @@ function render(root, params) {
     }).join('');
   }
   function renderSummary() {
-    $('center').innerHTML = `<div class="dr-sum">
+    ui.sheet = true; sheet();
+    $('center').innerHTML = `${sheetHandle()}<div class="dr-sum">
       <div class="dr-sum-title">조합 평가</div>
       <div class="row between" style="margin:0 6px 10px"><b style="color:#8ab8ff">${esc(teams[L].team.code)} (블루)</b><b style="color:#ff9aa5">(레드) ${esc(teams[R].team.code)}</b></div>
       ${bars(L, R)}
       <div class="dr-sum-note small muted">${compNote(L)}<br>${compNote(R)}</div>
       <button class="btn primary" id="start" style="min-width:240px;height:56px;font-size:18px;margin-top:16px">경기 시작 ▶</button></div>`;
+    bindSheet();
     $('start').addEventListener('click', () => params.onDone && params.onDone(d));
   }
   function compNote(ti) {
@@ -156,7 +168,7 @@ function render(root, params) {
     if (d.done) { refresh(); return; }
     const dec = aiDecide(d, rng);
     if (dec.needUser) {
-      ui.waitingUser = true; ui.filter = uPos; ui.selected = null;
+      ui.waitingUser = true; ui.filter = uPos; ui.selected = null; ui.sheet = null;
       refresh();
       return;
     }

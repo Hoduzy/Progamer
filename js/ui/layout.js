@@ -44,5 +44,8 @@ export function shell(root, active, contentHTML, opts = {}) {
     </div>
   </div>`;
   root.querySelectorAll('[data-nav]').forEach(b => b.addEventListener('click', () => go(b.dataset.nav)));
+  // 폰 아래 탭 막대: 현재 메뉴가 보이게 스크롤
+  const act = root.querySelector('.nav-item.active');
+  if (act && document.documentElement.classList.contains('ph')) requestAnimationFrame(() => { const nav = act.parentElement; nav.scrollLeft = act.offsetLeft - (nav.clientWidth - act.offsetWidth) / 2; nav.scrollTop = act.offsetTop - (nav.clientHeight - act.offsetHeight) / 2; });
   return root.querySelector('#content');
 }

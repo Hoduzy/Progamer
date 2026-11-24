@@ -13,6 +13,7 @@ import { CHAMPIONS, champName } from '../../../data/champions.js';
 import { REGIONS } from '../../../data/teams.js';
 import { SLOT_KEYS, SLOT_NAMES, slotInfo, saveTo, loadFrom, deleteSlot, exportJSON, importJSON, describeSlot } from '../save.js';
 import { startLoaded } from './title.js';
+import { copyCodeFlow, pasteCodeFlow, importFile } from '../saveTransfer.js';
 
 export function register(reg) {
   reg('calendar', { render: calendar });
@@ -190,7 +191,10 @@ function settingsPage(root) {
     <div class="panel"><h3>세이브 슬롯</h3>
       ${SLOT_KEYS.map(k => { const i = slotInfo(k); return `<div class="row between" style="padding:8px 0;border-bottom:1px solid var(--line)"><div><b>${SLOT_NAMES[k]}</b><div class="small muted">${esc(describeSlot(i))}${i ? ` · ${(i.size / 1024).toFixed(0)}KB` : ''}</div></div>
         <div class="row">${k !== 'auto' ? `<button class="btn sm" data-save="${k}">저장</button>` : ''}<button class="btn sm" data-load="${k}" ${i ? '' : 'disabled'}>불러오기</button>${k !== 'auto' && i ? `<button class="btn sm danger" data-del="${k}">삭제</button>` : ''}</div></div>`; }).join('')}
-      <div class="row wrap" style="margin-top:12px"><button class="btn" id="export">JSON 파일로 내보내기</button><label class="btn" style="cursor:pointer">JSON 불러오기<input type="file" id="file" accept=".json,application/json" style="display:none"></label></div>
+      <h3 style="margin-top:16px">다른 기기로 옮기기</h3>
+      <div class="row wrap"><button class="btn primary" id="code-copy">📋 세이브 코드 복사</button><button class="btn" id="code-paste">세이브 코드 붙여넣기</button></div>
+      <div class="row wrap" style="margin-top:8px"><button class="btn" id="export">JSON 파일로 내보내기</button><label class="btn" style="cursor:pointer">JSON 불러오기<input type="file" id="file" accept=".json,application/json" style="display:none"></label></div>
+      <div class="small muted" style="margin-top:6px">세이브 코드는 지금 진행 상황을 압축한 글자입니다. 복사해서 메모·메신저로 다른 기기에 보내고, 그 기기에서 붙여넣으면 그대로 이어집니다.</div>
       <div class="small muted" style="margin-top:8px">자동 저장: 경기가 끝날 때, 하루가 지날 때. 시드: ${esc(String(st.seed))}</div>
     </div>
     <div class="panel"><h3>연출·진행</h3>
@@ -206,7 +210,9 @@ function settingsPage(root) {
   c.querySelectorAll('[data-load]').forEach(b => b.addEventListener('click', () => { const r = loadFrom(b.dataset.load); if (r) { startLoaded(r); toast('불러왔습니다.'); } }));
   c.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => { if (confirm('이 슬롯을 삭제할까요?')) { deleteSlot(b.dataset.del); go('settings'); } }));
   c.querySelector('#export').addEventListener('click', () => exportJSON(App.state, App.rng));
-  c.querySelector('#file').addEventListener('change', async e => { const f = e.target.files[0]; if (!f) return; try { startLoaded(await importJSON(f)); toast('불러왔습니다.'); } catch (err) { toast('실패: ' + esc(err.message)); } });
+  c.querySelector('#file').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f) importFile(f); });
+  c.querySelector('#code-copy').addEventListener('click', () => copyCodeFlow());
+  c.querySelector('#code-paste').addEventListener('click', () => pasteCodeFlow());
   c.querySelector('#big').addEventListener('change', e => { App.settings.showBigEvents = e.target.checked; saveSettings(); });
   c.querySelector('#debugMatch').addEventListener('change', e => { App.settings.debugMatch = e.target.checked; saveSettings(); });
   c.querySelector('#fastDraft').addEventListener('change', e => { App.settings.fastDraft = e.target.checked; saveSettings(); });
