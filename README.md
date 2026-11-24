@@ -49,6 +49,7 @@ node tools/replay-bug.mjs bug-reports/<파일>.json  # 경기 화면 "🐞 버�
 node tools/sim-choices.mjs     # 선택 장면 확률 범위(5~95%)·우월 선택지 검사
 node tools/sim-season.mjs      # 시즌 10회 자동 진행 통계 (팀별 순위, 국제대회 우승 지역, 경기 시간, 킬 수)
 node tools/sim-season.mjs 5 --chain   # 한 월드에서 5시즌 연속 (시즌 넘김·FA·노화 검증)
+node tools/sim-career.mjs 6     # 예전 하루 3칸 vs 하루 1개 활동: 능력치 성장·피로·수입 ±10%, 1군 콜업까지 날짜
 node tools/validate-community.mjs   # ★ 커뮤니티 검사: 템플릿 개수, 쿨타임 안 중복 0, 글 안 중복 댓글 0, 금지 표현 0, 상위 10개 템플릿 출력 (--show N 예시 출력)
 node tools/build-pages.mjs     # 배포 준비: 이미지 목록·서비스 워커 캐시 목록·버전 생성 + 경로(절대 경로·대소문자) 검사
 ```
@@ -66,7 +67,7 @@ node tools/build-pages.mjs     # 배포 준비: 이미지 목록·서비스 워�
 
 ## 플레이 흐름
 1. 타이틀 → **새 게임** → 선수 등록(닉네임·포지션·나이·플레이스타일·주력 3) → 입단 제안 중 하나 선택
-2. 메인 허브: 오전/오후/저녁 칸에 행동을 넣고 **하루 진행** (또는 **경기일까지 자동 진행**). 경기일 저녁에는 경기
+2. 메인 허브: 활동 카드 8개 중 하나를 눌러 하루를 보냄 (또는 **루틴대로 하루**, **일주일 넘기기**, **다음 경기까지**). 경기일은 활동 없이 경기만, 다음 날은 회복일
 3. 경기: (1군이면 감독의 주전 결정) → 퍼스트 셀렉션 → 밴픽 → 경기(주요 장면에서 직접 선택) → 결과 → 인터뷰·커뮤니티
 4. 시즌: LCK컵 → First Stand → LCK 1~2R → Road to MSI → MSI → LCK 3~4R → 플레이오프 → Worlds (2군이면 LCK CL)
 5. 월즈 후 FA 기간: 재계약/이적/협상/이적 요청/은퇴 → 다음 시즌
@@ -116,7 +117,7 @@ js/engine/            화면 없는 로직 (node에서 실행 가능)
   roster.js           출전 명단·주전 결정·콜업/강등
   international.js    First Stand·Road to MSI·MSI·LCK/CL 플레이오프·Worlds(스위스), 해외 지역 대표 선발
   career.js           계약·연봉·FA 제안/협상·이적 요청·AI 이적·노화/은퇴·신인·새 시즌·커리어 총정리
-  daily.js            하루 3칸 행동(스크림·훈련·연습·솔랭·리플레이·휴식·방송·케미), 피로·부상, 코치 평가
+  daily.js            하루 1개 활동(스크림·훈련·연습·솔랭·리플레이·휴식·방송·케미), 연속 훈련 감소, 회복일, 피로·부상, 코치 평가
 js/ui/                화면 (app.js 라우터·화면 모드, assets.js 이미지, matchScreen.js 경기, draftScreen.js 밴픽, seriesFlow.js 시리즈 진행, pwa.js 업데이트 알림, save.js·saveTransfer.js 저장·세이브 코드, screens/*)
 js/assetList.js       assets/ 안의 실제 이미지 목록 (자동 생성 — 없는 이미지는 요청하지 않음)
 data/                 챔피언·아이템·팀·이름·선택 장면(scenarios + sceneNeeds)·해설 문장·맵 좌표(map.js)

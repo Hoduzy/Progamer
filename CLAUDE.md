@@ -35,6 +35,7 @@
 - `node tools/replay-bug.mjs bug-reports/<파일>.json` — 경기 화면 "🐞 버그 신고" 파일을 그대로 재현하고 검사·타임라인 출력
 - `node tools/sim-season.mjs [시즌 수] [--chain]` — 시즌 전체 시뮬레이션 통계
 - `node tools/sim-choices.mjs [반복]` — 선택 장면 확률·우월 선택지 검사
+- `node tools/sim-career.mjs [시드 수] [--mult N]` — 일상 활동 비교(예전 하루 3칸 vs 하루 1개): 능력치 성장·피로 누적·수입 ±10%. `CONFIG.daily`를 고치면 돌린다
 - `node tools/validate-community.mjs [설정 수] [--show N]` — 커뮤니티 템플릿·중복·금지 표현 검사
 - `node tools/build-pages.mjs [--check]` — 배포 준비·경로 검사
 - 브라우저 확인: `python3 -m http.server 8080` 후 `http://localhost:8080` (iPad 가로 1180×820 기준)

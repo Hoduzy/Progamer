@@ -1,9 +1,11 @@
-// 하루 3칸 행동: 스크림 / 개인 훈련 / 챔피언 연습 / 솔로 랭크 / 리플레이 분석 / 휴식 / 개인 방송 / 팀원과 시간
+// 하루 1개 활동: 스크림 / 개인 훈련 / 챔피언 연습 / 솔로 랭크 / 리플레이 분석 / 휴식 / 개인 방송 / 팀원과 시간
+// 활동 1개 = 예전 한 칸 효과 × ACTIVITY_DAY_MULTIPLIER. 경기일은 활동 없이 경기만, 경기 다음 날은 회복일.
 import { CONFIG } from '../config.js';
 import { clamp, avg, STAT_KO, POS } from '../core/util.js';
 import { growStat, growMastery, ovr, topChamps, potentialGrade } from './players.js';
 import { CHAMPIONS, champName } from '../../data/champions.js';
 import { addMsg } from './state.js';
+import { dateAdd } from '../core/util.js';
 import { lineup } from './roster.js';
 
 export const ACTIVITIES = {
@@ -54,17 +56,20 @@ function addFatigue(state, v, rng) {
   return null;
 }
 
-// 한 칸 실행. 반환: { text, details[] }
-export function runActivity(state, rng, slot) {
+// 활동 실행. mult: 효과 배율(피로·멘탈·케미·스크림 점수 등), gain: 성장·숙련도·팬·수입에만 곱하는 배율(연속 반복 감소)
+// 반환: { act, lines[], injury?, controversy? }
+export function runActivity(state, rng, slot, mult = 1, gain = 1) {
   const u = state.user;
   const me = state.players[u.pid];
   const G = CONFIG.growth, D = CONFIG.daily;
   const out = { act: slot.a, lines: [] };
+  const g = mult * gain;
   if (u.injury && !['rest', 'replay', 'stream'].includes(slot.a)) {
     out.lines.push(`부상(${u.injury.type}) 때문에 ${ACTIVITIES[slot.a].name} 대신 휴식했다.`);
     slot = { a: 'rest' };
   }
-  const st = (k, base) => { const up = growStat(me, k, base, u.fatigue); if (up) out.lines.push(`${STAT_KO[k]} +${up}`); return up; };
+  const st = (k, base) => { const up = growStat(me, k, base * g, u.fatigue); if (up) out.lines.push(`${STAT_KO[k]} +${up}`); return up; };
+  const mental = v => { u.mental = clamp(u.mental + v * mult, 0, 100); };
   let inj = null;
   switch (slot.a) {
     case 'scrim': {
@@ -75,71 +80,71 @@ export function runActivity(state, rng, slot) {
       const win = rng.chance(clamp(0.5 + (myOvr - oppOvr) * 0.03 + perf * 0.04, 0.15, 0.85));
       const games = rng.int(2, 4); let w = 0;
       for (let i = 0; i < games; i++) if (rng.chance(win ? 0.65 : 0.35)) w++;
-      u.scrimScore = clamp(u.scrimScore + (w * 2 - games) * 1.6 + perf * 0.8, 0, 100);
+      u.scrimScore = clamp(u.scrimScore + ((w * 2 - games) * 1.6 + perf * 0.8) * mult, 0, 100);
       u.rivalScrim = clamp((u.rivalScrim ?? 50) + rng.normal(0.2, 1.6), 0, 100);
       out.lines.push(`스크림 ${w}승 ${games - w}패 · 스크림 점수 ${Math.round(u.scrimScore)}`);
       st('teamfight', G.baseGain.scrim); st('decision', G.baseGain.scrim);
-      const tc = topChamps(me, 4); if (tc.length) growMastery(me, rng.pick(tc), G.masteryGain.scrim);
-      if (team) for (const pid of Object.keys(team.squadOf)) if (pid !== me.id && team.squadOf[pid] === me.squad) u.chem[pid] = clamp((u.chem[pid] || 0) + 0.6, 0, 100);
-      u.trust = clamp(u.trust + (w * 2 - games) * 0.4, 0, 100);
-      inj = addFatigue(state, D.fatigue.scrim, rng);
+      const tc = topChamps(me, 4); if (tc.length) growMastery(me, rng.pick(tc), G.masteryGain.scrim * g);
+      if (team) for (const pid of Object.keys(team.squadOf)) if (pid !== me.id && team.squadOf[pid] === me.squad) u.chem[pid] = clamp((u.chem[pid] || 0) + 0.6 * mult, 0, 100);
+      u.trust = clamp(u.trust + (w * 2 - games) * 0.4 * mult, 0, 100);
+      inj = addFatigue(state, D.fatigue.scrim * mult, rng);
       break;
     }
     case 'train': {
       const k = slot.stat || 'laning';
       const up = st(k, G.baseGain.train);
       if (!up) out.lines.push(`${STAT_KO[k]} 훈련 (성장 진행 중)`);
-      inj = addFatigue(state, D.fatigue.train, rng);
+      inj = addFatigue(state, D.fatigue.train * mult, rng);
       break;
     }
     case 'practice': {
       const c = slot.champ || topChamps(me, 1)[0];
       const before = me.champs[c] || 0;
-      growMastery(me, c, G.masteryGain.practice);
+      growMastery(me, c, G.masteryGain.practice * g);
       out.lines.push(`${champName(c)} 숙련도 ${Math.round(before)} → ${Math.round(me.champs[c])}`);
-      if (rng.chance(0.25)) st('pool', 0.3);
-      inj = addFatigue(state, D.fatigue.practice, rng);
+      if (rng.chance(Math.min(1, 0.25 * mult))) st('pool', 0.3);
+      inj = addFatigue(state, D.fatigue.practice * mult, rng);
       break;
     }
     case 'solo': {
       const sr = u.soloRank;
       const c = slot.champ || rng.pick(topChamps(me, 5));
-      const games = rng.int(3, 5); let w = 0, lp = 0;
+      const games = Math.max(1, Math.round(rng.int(3, 5) * mult)); let w = 0, lp = 0;
       const p = clamp(D.soloWinBase + (ovr(me) - 65) * 0.006 + (u.condition - 70) * 0.003 - (sr.lp / 4000), 0.3, 0.72);
       for (let i = 0; i < games; i++) {
         if (rng.chance(p)) { w++; lp += rng.int(...D.soloLpWin); } else lp -= rng.int(...D.soloLpLoss);
       }
       sr.lp += lp; sr.games += games; sr.wins += w;
       updateSoloTier(sr);
-      growMastery(me, c, G.masteryGain.solo);
+      growMastery(me, c, G.masteryGain.solo * g);
       st('mechanics', G.baseGain.solo); st('laning', G.baseGain.solo * 0.7);
       out.lines.push(`솔로 랭크 ${w}승 ${games - w}패 (${lp >= 0 ? '+' : ''}${lp}LP) · ${soloRankLabel(sr)} · ${champName(c)}`);
-      if (sr.tier === '챌린저' && sr.rank <= 10 && rng.chance(0.3)) { u.fans += 200; out.lines.push('챌린저 상위권! 팬 +200'); }
-      inj = addFatigue(state, D.fatigue.solo, rng);
+      if (sr.tier === '챌린저' && sr.rank <= 10 && rng.chance(0.3)) { const f = Math.round(200 * g); u.fans += f; out.lines.push(`챌린저 상위권! 팬 +${f}`); }
+      inj = addFatigue(state, D.fatigue.solo * mult, rng);
       break;
     }
     case 'replay':
       st('decision', G.baseGain.replay); st('vision', G.baseGain.replay * 0.7);
       out.lines.push('리플레이 분석: 운영과 시야 이해도가 높아졌다.');
-      inj = addFatigue(state, D.fatigue.replay, rng);
+      inj = addFatigue(state, D.fatigue.replay * mult, rng);
       break;
     case 'rest':
-      addFatigue(state, D.fatigue.rest, rng);
-      u.mental = clamp(u.mental + D.mental.rest, 0, 100);
+      addFatigue(state, D.fatigue.rest * mult, rng);
+      mental(D.mental.rest);
       out.lines.push(`휴식 · 피로 ${Math.round(u.fatigue)}`);
       break;
     case 'stream': {
-      const fans = Math.round(rng.int(...D.streamFans) * (1 + u.popularity / 50));
-      const money = Math.round(rng.int(...D.streamMoney) * (1 + u.popularity / 40) / 10000) * 10000;
-      u.fans += fans; u.money += money; u.popularity = clamp(u.popularity + 0.3, 0, 100);
-      u.mental = clamp(u.mental + D.mental.stream, 0, 100);
+      const fans = Math.round(rng.int(...D.streamFans) * (1 + u.popularity / 50) * g);
+      const money = Math.round(rng.int(...D.streamMoney) * (1 + u.popularity / 40) * g / 10000) * 10000;
+      u.fans += fans; u.money += money; u.popularity = clamp(u.popularity + 0.3 * mult, 0, 100);
+      mental(D.mental.stream);
       out.lines.push(`개인 방송 · 팬 +${fans.toLocaleString()} · 수입 +${(money / 10000).toLocaleString()}만 원`);
-      if (rng.chance(D.streamControversy)) {
+      if (rng.chance(Math.min(1, D.streamControversy * mult))) {
         u.popularity = clamp(u.popularity - 2, 0, 100); u.mental = clamp(u.mental - 6, 0, 100); u.trust = clamp(u.trust - 3, 0, 100);
         out.lines.push('⚠ 방송 중 발언이 논란이 됐다. 커뮤니티가 시끄럽다. (멘탈 -6, 감독 신뢰 -3)');
         out.controversy = true;
       }
-      inj = addFatigue(state, D.fatigue.stream, rng);
+      inj = addFatigue(state, D.fatigue.stream * mult, rng);
       break;
     }
     case 'bond': {
@@ -150,18 +155,87 @@ export function runActivity(state, rng, slot) {
         mate = mates.length ? rng.pick(mates) : null;
       }
       if (mate) {
-        const v = rng.int(...D.bondChem);
+        const v = Math.round(rng.int(...D.bondChem) * mult);
         u.chem[mate] = clamp((u.chem[mate] || 0) + v, 0, 100);
         out.lines.push(`${state.players[mate].nick}와(과) 시간을 보냈다 · 케미 +${v}`);
       }
-      u.mental = clamp(u.mental + D.mental.bond, 0, 100);
-      addFatigue(state, D.fatigue.bond, rng);
+      mental(D.mental.bond);
+      addFatigue(state, D.fatigue.bond * mult, rng);
       break;
     }
   }
   if (inj && inj.injury) { out.lines.push(`🚑 ${inj.injury.type}! ${inj.injury.days}일간 결장`); out.injury = inj.injury; }
   u.condition = computeCondition(state);
   return out;
+}
+
+// ---------------- 하루 1개 활동 ----------------
+// 같은 훈련(활동 종류 + 고른 능력치·챔피언)을 연속으로 하면 3일째부터 효과가 줄어든다. 다른 활동·경기를 하루 끼우면 원래대로.
+export const TRAINING = ['scrim', 'train', 'practice', 'solo', 'replay'];
+export const actKey = a => a.a + (a.a === 'train' ? ':' + (a.stat || 'laning') : a.a === 'practice' ? ':' + (a.champ || '') : '');
+export function streakFactor(state, act) {
+  const D = CONFIG.daily, s = state.user.actStreak;
+  if (!TRAINING.includes(act.a)) return 1;
+  const n = s && s.key === actKey(act) ? s.n + 1 : 1;           // 오늘 하면 연속 n일째
+  return Math.max(D.streakMin, 1 - Math.max(0, n - D.streakFrom + 1) * D.streakStep);
+}
+export const isRecoveryDay = state => !!state.user.lastMatchDate && dateAdd(state.user.lastMatchDate, 1) === state.date;
+// 경기일: 활동 없음, 연속 기록 끊김
+export function markMatchDay(state) { state.user.lastMatchDate = state.date; state.user.actStreak = null; }
+// 하루 활동 1개 실행. 반환: runActivity 결과 + { factor, recovery }
+export function runDayActivity(state, rng, act) {
+  const D = CONFIG.daily, u = state.user;
+  const lines = [];
+  const recovery = isRecoveryDay(state);
+  if (recovery) {
+    // 회복일: 휴식 효과 추가 (경기 다음 날)
+    u.fatigue = clamp(u.fatigue - D.recoveryDay.fatigue, 0, 100);
+    u.mental = clamp(u.mental + D.recoveryDay.mental, 0, 100);
+    lines.push(`🛌 회복일: 피로 -${D.recoveryDay.fatigue} · 멘탈 +${D.recoveryDay.mental}`);
+  }
+  const f0 = u.fatigue;   // 회복일 보너스 뒤, 활동 전 피로
+  const factor = streakFactor(state, act);
+  const res = runActivity(state, rng, act, D.ACTIVITY_DAY_MULTIPLIER * (act.a === 'rest' && recovery ? D.recoveryDay.restMult : 1), factor);
+  if (factor < 1) lines.push(`🔁 같은 훈련 연속 — 효과 ${Math.round(factor * 100)}%`);
+  const done = { a: res.act === 'rest' && act.a !== 'rest' ? 'rest' : act.a, stat: act.stat, champ: act.champ };
+  const key = actKey(done);
+  u.actStreak = u.actStreak && u.actStreak.key === key ? { key, n: u.actStreak.n + 1 } : { key, n: 1 };
+  res.lines = [...lines, ...res.lines];
+  res.factor = factor; res.recovery = recovery; res.fatigueBefore = f0;
+  return res;
+}
+
+// 활동 카드에 보여 줄 예상 효과 (실제 계산과 같은 설정값으로)
+//  반환: { parts[] (예: "한타 경험치 보통"), fatigue, mental, factor, note, recovery }
+export function activityPreview(state, act) {
+  const D = CONFIG.daily, G = CONFIG.growth, u = state.user, me = state.players[u.pid];
+  const mult = D.ACTIVITY_DAY_MULTIPLIER, recovery = isRecoveryDay(state);
+  const factor = streakFactor(state, act);
+  const tired = clamp(1 - u.fatigue / 200, 0, 1);
+  const amt = base => { const v = base * mult * factor * tired; return v >= 0.5 ? '많음' : v >= 0.25 ? '보통' : '조금'; };
+  const exp = (k, base) => `${STAT_KO[k]} 경험치 ${amt(base)}`;
+  const parts = [];
+  switch (act.a) {
+    case 'scrim': parts.push(exp('teamfight', G.baseGain.scrim), exp('decision', G.baseGain.scrim), '스크림 점수·감독 신뢰'); break;
+    case 'train': parts.push(exp(act.stat || 'laning', G.baseGain.train)); break;
+    case 'practice': parts.push(`${act.champ ? champName(act.champ) : '챔피언'} 숙련도 +${Math.round(G.masteryGain.practice * mult * factor)} 안팎`); break;
+    case 'solo': parts.push(exp('mechanics', G.baseGain.solo), '숙련도·LP 변동'); break;
+    case 'replay': parts.push(exp('decision', G.baseGain.replay), exp('vision', G.baseGain.replay * 0.7)); break;
+    case 'rest': parts.push('피로 크게 회복'); break;
+    case 'stream': parts.push('팬·수입 증가', '가끔 논란'); break;
+    case 'bond': parts.push(`케미 +${Math.round(D.bondChem[0] * mult)}~${Math.round(D.bondChem[1] * mult)}`); break;
+  }
+  const staminaMult = D.fatigue[act.a] > 0 ? clamp(1.25 - me.stats.stamina / 200, 0.7, 1.2) : 1;
+  const fatigue = Math.round(D.fatigue[act.a] * mult * staminaMult * (act.a === 'rest' && recovery ? D.recoveryDay.restMult : 1));
+  const mental = Math.round((D.mental[act.a] || 0) * mult);
+  const note = factor < 1 ? `같은 훈련 연속 — 효과 ${Math.round(factor * 100)}%` : '';
+  return { parts, fatigue, mental, factor, note, recovery };
+}
+// 피로 경고 (활동 선택 화면)
+export function fatigueWarning(state) {
+  const D = CONFIG.daily, f = state.user.fatigue;
+  if (f < D.fatigueWarn) return null;
+  return `피로 ${Math.round(f)} — 훈련 효과 ${Math.round((1 - f / 200) * 100)}%로 감소, ${f > CONFIG.injury.threshold ? '부상 확률 상승 중' : `${CONFIG.injury.threshold} 넘으면 부상 위험`}`;
 }
 
 export function nightRecovery(state, rng) {

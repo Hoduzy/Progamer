@@ -85,7 +85,7 @@ export function newWorld(seed) {
     version: CONFIG.saveVersion, seed, year, date: `${year}-01-02`, startDate: `${year}-01-02`,
     players: {}, teams: {}, namePool: names, coachPool: coachNames.slice(34),
     meta: newMeta(rng, year), news: [], inbox: [], community: [], records: { seasons: [], hof: [] },
-    awards: [], user: null, season: null, flags: {}, eventLog: [], nextMsgId: 1, nameVersion: NAME_VERSION,
+    awards: [], user: null, season: null, flags: {}, eventLog: [], nextMsgId: 1, nameVersion: NAME_VERSION, dayVersion: DAY_VERSION,
   };
   const takeName = () => state.namePool.length ? state.namePool.pop() : 'Rookie' + rng.int(100, 999);
   let ci = 0;
@@ -169,7 +169,7 @@ export function createUserPlayer(state, rng, { nick, pos, age, style, mains }) {
   state.user = {
     pid: p.id, fatigue: 15, condition: 80, mental: 65, trust: 40, chem: {}, fans: 500, popularity: 5, money: 5000000,
     injury: null, soloRank: { tier: '마스터', lp: 120, games: 0, wins: 0 }, scrimScore: 50, recentRatings: [], benchStreak: 0,
-    routine: defaultRoutine(), daySlots: null, joinedDate: state.date, matchLog: [], career: [], trophies: [], awards: [],
+    routine: defaultRoutine(), dayAct: null, actStreak: null, lastMatchDate: null, joinedDate: state.date, matchLog: [], career: [], trophies: [], awards: [],
     evalLevel: 0, lastReview: state.date, totalGames: 0, retired: false, competitorId: null, lastLineup: null,
     salaryHistory: [], seasonStart: { fans: 500 }, flags: {},
   };
@@ -177,11 +177,16 @@ export function createUserPlayer(state, rng, { nick, pos, age, style, mains }) {
 }
 
 export function defaultRoutine() {
-  // 요일(0=일~6=토) × 3칸
-  const wk = [{ a: 'scrim' }, { a: 'train', stat: 'laning' }, { a: 'solo' }];
-  const r = [];
-  for (let d = 0; d < 7; d++) r.push(d === 1 ? [{ a: 'rest' }, { a: 'replay' }, { a: 'rest' }] : wk.map(x => ({ ...x })));
-  return r;
+  // 요일(0=일~6=토)마다 활동 1개
+  return [
+    { a: 'train', stat: 'laning' },   // 일
+    { a: 'rest' },                    // 월
+    { a: 'scrim' },                   // 화
+    { a: 'train', stat: 'teamfight' },// 수
+    { a: 'solo' },                    // 목
+    { a: 'scrim' },                   // 금
+    { a: 'replay' },                  // 토
+  ];
 }
 
 // 다른 팀 2군 → 사용자 입단 시 2군 정리
@@ -260,9 +265,35 @@ export function migrateNames(state) {
   return { renamed: Object.keys(map).length, map };
 }
 
+// ---------- 하루 1개 활동 변환 ----------
+// dayVersion 2: 주간 루틴 = 요일마다 활동 1개, 오늘 고른 활동 = user.dayAct.
+//   그 전(하루 3칸)은 각 날의 오후(가운데 칸) 활동으로 바꾼다. 진행 중이던 날(오늘 칸 구성)도 오후 활동으로 이어 간다.
+export const DAY_VERSION = 2;
+export function needsDailyMigration(state) {
+  return !!state && !!state.user && (state.dayVersion || 1) < DAY_VERSION;
+}
+export function migrateDaily(state) {
+  if (!needsDailyMigration(state)) return false;
+  const u = state.user;
+  const pickMid = slots => (Array.isArray(slots) ? (slots[1] || slots[0]) : slots) || { a: 'rest' };
+  const def = defaultRoutine();
+  // 예전 기본 루틴을 그대로 쓰고 있었다면(직접 바꾼 적 없음) 새 기본 루틴으로 — 오후 칸만 남기면 거의 매일 같은 훈련이 돼 연속 감소에 걸리므로
+  const OLD_DEFAULT = JSON.stringify([0, 1, 2, 3, 4, 5, 6].map(d => (d === 1 ? [{ a: 'rest' }, { a: 'replay' }, { a: 'rest' }] : [{ a: 'scrim' }, { a: 'train', stat: 'laning' }, { a: 'solo' }])));
+  if (JSON.stringify(u.routine) === OLD_DEFAULT) u.routine = def;
+  else u.routine = Array.isArray(u.routine) && u.routine.length === 7 ? u.routine.map((d, i) => ({ ...(pickMid(d) || def[i]) })) : def;
+  u.dayAct = u.daySlots && u.daySlots.date === state.date ? { date: state.date, act: { ...pickMid(u.daySlots.slots) } } : null;
+  delete u.daySlots;
+  u.actStreak = null;
+  u.lastMatchDate = u.lastMatchDate || null;
+  state.dayVersion = DAY_VERSION;
+  return true;
+}
+export const needsMigration = state => needsNameMigration(state) || needsDailyMigration(state);
+
 export function deserialize(json) {
   const state = typeof json === 'string' ? JSON.parse(json) : json;
   migrateNames(state);
+  migrateDaily(state);
   setNextPlayerId(state.nextPlayerId || 10000);
   const rng = RNG.from(state.rng);
   return { state, rng };

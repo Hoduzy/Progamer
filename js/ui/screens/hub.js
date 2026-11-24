@@ -6,11 +6,11 @@ import { esc, fmtDate, dateDiff, POS_KO, STAT_KO, avg, weekday, WEEKDAY_KO } fro
 import { userMatchOn, nextUserMatch, userRef } from '../../engine/season.js';
 import { teamInfo, rivalProfile, userProfile } from '../../engine/roster.js';
 import { competitorOf } from '../../engine/state.js';
-import { ACTIVITIES, TRAINABLE, computeCondition, soloRankLabel } from '../../engine/daily.js';
+import { ACTIVITIES, TRAINABLE, computeCondition, soloRankLabel, activityPreview, fatigueWarning, isRecoveryDay } from '../../engine/daily.js';
 import { ovr, topChamps } from '../../engine/players.js';
 import { champIcon, teamLogo } from '../assets.js';
 import { champName, CHAMPIONS } from '../../../data/champions.js';
-import { todaySlots, setTodaySlot, slotLabel, runDay, autoAdvance } from '../dayFlow.js';
+import { todayAct, actLabel, runDay, autoAdvance } from '../dayFlow.js';
 
 export function register(reg) { reg('hub', { render }); }
 
@@ -25,7 +25,7 @@ function render(root) {
   const team = u.teamId ? st.teams[u.teamId] : null;
   const todayMatch = userMatchOn(st, st.date);
   const next = nextUserMatch(st);
-  const slots = todaySlots(st);
+  const plan = todayAct(st);
   const comp = next ? st.season.comps[next.compId] : null;
   st.user.competitorId = competitorOf(st);
   const rivalId = st.user.competitorId && st.players[st.user.competitorId] ? st.user.competitorId : null;
@@ -40,22 +40,22 @@ function render(root) {
   const html = `${faBanner}
   <div class="grid2" style="grid-template-columns:1.6fr 1fr;align-items:start">
     <div class="panel">
-      <h3>오늘 일정 <span class="small muted" style="font-weight:400">${fmtDate(st.date)}</span></h3>
-      <div class="grid3">${[0, 1, 2].map(i => {
-        if (i === 2 && todayMatch) {
-          const a = teamInfo(st, todayMatch.teams[0]), b = teamInfo(st, todayMatch.teams[1]);
-          return `<div class="slot-card mslot"><span class="sl">${CONFIG.daily.slots[i]}</span><div class="sa">⚔ 경기</div><div class="row small">${teamLogo(a, 22)} ${esc(a.code)} vs ${esc(b.code)} ${teamLogo(b, 22)}</div><span class="tiny muted">${esc(st.season.comps[todayMatch.compId].short)} · Bo${todayMatch.bo}</span></div>`;
-        }
-        return `<div class="slot-card" data-slot="${i}"><span class="sl">${CONFIG.daily.slots[i]}</span><div class="sa">${esc(slotLabel(st, slots[i]))}</div><span class="tiny muted">${esc(ACTIVITIES[slots[i].a].desc)}</span><span class="tiny gold">눌러서 변경</span></div>`;
-      }).join('')}</div>
+      <h3>오늘 할 일 <span class="small muted" style="font-weight:400">${fmtDate(st.date)} · ${WEEKDAY_KO[weekday(st.date)]}요일</span></h3>
+      ${todayMatch ? (() => {
+        const a = teamInfo(st, todayMatch.teams[0]), b = teamInfo(st, todayMatch.teams[1]);
+        return `<div class="slot-card mslot"><span class="sl">경기일 — 오늘은 다른 활동 없이 경기만</span><div class="sa">⚔ 경기</div><div class="row small">${teamLogo(a, 22)} ${esc(a.code)} vs ${esc(b.code)} ${teamLogo(b, 22)}</div><span class="tiny muted">${esc(st.season.comps[todayMatch.compId].short)} · Bo${todayMatch.bo} · 내일은 회복일</span></div>`;
+      })() : `
+      ${isRecoveryDay(st) ? `<div class="note-line">🛌 회복일 (어제 경기): 피로 -${CONFIG.daily.recoveryDay.fatigue} · 멘탈 +${CONFIG.daily.recoveryDay.mental}이 자동으로 들어가고, 휴식 효과가 ${Math.round((CONFIG.daily.recoveryDay.restMult - 1) * 100)}% 더 큽니다.</div>` : ''}
+      ${fatigueWarning(st) ? `<div class="warn small" style="margin-bottom:8px">⚠ ${esc(fatigueWarning(st))}</div>` : ''}
+      <div class="day-acts">${Object.keys(ACTIVITIES).map(k => actCardHTML(st, k, plan)).join('')}</div>
+      <div class="tiny muted" style="margin-top:6px">하루에 활동 하나. 카드를 누르면 그 활동으로 하루를 보냅니다. ${ACTIVITIES[plan.a] ? `오늘 루틴: <b>${esc(actLabel(st, plan))}</b>` : ''}</div>`}
       <div class="row wrap" style="margin-top:12px">
-        <button class="btn primary" id="day" style="min-width:170px;height:52px;font-size:17px">${todayMatch ? '하루 진행 · 경기 ▶' : '하루 진행 ▶'}</button>
-        <button class="btn" id="auto">⏩ 경기일까지 자동 진행</button>
-        <button class="btn sm" id="saveRoutine">오늘 구성을 ${WEEKDAY_KO[weekday(st.date)]}요일 루틴으로</button>
+        <button class="btn primary" id="day" style="min-width:170px;height:52px;font-size:17px">${todayMatch ? '경기 준비 ▶' : '루틴대로 하루 ▶'}</button>
+        <button class="btn" id="week">⏩ 일주일 넘기기</button>
+        <button class="btn" id="auto">⏭ 다음 경기까지</button>
         <button class="btn sm" id="editRoutine">주간 루틴 편집</button>
       </div>
       ${st.user.injury ? `<div class="warn small" style="margin-top:8px">🚑 부상: ${esc(st.user.injury.type)} — ${st.user.injury.days}일 남음 (훈련 대신 휴식, 경기 결장)</div>` : ''}
-      ${st.user.fatigue > CONFIG.injury.threshold ? `<div class="warn small" style="margin-top:4px">⚠ 피로가 매우 높습니다. 부상 위험이 있습니다.</div>` : ''}
     </div>
     <div class="panel">
       <h3>다음 경기</h3>
@@ -93,16 +93,48 @@ function render(root) {
     </div>
   </div>`;
   const c = shell(root, 'hub', html);
-  c.querySelectorAll('[data-slot]').forEach(el => el.addEventListener('click', () => editSlot(Number(el.dataset.slot))));
+  c.querySelectorAll('[data-act]').forEach(el => el.addEventListener('click', () => chooseToday(el.dataset.act)));
   c.querySelector('#day').addEventListener('click', () => runDay());
   c.querySelectorAll('[data-nav2]').forEach(b => b.addEventListener('click', () => go(b.dataset.nav2)));
-  c.querySelector('#auto').addEventListener('click', () => autoAdvance());
-  c.querySelector('#saveRoutine').addEventListener('click', () => { st.user.routine[weekday(st.date)] = todaySlots(st).map(s => ({ ...s })); toast(`${WEEKDAY_KO[weekday(st.date)]}요일 루틴으로 저장했습니다.`); });
+  c.querySelector('#week').addEventListener('click', () => autoAdvance(7, '일주일 넘기기'));
+  c.querySelector('#auto').addEventListener('click', () => autoAdvance(60, '다음 경기까지'));
   c.querySelector('#editRoutine').addEventListener('click', () => editRoutine());
 }
 
-// 칸 행동 고르기 (공용)
-export function pickActivity(st, current) {
+// 활동 카드: 예상 효과 (경험치·피로·멘탈, 연속 감소)
+function previewText(st, act) {
+  const p = activityPreview(st, act);
+  const bits = [...p.parts, `피로 ${p.fatigue > 0 ? '+' : ''}${p.fatigue}`];
+  if (p.mental) bits.push(`멘탈 ${p.mental > 0 ? '+' : ''}${p.mental}`);
+  return { text: bits.join(' / '), note: p.note };
+}
+function actCardHTML(st, k, plan) {
+  const a = ACTIVITIES[k];
+  const act = plan.a === k ? plan : defaultParam(st, k);
+  const pv = previewText(st, act);
+  return `<button class="act-card ${plan.a === k ? 'sel' : ''}" data-act="${k}"><span class="an">${a.icon} ${a.name}</span><span class="ap">${esc(pv.text)}</span>${pv.note ? `<span class="aw">🔁 ${esc(pv.note)}</span>` : ''}${plan.a === k ? '<span class="tiny gold">오늘 루틴</span>' : ''}</button>`;
+}
+function defaultParam(st, k) {
+  const u = st.players[st.user.pid];
+  if (k === 'train') return { a: k, stat: 'laning' };
+  if (k === 'practice') return { a: k, champ: topChamps(u, 1)[0] };
+  return { a: k };
+}
+// 카드 선택 → (능력치·챔피언·팀원 고르기) → 그 활동으로 하루 진행
+async function chooseToday(k) {
+  const st = App.state;
+  const plan = todayAct(st);
+  let act = plan.a === k ? plan : defaultParam(st, k);
+  if (ACTIVITIES[k].param) {
+    act = await pickActivity(st, act, { fixed: true });
+    if (!act) return;
+  }
+  runDay(act);
+}
+
+// 활동 고르기 (공용). fixed: 활동 종류는 고정하고 능력치·챔피언·팀원만 고름
+
+export function pickActivity(st, current, opts = {}) {
   const u = st.players[st.user.pid];
   return new Promise(resolve => {
     let sel = { ...current };
@@ -120,15 +152,19 @@ export function pickActivity(st, current) {
         const mates = team ? Object.keys(team.squadOf).filter(id => id !== u.id) : [];
         param = `<div class="small muted" style="margin:10px 0 6px">함께할 팀원 (케미)</div><div class="pick-grid">${mates.map(id => `<div class="pick-item ${sel.mate === id ? 'sel' : ''}" data-mate="${id}"><b>${esc(st.players[id].nick)}</b><span class="tiny dim">${POS_KO[st.players[id].pos]} ${team.squadOf[id] === 'main' ? '1군' : '2군'} · ${Math.round(st.user.chem[id] || 0)}</span></div>`).join('')}</div>`;
       }
-      body.innerHTML = `<div class="act-grid">${Object.entries(ACTIVITIES).map(([k, v]) => `<button class="act-btn ${sel.a === k ? 'sel' : ''}" data-a="${k}"><span class="an">${v.icon} ${v.name}</span><span class="ad">${v.desc}<br>피로 ${CONFIG.daily.fatigue[k] > 0 ? '+' : ''}${CONFIG.daily.fatigue[k]}</span></button>`).join('')}</div>${param}`;
+      const warn = fatigueWarning(st);
+      const pv = previewText(st, sel);
+      body.innerHTML = `${warn ? `<div class="warn small" style="margin-bottom:8px">⚠ ${esc(warn)}</div>` : ''}
+        ${opts.fixed ? `<div class="act-head"><b>${a.icon} ${a.name}</b><span class="small muted">${esc(pv.text)}</span>${pv.note ? `<span class="small gold">🔁 ${esc(pv.note)}</span>` : ''}</div>`
+          : `<div class="act-grid">${Object.entries(ACTIVITIES).map(([k, v]) => { const p = previewText(st, sel.a === k ? sel : defaultParam(st, k)); return `<button class="act-btn ${sel.a === k ? 'sel' : ''}" data-a="${k}"><span class="an">${v.icon} ${v.name}</span><span class="ad">${esc(p.text)}</span></button>`; }).join('')}</div>`}${param}`;
       body.querySelectorAll('[data-a]').forEach(b => b.addEventListener('click', () => { sel = { a: b.dataset.a }; if (sel.a === 'train') sel.stat = current.stat || 'laning'; draw(bg); }));
       body.querySelectorAll('[data-stat]').forEach(b => b.addEventListener('click', () => { sel.stat = b.dataset.stat; draw(bg); }));
       body.querySelectorAll('[data-champ]').forEach(b => b.addEventListener('click', () => { sel.champ = sel.champ === b.dataset.champ && sel.a === 'solo' ? undefined : b.dataset.champ; draw(bg); }));
       body.querySelectorAll('[data-mate]').forEach(b => b.addEventListener('click', () => { sel.mate = b.dataset.mate; draw(bg); }));
     };
     modal({
-      title: '행동 선택', body: '', wide: true,
-      buttons: [{ label: '취소', value: null }, { label: '확정', primary: true, value: 'ok' }],
+      title: opts.fixed ? '활동 세부 선택' : '활동 선택', body: '', wide: true,
+      buttons: [{ label: '취소', value: null }, { label: opts.fixed ? '이 활동으로 하루 보내기 ▶' : '확정', primary: true, value: 'ok' }],
       onOpen: bg => draw(bg),
     }).then(v => {
       if (v !== 'ok') return resolve(null);
@@ -138,26 +174,17 @@ export function pickActivity(st, current) {
   });
 }
 
-async function editSlot(i) {
-  const st = App.state;
-  const cur = todaySlots(st)[i];
-  const v = await pickActivity(st, cur);
-  if (!v) return;
-  setTodaySlot(st, i, v);
-  go('hub');
-}
-
 async function editRoutine() {
   const st = App.state;
   const order = [1, 2, 3, 4, 5, 6, 0];
   const draw = bg => {
-    bg.querySelector('.modal-body').innerHTML = `<table class="tbl"><tr><th>요일</th>${CONFIG.daily.slots.map(s => `<th>${s}</th>`).join('')}</tr>
-      ${order.map(d => `<tr><td><b>${WEEKDAY_KO[d]}</b></td>${[0, 1, 2].map(i => `<td><button class="btn sm" data-d="${d}" data-i="${i}" style="width:100%;justify-content:flex-start">${esc(slotLabel(st, st.user.routine[d][i]))}</button></td>`).join('')}</tr>`).join('')}</table>
-      <div class="small muted" style="margin-top:8px">"경기일까지 자동 진행"은 이 루틴대로 하루를 보냅니다. 경기일 저녁은 자동으로 경기입니다.</div>`;
+    bg.querySelector('.modal-body').innerHTML = `<table class="tbl"><tr><th>요일</th><th>활동 (하루 1개)</th></tr>
+      ${order.map(d => `<tr><td><b>${WEEKDAY_KO[d]}</b></td><td><button class="btn sm" data-d="${d}" style="width:100%;justify-content:flex-start">${esc(actLabel(st, st.user.routine[d]))}</button></td></tr>`).join('')}</table>
+      <div class="small muted" style="margin-top:8px">"루틴대로 하루", "일주일 넘기기", "다음 경기까지"는 이 루틴대로 하루를 보냅니다. 경기일은 활동 없이 경기만 합니다. 같은 훈련을 3일 넘게 이어 하면 효과가 줄어듭니다.</div>`;
     bg.querySelectorAll('[data-d]').forEach(b => b.addEventListener('click', async () => {
-      const d = Number(b.dataset.d), i = Number(b.dataset.i);
-      const v = await pickActivity(st, st.user.routine[d][i]);
-      if (v) { st.user.routine[d][i] = v; draw(bg); }
+      const d = Number(b.dataset.d);
+      const v = await pickActivity(st, st.user.routine[d]);
+      if (v) { st.user.routine[d] = v; draw(bg); }
     }));
   };
   await modal({ title: '주간 루틴', body: '', wide: true, buttons: [{ label: '닫기', primary: true }], onOpen: bg => draw(bg) });

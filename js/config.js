@@ -270,7 +270,12 @@ export const CONFIG = {
 
   // ---------------- 일상 ----------------
   daily: {
-    slots: ['오전', '오후', '저녁'],
+    // 하루 1개 활동: 효과(성장·숙련도·피로·멘탈·케미·팬·수입) = 예전 한 칸 × 이 배율
+    // (처음 2.5 → 경기일에 활동이 없어 하루 활동량이 예전보다 적어서 tools/sim-career.mjs 비교로 3.0에 맞춤)
+    ACTIVITY_DAY_MULTIPLIER: 3.0,
+    streakFrom: 3, streakStep: 0.15, streakMin: 0.55,   // 같은 훈련 3일째부터 -15%씩, 최소 55%
+    recoveryDay: { fatigue: 8, mental: 2, restMult: 1.3 }, // 경기 다음 날: 피로 -8, 멘탈 +2, 휴식 효과 ×1.3
+    fatigueWarn: 70,                                       // 활동 선택 화면 경고 기준 (훈련 효과 감소·부상 위험)
     fatigue: { scrim: 8, train: 7, practice: 5, solo: 6, replay: 3, rest: -18, stream: 7, bond: 1, match: 14 },
     nightRecovery: 18,
     mental: { rest: 3, stream: 1, bond: 2, solo: 0, scrim: 0 },

@@ -3,7 +3,7 @@ import { App, go, modal, toast } from './app.js';
 import { CONFIG } from '../config.js';
 import { esc, fmtDate, weekday, POS_KO, fmtTime } from '../core/util.js';
 import { beginDay, endDay, userMatchOn, simulateMatch, buildSeries, recordSeries, simOtherMatches } from '../engine/season.js';
-import { runActivity, ACTIVITIES, computeCondition } from '../engine/daily.js';
+import { runDayActivity, markMatchDay, ACTIVITIES, computeCondition } from '../engine/daily.js';
 import { decideStarter, teamInfo } from '../engine/roster.js';
 import { playSeries } from './seriesFlow.js';
 import { saveTo } from './save.js';
@@ -14,17 +14,14 @@ import * as hooks from './hooks.js';
 import { seasonTick, newSeason } from '../engine/career.js';
 import { generateTopicPosts } from '../engine/community.js';
 
-export function todaySlots(state) {
+// 오늘 활동: 직접 고른 것(dayAct) 또는 요일 루틴
+export function todayAct(state) {
   const u = state.user;
-  if (u.daySlots && u.daySlots.date === state.date) return u.daySlots.slots;
-  return u.routine[weekday(state.date)].map(s => ({ ...s }));
+  if (u.dayAct && u.dayAct.date === state.date) return { ...u.dayAct.act };
+  return { ...(u.routine[weekday(state.date)] || { a: 'rest' }) };
 }
-export function setTodaySlot(state, i, slot) {
-  const slots = todaySlots(state).map(s => ({ ...s }));
-  slots[i] = slot;
-  state.user.daySlots = { date: state.date, slots };
-}
-export function slotLabel(state, s) {
+export function setTodayAct(state, act) { state.user.dayAct = { date: state.date, act: { ...act } }; }
+export function actLabel(state, s) {
   const a = ACTIVITIES[s.a];
   if (!a) return '?';
   let extra = '';
@@ -37,25 +34,41 @@ export function slotLabel(state, s) {
 function autosave() { saveTo('auto', App.state, App.rng); }
 
 // ---------------- 하루 진행 ----------------
-export async function runDay() {
+// act: 오늘 할 활동 (없으면 루틴). 경기일은 활동 없이 경기만.
+export async function runDay(act = null) {
   const st = App.state, rng = App.rng;
   beginDay(st, rng);
   const match = userMatchOn(st, st.date);
-  const slots = todaySlots(st);
-  const n = match ? 2 : 3;
-  const logs = [];
-  for (let i = 0; i < n; i++) logs.push({ slot: CONFIG.daily.slots[i], res: runActivity(st, rng, slots[i]) });
+  if (match) {
+    markMatchDay(st);
+    const a = teamInfo(st, match.teams[0]), b = teamInfo(st, match.teams[1]);
+    await modal({
+      title: `${fmtDate(st.date)} 경기일`,
+      body: `<div class="day-card"><div class="dc-act">⚔ 경기</div><div><b>${esc(a.name)} vs ${esc(b.name)}</b> · ${esc(st.season.comps[match.compId].short)} Bo${match.bo}</div>
+        <div class="small muted">경기일에는 다른 활동 없이 경기만 합니다. 내일은 회복일입니다.</div>
+        <div class="dc-state">컨디션 ${Math.round(computeCondition(st))} · 피로 ${Math.round(st.user.fatigue)} · 멘탈 ${Math.round(st.user.mental)}</div></div>`,
+      buttons: [{ label: '경기 준비 ▶', primary: true }],
+    });
+    playUserMatch(match, () => finishDay());
+    return;
+  }
+  if (act) setTodayAct(st, act);
+  const res = runDayActivity(st, rng, todayAct(st));
   const evs = await hooks.afterActivities(st, rng, { manual: true });
   await modal({
-    title: `${fmtDate(st.date)} 하루 기록`,
-    body: `<div class="day-log">${logs.map(l => `<div class="dl-h">${l.slot} · ${ACTIVITIES[l.res.act].icon} ${ACTIVITIES[l.res.act].name}</div>${l.res.lines.map(x => `<div>${esc(x)}</div>`).join('')}`).join('')}
-      ${evs.length ? `<div class="dl-h">이벤트</div>${evs.map(x => `<div>${esc(x)}</div>`).join('')}` : ''}
-      <div class="dl-h">상태</div><div>컨디션 ${Math.round(st.user.condition)} · 피로 ${Math.round(st.user.fatigue)} · 멘탈 ${Math.round(st.user.mental)}</div>
-      ${match ? `<div class="dl-h">저녁</div><div>경기가 있습니다: <b>${esc(teamInfo(st, match.teams[0]).name)} vs ${esc(teamInfo(st, match.teams[1]).name)}</b></div>` : ''}</div>`,
-    buttons: [{ label: match ? '경기 준비 ▶' : '하루 마무리', primary: true }],
+    title: `${fmtDate(st.date)} 하루 요약`,
+    body: dayCardHTML(st, res, evs),
+    buttons: [{ label: '다음 날로 ▶', primary: true }],
   });
-  if (match) playUserMatch(match, () => finishDay());
-  else finishDay();
+  finishDay();
+}
+// 그날 결과 요약 카드
+export function dayCardHTML(st, res, evs = []) {
+  const a = ACTIVITIES[res.act];
+  return `<div class="day-card"><div class="dc-act">${a.icon} ${a.name}</div>
+    <div class="day-log">${res.lines.map(x => `<div>${esc(x)}</div>`).join('') || '<div class="muted">특별한 변화 없음</div>'}
+    ${evs.length ? `<div class="dl-h">이벤트</div>${evs.map(x => `<div>${esc(x)}</div>`).join('')}` : ''}</div>
+    <div class="dc-state">컨디션 ${Math.round(st.user.condition)} · 피로 ${Math.round(st.user.fatigue)} · 멘탈 ${Math.round(st.user.mental)}</div></div>`;
 }
 
 // 시즌 단계 전환 처리 (시즌 종료 / FA 시작 / FA 마감 / 새 시즌)
@@ -105,22 +118,22 @@ export async function finishDay(extraLines = []) {
   if (sevs.length) await handleSeasonEvents(sevs);
 }
 
-// ---------------- 경기일까지 자동 진행 ----------------
-export async function autoAdvance(maxDays = 60) {
+// ---------------- 자동 진행 (루틴대로 하루 1개 활동) ----------------
+// maxDays: 일주일 넘기기 = 7, 다음 경기까지 = 60 (경기일·부상·로스터 변동·시즌 단계에서 멈춤)
+export async function autoAdvance(maxDays = 60, title = '자동 진행') {
   const st = App.state, rng = App.rng;
-  if (userMatchOn(st, st.date)) { toast('오늘은 경기일입니다. "하루 진행"으로 경기를 준비하세요.'); return; }
+  if (userMatchOn(st, st.date)) { toast('오늘은 경기일입니다. "경기 준비"로 경기를 진행하세요.'); return; }
   const notes = [];
+  const tally = {};
   let days = 0, stopReason = '';
   while (days < maxDays) {
     beginDay(st, rng);
     if (userMatchOn(st, st.date)) { stopReason = '경기일'; break; }
-    const slots = todaySlots(st);
     const before = { inj: st.user.injury };
-    for (let i = 0; i < 3; i++) {
-      const res = runActivity(st, rng, slots[i]);
-      if (res.injury) notes.push(`${st.date} 🚑 ${res.injury.type} (${res.injury.days}일 결장)`);
-      if (res.controversy) notes.push(`${st.date} ⚠ 방송 논란`);
-    }
+    const res = runDayActivity(st, rng, todayAct(st));
+    tally[res.act] = (tally[res.act] || 0) + 1;
+    if (res.injury) notes.push(`${st.date} 🚑 ${res.injury.type} (${res.injury.days}일 결장)`);
+    if (res.controversy) notes.push(`${st.date} ⚠ 방송 논란`);
     const evs = await hooks.afterActivities(st, rng, { manual: false });
     for (const e of evs) notes.push(`${st.date} ${e}`);
     const r = endDay(st, rng);
@@ -135,10 +148,12 @@ export async function autoAdvance(maxDays = 60) {
   }
   autosave();
   go('hub');
+  const done = Object.entries(tally).map(([k, n]) => `${ACTIVITIES[k].icon} ${ACTIVITIES[k].name} ${n}일`).join(' · ');
   await modal({
-    title: `자동 진행 ${days}일`,
+    title: `${title} · ${days}일`,
     body: `<div>현재: <b>${fmtDate(st.date)}</b>${stopReason ? ` · 정지 사유: <b class="gold">${stopReason}</b>` : ''}</div>
-      <div class="small" style="margin-top:8px;max-height:360px;overflow:auto">${notes.length ? notes.map(esc).join('<br>') : '특별한 일 없이 훈련에 집중했습니다.'}</div>
+      ${done ? `<div class="small" style="margin-top:6px">${done}</div>` : ''}
+      <div class="small" style="margin-top:8px;max-height:360px;overflow:auto">${notes.length ? notes.map(esc).join('<br>') : '특별한 일 없이 루틴대로 보냈습니다.'}</div>
       <div class="small muted" style="margin-top:8px">컨디션 ${Math.round(st.user.condition)} · 피로 ${Math.round(st.user.fatigue)} · 멘탈 ${Math.round(st.user.mental)}</div>`,
     buttons: [{ label: '확인', primary: true }],
   });

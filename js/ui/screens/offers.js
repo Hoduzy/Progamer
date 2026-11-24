@@ -59,7 +59,7 @@ function render(root) {
     createSeason(state, rng);
     addMsg(state, `감독 ${t.coach.nick}`, '입단을 환영한다', `${u.nick}, ${t.name}에 온 걸 환영한다. 처음엔 2군(LCK CL)에서 시작하지만, 실력만 증명하면 언제든 1군으로 올린다. 주전 ${state.players[o.rivalId].nick}을(를) 넘어서 봐라.`);
     addMsg(state, '에이전트', '계약 완료', `${t.name}와(과) ${o.years}년 계약을 마쳤습니다. 연봉은 ${fmtWon(o.salary)}입니다. 컨디션 관리 잘 하시고, 필요한 일 있으면 언제든 연락 주세요.`);
-    addMsg(state, '팀 매니저', '일정 안내', '하루는 오전/오후/저녁 3칸입니다. 칸마다 스크림·훈련·솔로 랭크 등을 고르세요. 경기가 있는 날 저녁은 경기입니다. 피로가 쌓이면 부상 위험이 생깁니다.');
+    addMsg(state, '팀 매니저', '일정 안내', '하루에 활동 하나를 고릅니다 (스크림·개인 훈련·챔피언 연습·솔로 랭크·리플레이 분석·휴식·개인 방송·팀원과 시간). 경기가 있는 날은 경기만 하고, 다음 날은 회복일입니다. 같은 훈련만 계속하면 효과가 줄고, 피로가 70을 넘으면 훈련 효과가 떨어지고 부상 위험이 생깁니다.');
     addNews(state, `[오피셜] ${t.name}, 신인 ${u.nick}(${POS_KO[u.pos]}) 2군 영입`, 'roster');
     App.state = state;
     saveTo('auto', state, rng);
