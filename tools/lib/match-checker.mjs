@@ -36,7 +36,61 @@ export const stats = {
   objTime: {}, plan: {}, task: {}, earlyMid: [0, 0], side: [0, 0], scenes: 0, blueWins: 0, timeouts: 0,
   firstTower: [], objCount: {}, violByGame: {}, sceneIds: {}, killBy: {}, killLabel: {}, fr: {},
   kpos: {}, apos: {}, supRank: [0, 0, 0, 0, 0], objScenes: 0, objCombos: {}, recentTitles: [], ks: 0,
+  objOut: {}, baronSwing: [], baronGames: 0, baronWins: 0, flips: 0,
 };
+
+// ---- 오브젝트 운영 통계: 한타/교환/견제/포기, 바론 후 골드 격차, 진입·후퇴 반복 (11) ----
+const TRACK = ['dragon', 'baron', 'elder'];
+const goldOf = s => s.players.reduce((a, p) => a + p.gold, 0);
+function trackStrat(g, evs, st, seed) {
+  for (const e of evs) {
+    if (e.type === 'spawn' && TRACK.includes(e.obj)) st.inst[e.obj] = { t: g.t, fight: false, contest: false, trade: [false, false] };
+    if (FIGHT_TYPES.includes(e.type) && e.pos) {
+      for (const k of TRACK) {
+        const I = st.inst[k];
+        if (!I) continue;
+        if (e.obj === k || d2(e.pos, geo.OBJ_POS[k]) <= CONFIG.scene.obj.radius) { if (e.type === 'teamfight') I.fight = true; else I.contest = true; }
+      }
+    }
+    if (STRUCT_TYPES.includes(e.type)) for (const k of TRACK) { const I = st.inst[k]; if (I) I.trade[e.side] = true; }
+    if (TRACK.includes(e.type) && st.inst[e.type]) {
+      const I = st.inst[e.type], taker = e.side;
+      const cls = I.fight ? 'fight' : I.trade[1 - taker] ? 'trade' : I.contest ? 'contest' : 'concede';
+      const o = stats.objOut[e.type] || (stats.objOut[e.type] = { fight: 0, trade: 0, contest: 0, concede: 0 });
+      o[cls]++;
+      delete st.inst[e.type];
+      if (e.type === 'baron') {
+        // 처치 직전(바론 보상 지급 전) 대비: 보상 = 생존자 1인당 baronPerAlive
+        const reward = g.sides[taker].players.filter(p => p.alive).length * CONFIG.match.gold.baronPerAlive;
+        st.baron.push({ side: taker, t: g.t, d0: goldOf(g.sides[taker]) - goldOf(g.sides[1 - taker]) - reward });
+        if (st.firstBaron === null) st.firstBaron = taker;
+      }
+    }
+  }
+  for (const b of st.baron) if (!b.done && (g.t >= b.t + CONFIG.match.objectives.baronBuff || g.over)) { b.done = true; stats.baronSwing.push(goldOf(g.sides[b.side]) - goldOf(g.sides[1 - b.side]) - b.d0); }
+  // 진입(오브젝트 처치·견제 계획) ↔ 후퇴(오브젝트가 살아 있는데 그 계획을 버림) 전환이 30초 안에 3번 이상
+  for (const s of g.sides) {
+    const p = s.plan;
+    const cur = p && (p.kind === 'objTake' || p.kind === 'objContest') ? p.key : null;
+    const prev = st.flipState[s.idx];
+    // 진입 = 오브젝트 계획이 아니다가 들어감, 후퇴 = 오브젝트가 살아 있는데 오브젝트 계획을 버림 (오브젝트끼리 옮겨 가는 건 제외)
+    const objPlan = p && ['objSetup', 'objTake', 'objContest'].includes(p.kind);
+    const prevObjPlan = st.prevObjPlan[s.idx];
+    if (!prev && cur && !p.forced && !prevObjPlan) st.flip[s.idx].push(g.t);   // 진입: 오브젝트와 무관한 계획에서 들어감 (장면 선택 강제 계획 제외)
+    else if (prev && !objPlan && g.obj[prev] && g.obj[prev].alive) st.flip[s.idx].push(g.t);   // 후퇴: 오브젝트 계획을 아예 떠남
+    st.prevObjPlan[s.idx] = objPlan;
+    st.flipState[s.idx] = cur;
+    const lab = p ? `${p.kind}${p.key ? ':' + p.key : ''}` : '-';
+    const ph = st.planHist[s.idx];
+    if (!ph.length || ph[ph.length - 1].l !== lab) ph.push({ t: g.t, l: lab });
+    while (ph.length && ph[0].t < g.t - 40) ph.shift();
+    st.flip[s.idx] = st.flip[s.idx].filter(x => x > g.t - 30);
+    if (st.flip[s.idx].length >= 3 && g.t >= st.flipCd[s.idx]) {
+      V_('11 진입·후퇴 반복', seed, g.t, `${s.idx === 0 ? '블루' : '레드'} 30초 안에 오브젝트 진입·후퇴 ${st.flip[s.idx].length}번 전환: ${st.planHist[s.idx].map(x => fmt(x.t) + ' ' + x.l).join(' → ')}`);
+      stats.flips++; st.flipCd[s.idx] = g.t + 30;
+    }
+  }
+}
 
 function makeTeam(rng, id, target) {
   const players = POS.map(p => makePlayer(rng, { nick: id + p, pos: p, age: 21, target: target + rng.int(-4, 4) }));
@@ -69,6 +123,8 @@ export function runChecked(g, seed, { chooseOpt = null, stopAt = Infinity, onTic
   const prev = {};
   for (const p of ps) prev[p.pid] = [p.x, p.y, true];
   let guard = 0;
+  const strat = { inst: {}, baron: [], flip: [[], []], flipState: [null, null], flipCd: [0, 0], firstBaron: null, planHist: [[], []], prevObjPlan: [false, false] };
+  g.__strat = strat;
   takeSnap(g);
   while (!g.over && guard++ < 1200 && g.t < stopAt) {
     const r = step(g);
@@ -110,8 +166,10 @@ export function runChecked(g, seed, { chooseOpt = null, stopAt = Infinity, onTic
         } else if (mv.kind === 'recall') {
           if (d2(mv.to, geo.fountain(p.side)) > TOL) V_('2 이동 속도', seed, t, `${p.nick} 귀환 위치가 우물이 아님`);
           // 8초 채널링: 직전 두 틱 동안 제자리
-          const h1 = hist[hist.length - 2], h2 = hist[hist.length - 3];
-          if (!h1 || !h2 || d2(h1.pos[p.pid], mv.from) > TOL || d2(h2.pos[p.pid], mv.from) > TOL) V_('2 이동 속도', seed, t, `${p.nick} 귀환 채널링 없이 순간이동`);
+          // 채널링 시간(버프 중엔 짧음)만큼 직전 틱들에 제자리
+          const chan = g.sides[p.side].baronUntil >= t - dt ? S.recallChannelBaron : S.recallChannel;
+          const need = Math.ceil(chan / dt);
+          for (let k = 2; k < 2 + need; k++) { const h = hist[hist.length - k]; if (!h || d2(h.pos[p.pid], mv.from) > TOL) { V_('2 이동 속도', seed, t, `${p.nick} 귀환 채널링 없이 순간이동`); break; } }
         } else if (mv.kind === 'tp') {
           const h1 = hist[hist.length - 2];
           if (!h1 || d2(h1.pos[p.pid], mv.from) > TOL) V_('2 이동 속도', seed, t, `${p.nick} 텔레포트 채널링 없음`);
@@ -124,6 +182,7 @@ export function runChecked(g, seed, { chooseOpt = null, stopAt = Infinity, onTic
     }
     // ---- 이벤트 (1, 3, 4, 5, 6, 10) ----
     for (const e of evs) checkEvent_(g, e, seed, hist, prev, presence, spawned, destroyed, inhibDown);
+    trackStrat(g, evs, strat, seed);
     // 오브젝트 둥지 체류 (이벤트 처리 후 갱신 → 처치 틱 포함)
     OBJ_TYPES.forEach((k, ki) => {
       for (const s of [0, 1]) {
@@ -157,6 +216,7 @@ function finishGame(g, seed) {
   stats.dur.push(g.t / 60);
   stats.kills.push(g.sides[0].kills + g.sides[1].kills);
   if (g.winner === 0) stats.blueWins++;
+  if (g.__strat && g.__strat.firstBaron !== null) { stats.baronGames++; if (g.winner === g.__strat.firstBaron) stats.baronWins++; }
   // 포지션별 킬·어시스트
   for (const s of g.sides) {
     for (const p of s.players) { stats.kpos[p.pos] = (stats.kpos[p.pos] || 0) + p.k; stats.apos[p.pos] = (stats.apos[p.pos] || 0) + p.a; }
@@ -356,7 +416,7 @@ const pct = (a, b) => (b ? (a / b * 100).toFixed(1) + '%' : '-');
 const quant = (a, q) => { const s = a.slice().sort((x, y) => x - y); return s[Math.floor(q * (s.length - 1))]; };
 
 console.log(`[위반] 총 ${violTotal}건`);
-const CHECKS = ['1 위치', '2 이동 속도', '3 사망자', '4 오브젝트', '5 구조물·넥서스', '6 한타 표기', '7 초반 미드 뭉침', '8 사이드 운영', '9 주요 장면', '10 문자중계'];
+const CHECKS = ['1 위치', '2 이동 속도', '3 사망자', '4 오브젝트', '5 구조물·넥서스', '6 한타 표기', '7 초반 미드 뭉침', '8 사이드 운영', '9 주요 장면', '10 문자중계', '11 진입·후퇴 반복'];
 const em = stats.earlyMid[0] / Math.max(1, stats.earlyMid[1]);
 const sd = stats.side[0] / Math.max(1, stats.side[1]);
 if (em >= V.earlyMidStackMax) V_('7 초반 미드 뭉침', 'ALL', 0, `0~14분 5명 미드 비율 ${pct(stats.earlyMid[0], stats.earlyMid[1])} ≥ ${V.earlyMidStackMax * 100}%`);
@@ -408,6 +468,21 @@ if (opts.SCENES) {
   for (const [k, n] of comboTop) console.log(`      ${k}  ${n}회 (${(n / Math.max(1, stats.objScenes) * 100).toFixed(1)}%)`);
 }
 statOk.push(...shareOk, assistOk, comboOk);
+// 오브젝트 운영
+const KO_OUT = { fight: '한타', trade: '교환', contest: '견제', concede: '포기' };
+for (const k of TRACK) {
+  const o = stats.objOut[k]; if (!o) continue;
+  const n = o.fight + o.trade + o.contest + o.concede;
+  const r = o.fight / Math.max(1, n), [lo, hi] = V.objFightRate[k];
+  const ok = r >= lo && r <= hi; statOk.push(ok);
+  console.log(`  ${ok ? '✓' : '✗'} ${k.padEnd(6)} ${n}회 중 ${Object.entries(o).map(([c, v]) => `${KO_OUT[c]} ${(v / Math.max(1, n) * 100).toFixed(1)}%`).join(' · ')} (한타 목표 ${Math.round(lo * 100)}~${Math.round(hi * 100)}%)`);
+}
+const bs = stats.baronSwing, bsAvg = avg(bs), bs90 = bs.length ? quant(bs, 0.9) : 0;
+const bsOk = bsAvg >= V.baronSwing[0] && bsAvg <= V.baronSwing[1] && bs90 >= V.baronSwingP90;
+const bwr = stats.baronWins / Math.max(1, stats.baronGames), bwOk = bwr >= V.baronWinRate[0] && bwr <= V.baronWinRate[1];
+statOk.push(bsOk, bwOk);
+console.log(`  ${bsOk ? '✓' : '✗'} 바론 처치 직전 → 버프 종료 골드 격차 증가: 평균 ${Math.round(bsAvg)} (목표 ${V.baronSwing.join('~')}) · 10%/50%/90% ${Math.round(quant(bs, 0.1) || 0)}/${Math.round(quant(bs, 0.5) || 0)}/${Math.round(bs90)} (상위 10% 목표 ${V.baronSwingP90} 이상)`);
+console.log(`  ${bwOk ? '✓' : '✗'} 첫 바론 처치 팀 승률 ${(bwr * 100).toFixed(1)}% (${stats.baronGames}경기, 목표 ${Math.round(V.baronWinRate[0] * 100)}~${Math.round(V.baronWinRate[1] * 100)}%) · 진입·후퇴 반복 ${stats.flips}건`);
 const durOk = avg(stats.dur) >= V.durationMin[0] && avg(stats.dur) <= V.durationMin[1];
 const killOk = avg(stats.kills) >= V.killsAvg[0] && avg(stats.kills) <= V.killsAvg[1];
 console.log(`\n[목표 범위] 경기 시간 ${durOk ? '✓' : '✗'} · 킬 ${killOk ? '✓' : '✗'} · 한타 분포·킬 비율·어시스트·장면 조합 ${statOk.every(Boolean) ? '✓' : '✗'}`);

@@ -16,7 +16,8 @@ const meta = newMeta(rng, 2026);
 const S = CONFIG.scene;
 
 function makeTeam(id, target, userPos = null) {
-  const players = POS.map(p => makePlayer(rng, { nick: id + p, pos: p, age: 20, target: target + rng.int(-6, 6) }));
+  // 사용자 선수는 게임처럼 튀는 능력치·유망주 보정 없이 (능력치 성향은 플레이 스타일로 정해짐)
+  const players = POS.map(p => makePlayer(rng, { nick: id + p, pos: p, age: 20, target: target + rng.int(-6, 6), ...(p === userPos ? { spikes: 0, exact: true } : {}) }));
   const picks = POS.map(p => rng.pick(champsForPos(p)));
   players.forEach((pl, i) => { pl.champs[picks[i]] = rng.int(10, 95); });
   return { team: { id, code: id, name: id }, players, picks };
@@ -28,7 +29,7 @@ for (const sc of SCENARIOS) stats[sc.id] = { sc, n: 0, min: 100, max: 0, best: s
 let ctxCount = 0;
 for (let i = 0; i < N; i++) {
   const pos = POS[i % 5];
-  const A = makeTeam('A', rng.int(62, 88)), B = makeTeam('B', rng.int(62, 88));
+  const A = makeTeam('A', rng.int(62, 88), pos), B = makeTeam('B', rng.int(62, 88));
   const user = A.players[POS.indexOf(pos)];
   const g = createMatch({ blue: A, red: B, seed: rng.int(1, 1e9), meta, userPid: user.id, scenes: false });
   const stopAt = rng.int(15, 200) * 10;

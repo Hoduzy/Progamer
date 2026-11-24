@@ -8,6 +8,7 @@ import { clamp, avg, POS } from '../core/util.js';
 import { CHAMPIONS } from '../../data/champions.js';
 import { BUILDS, BUILD_OVERRIDE, SPELL_BY_POS } from '../../data/items.js';
 import * as geo from './mapgeo.js';
+import { ovr } from './players.js';
 import {
   allPlayers, alive, teamGold, goldDiff, enemyOf, byPos, userPlayer, emit, towersStanding, compTraits, SIM,
 } from './matchcore.js';
@@ -68,7 +69,7 @@ function mkSide(g, idx, src, userMods) {
     dragons: [], soul: null, grubs: 0, heralds: 0, barons: 0, elders: 0, atakhan: 0,
     baronUntil: 0, elderUntil: 0, heraldEye: null,
     wards: [], plan: null, planLabel: '', planTime: {}, sideLaners: [], sideLaneOf: {},
-    force: null, concede: {}, contestMemo: {}, siegeBoost: 1, siegeBoostUntil: 0, fightBoost: 0, fightBoostUntil: 0,
+    force: null, concede: {}, contestMemo: {}, objStance: {}, siegeBoost: 1, siegeBoostUntil: 0, fightBoost: 0, fightBoostUntil: 0,
     lastWin: null, lastLoss: null,
     mental: avg(players.map(p => p.st.mental)) + (src.mentalBonus || 0),
     chem: src.chem || 0,
@@ -85,7 +86,7 @@ function mkPlayer(g, pl, champ, side, pos, userMods) {
   }
   const build = BUILDS[BUILD_OVERRIDE[champ] || (CHAMPIONS[champ] ? CHAMPIONS[champ].cls : 'bruiser')] || BUILDS.bruiser;
   return {
-    pid: pl.id, nick: pl.nick, pos, side, champ, st, perf, isUser,
+    pid: pl.id, nick: pl.nick, pos, side, champ, st, perf, isUser, ovr: pl.stats ? ovr(pl) : 75,
     mastery: (pl.champs && pl.champs[champ]) || 0,
     level: 1, xp: 0, cs: 0, gold: 500, spent: 0, items: [], build, buildIdx: 0,
     k: 0, d: 0, a: 0, alive: true, respawnAt: 0, hp: 1, mana: 1,

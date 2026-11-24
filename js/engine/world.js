@@ -44,13 +44,19 @@ export function income(g) {
       const farmSkill = ((p.st.laning + p.st.mechanics) / 2 - 70) * M.farmSkillEffect;
       // 실제로 파밍 중인지: 웨이브 근처 / 정글 캠프 정리 중
       const farming = p.task && (p.task.kind === 'camp' || p.task.kind === 'lane' || p.task.kind === 'side') ? 1 : nearWave(g, p) ? 0.95 : 0.72;
-      const mult = clamp(0.92 + farmSkill + laneMod + p.perf * 0.004, 0.6, 1.4) * farming;
+      // 바론 강화 미니언: 버프 팀은 웨이브를 더 빨리 밀어 파밍이 늘고, 상대는 웨이브를 받아내느라 파밍을 잃는다
+      const E = g.sides[1 - s.idx];
+      const baronWave = s.baronUntil > g.t ? M.sim.baronFarmMult : E.baronUntil > g.t ? M.sim.baronDenyMult : 1;
+      const mult = clamp(0.92 + farmSkill + laneMod + p.perf * 0.004, 0.6, 1.4) * farming * baronWave;
       if (g.t > 65) {
         p.gold += M.gpm[p.pos] * d * late * mult;
         p.csFrac += M.csPerMin[p.pos] * d * (0.9 + 0.2 * clamp(g.t / 1800, 0, 1)) * mult;
         const whole = Math.floor(p.csFrac); p.cs += whole; p.csFrac -= whole;
       }
-      p.xp += M.xpPerMin[p.pos] * d * (1 + 0.35 * clamp(g.t / 1800, 0, 1.3)) * clamp(mult, 0.75, 1.2);
+      // 따라잡기 경험치: 상대 팀 평균 레벨보다 낮으면 1레벨당 +catchUpXp (최대 catchUpMax)
+      const eLvl = E.players.reduce((a, q) => a + q.level, 0) / 5;
+      const catchUp = 1 + clamp((eLvl - p.level) * M.catchUpXp, 0, M.catchUpMax);
+      p.xp += M.xpPerMin[p.pos] * d * (1 + 0.35 * clamp(g.t / 1800, 0, 1.3)) * clamp(mult, 0.75, 1.2) * catchUp;
       while (p.level < 18 && p.xp >= M.xpTable[p.level]) p.level++;
       p.mana = clamp(p.mana + g.rng.float(-0.06, 0.09), 0.1, 1);
     }
@@ -195,8 +201,10 @@ export function structures(g) {
       }
       if (!nexusOk || (!attackers.length && !minions)) continue;
       const m = structMult(g, A, t);
-      let dmg = attackers.length * S.champStructDps * m * d;
-      if (minions) dmg += S.minionStructDps * d * (t.kind === 'nexusTower' ? S.superMinionMult : 1) * (A.baronUntil > g.t ? 2 : 1);
+      // 후반(완성 아이템): 일정 시각 이후 1분마다 챔피언 구조물 피해 증가 — 동률 장기전이 끝없이 이어지지 않게
+      const late = 1 + Math.max(0, (g.t - S.lateStructFrom) / 60) * S.lateStructPerMin + Math.max(0, (g.t - S.veryLateFrom) / 60) * S.veryLatePerMin;
+      let dmg = attackers.length * S.champStructDps * m * d * late;
+      if (minions) dmg += S.minionStructDps * d * (t.kind === 'nexusTower' ? S.superMinionMult : 1) * (A.baronUntil > g.t && attackers.length ? S.baronMinionMult : 1);   // 버프 선수 근처 미니언 강화
       const hp = getHp(D, t) - dmg / hpMult(t);
       setHp(D, t, Math.max(0, hp));
       if (hp <= 0) { destroyStructure(g, A.idx, t, attackers, minions, false); if (g.over) return; continue; }
@@ -238,6 +246,7 @@ export function destroyStructure(g, attIdx, t, attackers, minions, herald) {
     g.over = true; g.winner = attIdx;
   }
   const al = alive(A);
+  gold += objBounty(g, attIdx, t.kind === 'tower' ? 'tower' : 'other');
   for (const p of (al.length ? al : A.players)) p.gold += gold / Math.max(1, al.length || 5);
   return ev;
 }
@@ -328,6 +337,9 @@ export function objectives(g) {
       if (!mem[X].length) { o.prog = null; continue; }
       const busy = mem[X].filter(p => !p.fightId);
       if (!busy.length) continue;              // 둥지 안에서 교전 중이면 멈춤
+      // 큰 오브젝트는 치는 동안 체력이 깎인다 (처치 중에 들어오는 상대에게 기회)
+      const dr = SIM().objDrain[k];
+      if (dr) for (const p of busy) p.hp = Math.max(SIM().objDrainFloor, p.hp - dr * d * (p.pos === 'TOP' || p.pos === 'JGL' ? 1.3 : 0.85));
       o.prog.need = objNeed(g, k, X, busy.length);
       o.prog.val += d / o.prog.need;
       o.prog.n = busy.length;
@@ -349,7 +361,7 @@ function completeObjective(g, k, X, mem) {
   if (['dragon', 'baron', 'elder'].includes(k)) {
     const ej = byPos(g.sides[1 - X], 'JGL');
     if (ej.alive && !ej.chan && distTo(ej, geo.OBJ_POS[k]) <= geo.PIT_RADIUS + 0.02 && g.t >= (ej.smiteAt || 0)) {
-      const p = S.stealBase + (ej.st.mechanics - 75) * S.stealPerMech;
+      const p = S.stealBase + (ej.st.mechanics - 75) * S.stealPerMech + (ej.ovr >= CONFIG.stars.starOvr ? CONFIG.stars.carry.steal : 0);
       if (g.rng.chance(clamp(p, 0.02, 0.35))) { side = 1 - X; stolen = true; parts = [ej.pid, ...mem[1 - X].filter(q => q !== ej).map(q => q.pid)]; }
     }
   }
@@ -357,6 +369,15 @@ function completeObjective(g, k, X, mem) {
   o.prog = null;
   takeObjective(g, side, k, { stolen, parts, progSide, start });
 }
+
+// 오브젝트 현상금: 크게 뒤진 팀이 포탑·오브젝트를 가져가면 추가 팀 골드 (역전 여지)
+export function objBounty(g, sideIdx, kind) {
+  const B = CONFIG.match.gold.objBounty;
+  const lead = sideIdx === 0 ? goldDiffAll(g) : -goldDiffAll(g);
+  if (lead > -B.gap || !B[kind]) return 0;
+  return Math.round(B[kind] * Math.min(1, (-lead - B.gap) / B.gap + 0.5));
+}
+const goldDiffAll = g => g.sides[0].players.reduce((a, p) => a + p.gold, 0) - g.sides[1].players.reduce((a, p) => a + p.gold, 0);
 
 export function takeObjective(g, sideIdx, key, opts = {}) {
   const G = CONFIG.match.gold, O = CONFIG.match.objectives;
@@ -366,6 +387,8 @@ export function takeObjective(g, sideIdx, key, opts = {}) {
   o.alive = false;
   const al = alive(S);
   const share = gold => { for (const p of (al.length ? al : S.players)) p.gold += gold / Math.max(1, al.length || 5); };
+  const bounty = objBounty(g, sideIdx, key);
+  if (bounty) share(bounty);
   const base = { side: sideIdx, stolen: !!opts.stolen, pos: geo.OBJ_POS[key].slice(), parts: opts.parts || [], progSide: opts.progSide, start: opts.start, spawnedAt: o.spawnedAt, obj: key };
   let ev;
   if (key === 'dragon') {
@@ -387,7 +410,7 @@ export function takeObjective(g, sideIdx, key, opts = {}) {
     ev = emit(g, { type: 'elder', big: true, ...base });
   } else if (key === 'baron') {
     S.baronUntil = g.t + O.baronBuff; S.barons++;
-    for (const p of al) p.gold += G.baron / 5;
+    for (const p of al) p.gold += G.baronPerAlive;   // 생존자 1인당
     o.next = g.t + O.baronRespawn;
     ev = emit(g, { type: 'baron', big: true, ...base });
   } else if (key === 'grubs') {

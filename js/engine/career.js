@@ -1,7 +1,7 @@
 // 계약·연봉·FA·이적·노화·은퇴·신인·다음 시즌
 import { CONFIG } from '../config.js';
 import { clamp, avg, POS, dateAdd, STAT_KEYS } from '../core/util.js';
-import { ovr, makePlayer, marketValue, emptySeason, potentialGrade } from './players.js';
+import { ovr, makePlayer, marketValue, emptySeason, potentialGrade, assignStarAliases } from './players.js';
 import { addNews, addMsg, regionTarget, competitorOf } from './state.js';
 import { createSeason, lckRegularStandings, lckIds } from './season.js';
 import { REGIONS } from '../../data/teams.js';
@@ -210,7 +210,7 @@ function signPlayer(state, team, pid, squad, years, rng) {
 }
 
 function newRookie(state, rng, team, pos, squad) {
-  const base = regionTarget(team.tier, team.region) + (squad === 'academy' ? CONFIG.academyOffset : -4);
+  const base = regionTarget(team.tier, team.region) + (squad === 'academy' ? CONFIG.academyOffset : CONFIG.rookieMainOffset);
   const p = makePlayer(rng, { nick: state.namePool.pop() || 'Rookie' + rng.int(100, 999), pos, age: rng.int(17, 19), target: base + rng.int(-3, 4), teamId: team.id, squad, region: team.region, season: state.year + 1 });
   p.contract = { salary: marketValue(p), endSeason: state.year + rng.int(1, 2), buyout: 0, starter: false };
   state.players[p.id] = p;
@@ -300,9 +300,11 @@ function agePlayers(state, rng) {
       continue;
     }
     const af = G.ageFactor[p.age] ?? 0.1;
+    // 성장: 잠재력(최대 OVR)까지 남은 폭에 비례 — 높은 등급 유망주는 2~3년 안에 스타가 된다
+    const gap = p.hidden.potential - ovr(p);
+    const up = p.age < G.declineStartAge && gap > 0 ? Math.min(gap, gap * CONFIG.stars.growK * af * p.hidden.growth * rng.float(0.7, 1.3)) : 0;
     for (const k of STAT_KEYS) {
-      let v = p.stats[k];
-      if (p.age < G.declineStartAge && v < p.hidden.potential) v += rng.float(0, G.aiSeasonGrowth * 2) * af * p.hidden.growth;
+      let v = p.stats[k] + up;
       if (p.age >= G.declineStartAge) {
         const d = G.declinePerYear[Math.min(G.declinePerYear.length - 1, p.age - G.declineStartAge)] || 4;
         if (['mechanics', 'stamina', 'laning'].includes(k)) v -= d * rng.float(0.6, 1.3);
@@ -356,6 +358,12 @@ export function newSeason(state, rng) {
   // 노화·은퇴·신인
   agePlayers(state, rng);
   for (const t of Object.values(state.teams)) fillTeam(state, rng, t);
+  // 새 슈퍼스타 별명 (LCK·해외 모두, 뉴스는 LCK·국제 무대 선수만)
+  for (const p of assignStarAliases(state, rng)) {
+    const t = state.teams[p.teamId];
+    if (p.isUser) addNews(state, `[커뮤니티] 팬들이 당신을 '${p.alias}'(이)라고 부르기 시작했습니다`, 'award');
+    else if (t) addNews(state, `${t.name} ${p.nick}, 리그 정상급으로 성장… 팬들 사이 별명은 '${p.alias}'`, 'roster');
+  }
   // 팀 티어 갱신
   for (const t of Object.values(state.teams)) {
     const s = teamStrength(state, t.id);

@@ -239,6 +239,18 @@ function starOf(state, teamId, pos, rng) {
   return state.players[pool[0]].nick;
 }
 
+// 별명이 붙은 슈퍼스타 (사용자 제외): {슈퍼스타} {별명} {슈퍼스타팀}, 사용자 별명: {내별명}
+function superstarVars(state, rng, u) {
+  const stars = Object.values(state.players).filter(p => p.alias && !p.isUser && p.teamId && state.teams[p.teamId] && p.squad === 'main');
+  const lck = stars.filter(p => state.teams[p.teamId].region === 'LCK');
+  const s = (lck.length && rng.chance(0.75)) ? rng.pick(lck) : stars.length ? rng.pick(stars) : null;
+  const t = s && state.teams[s.teamId];
+  return {
+    슈퍼스타: s ? s.nick : null, 별명: s ? s.alias : null, 슈퍼스타팀: t ? (D.TEAM_NICK[t.code] || t.name) : null,
+    내별명: u.alias || null,
+  };
+}
+
 export function buildContext(state, rng, info = {}) {
   const u = state.players[state.user.pid];
   const team = u.teamId ? state.teams[u.teamId] : null;
@@ -288,6 +300,7 @@ export function buildContext(state, rng, info = {}) {
     라이벌: rivalId ? state.players[rivalId].nick : null, 상대선수: info.played ? info.laneOpp : null, 장면: info.moment || null,
     다른팀: o1 ? (D.TEAM_NICK[o1] || state.teams[o1].name) : null, 다른팀2: o2 ? (D.TEAM_NICK[o2] || state.teams[o2].name) : null,
     다른선수: o1 ? starOf(state, o1, u.pos, rng) : null,
+    ...superstarVars(state, rng, u),
     순위: hasMatch ? myRank(state, info) : null,
     메타챔: (metaOP.length || meta1.length) ? champName(rng.pick(metaOP.length ? metaOP : meta1)) : null, 패치: state.meta.version,
     다음상대: nextOpp(state), 연승: st.w >= 2 ? st.w : null, 연패: st.l >= 2 ? st.l : null, 국제대회: intlName(state),

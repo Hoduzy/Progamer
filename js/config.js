@@ -26,18 +26,24 @@ export const CONFIG = {
     xpTable: [0, 280, 660, 1140, 1720, 2400, 3180, 4060, 5040, 6120, 7300, 8580, 9960, 11440, 13020, 14700, 16480, 18360],
     deathTimer: [6, 6, 8, 8, 10, 12, 16, 21, 26, 32.5, 35, 37.5, 40, 42.5, 45, 47.5, 50, 52.5],
     deathTimerLateMult: 0.012, // 15분 이후 1분당 부활 시간 +1.2%
+    catchUpXp: 0.35, catchUpMax: 1.0,  // 상대 평균보다 레벨이 낮으면 1레벨당 경험치 +35% (최대 +100%)
     gold: {
-      kill: 300, firstBlood: 100, assistPool: 150, bountyPerStreak: 100, maxBounty: 600,
+      kill: 250, firstBlood: 100, assistPool: 120, bountyPerStreak: 150, maxBounty: 1000,
+      goldBountyFrom: 1000, goldBountyPerK: 150,   // 같은 포지션 평균보다 1천 넘게 번 선수: 초과 1천당 현상금 150
       towerOuterEarly: 650,    // 14분 전 외곽 포탑 (방패 골드 포함, 팀 전체)
-      towerOuter: 350, towerInner: 400, towerInhib: 350, inhib: 100, nexusTower: 100,
-      dragon: 150, grubs: 180, herald: 200, baron: 1500, elder: 250, atakhan: 300,
+      towerOuter: 350, towerInner: 300, towerInhib: 350, inhib: 100, nexusTower: 100,
+      dragon: 150, grubs: 180, herald: 200, elder: 250, atakhan: 300,
+      baronPerAlive: 300,      // 바론: 처치 팀 생존자 1인당 (버프는 공성 능력으로만)
+      objBounty: { gap: 3000, tower: 150, dragon: 200, baron: 1000, elder: 300, herald: 150 },  // 이만큼 뒤진 팀이 가져가면 추가 팀 골드
     },
     // 선수 파워 (교전 피해량에 반영)
     power: {
       goldPerK: 0.9,           // 선수 골드가 같은 포지션 평균보다 1천 많을 때마다
-      levelPer: 0.9,           // 레벨 1 차이당
+      goldSoftK: 1.5, goldSoftMult: 0.4,   // 1.5천 골드를 넘는 차이는 40%만 반영
+      levelPer: 0.55,          // 레벨 1 차이당
       compWeight: 0.55,        // 조합 한타·이니시 (3명 이상 교전에서만)
-      mentalBehindGap: 2000,
+      mentalBehindGap: 2000, baseDefense: 0.15,
+      refLevel: 72.8,          // 교전 피해 기준 경기 수준 (10명 평균 능력치 파워 + 숙련도, 검사기 무작위 팀 평균)
     },
     // ---- 시뮬레이션 (계획 → 이동 → 도착 → 판정) ----
     sim: {
@@ -56,42 +62,68 @@ export const CONFIG = {
       engageRange: 0.065,      // 적과 이 거리 안이면 교전 개시 판정
       fightRadius: 0.085,      // 교전 중심에서 이 거리 안이면 참여
       joinRange: 0.30,         // 아군 교전에 합류하러 가는 거리
-      fightMaxTicks: 5,
-      dps: 0.052,              // 기본 초당 피해 (체력 1 = 한 명)
+      fightMaxTicks: 4, fightMaxTicksBig: 5,   // 교전 최대 길이(틱): 소규모 / 8명 이상
+      fightSwing: 0.4,         // 교전마다 팀 집중력 (피해 배율 e^N(0,σ))
+      dps: 0.045,              // 기본 초당 피해 (체력 1 = 한 명)
       powScale: 10,            // 파워 10 차이당 피해 e배
       focus: 0.6,              // 같은 대상을 집중 공격할 확률
-      fleeHp: 0.2,             // 이 체력 아래면 도주
-      fleeRatio: 0.5,          // 남은 전력이 상대의 이 비율 아래면 팀 전체 후퇴
-      fleeRatioBig: 0.3,       // 8명 이상 큰 교전 후퇴 기준 (더 오래 버팀)
-      bigFightDps: 1.3,        // 8명 이상 큰 교전 피해 배율 (첫 교환에서 양쪽 모두 쓰러짐)
-      fleeHpBig: 0.1,          // 큰 교전 개인 도주 체력
-      mutualDisengage: 0.36,   // 큰 교전 첫 5초 뒤 팽팽하면 양 팀이 빠질 확률
-      catchSmall: 0.45,        // 5명 이하 교전에서 잡힐 확률 배율 (도주가 쉬움)
+      fleeHp: 0.28,            // 이 체력 아래면 도주
+      fleeRatio: 0.65,         // 남은 전력이 상대의 이 비율 아래면 팀 전체 후퇴
+      fleeRatioBig: 0.35,       // 8명 이상 큰 교전 후퇴 기준 (더 오래 버팀)
+      bigFightDps: 2.6,         // 8명 이상 큰 교전 피해 배율 (본 교전)
+      bigFightOpen: 1.6,        // 큰 교전 첫 교환(5초) 피해 배율
+      fleeHpBig: 0.08,          // 큰 교전 개인 도주 체력
+      lastFleeHp: 0.7, lastEscape: 0.4,   // 큰 교전에서 혼자 남으면 체력 70% 아래에서 빠지고, 잡힐 확률 40%
+      mutualDisengage: 0.38,   // 큰 교전 첫 5초 뒤 팽팽하면 양 팀이 빠질 확률
+      catchSmall: 0.3,         // 5명 이하 교전에서 잡힐 확률 배율 (도주가 쉬움)
       catchPerChaser: 0.05,    // 추격자 1명 늘 때마다 잡힐 확률 배율 +
-      catchBase: 0.36,         // 도주자가 잡힐 기본 확률
+      catchBase: 0.2,         // 도주자가 잡힐 기본 확률
       trade: { chance: 0.07, intensity: 0.45, fleeHp: 0.45 }, // 라인전 견제
-      engage: { objective: 0.16, structure: 0.13, numbers: 0.15, gank: 0.55, roam: 0.03, late: 0.06 },
+      engage: { objective: 0.13, objTaking: { baron: 0.15, elder: 0.97 }, structure: 0.05, numbers: 0.07, gank: 0.3,  roam: 0.02, late: 0.02 },
       avoidRatio: 0.8, retreatSlack: 0.02, retreatBehind: 0.02, siegeChainRadius: 0.2, siegeChainRatio: 0.9,         // 전력비가 이 아래면 교전을 피해 물러남
       // 킬 배분: 마무리 일격 = 그 대상에게 준 피해(기여) × 포지션 가중치 × 챔피언 성향
+      // 오브젝트 스탠스 (등장 1분 전 한 번 결정) · 진입·후퇴 히스테리시스 · 계획 최소 유지
+      stance: {
+        bias: { dragon: 1.9, baron: 1.0, elder: 8 },   // 정면 승부 기본 성향 (로지스틱 입력)
+        importance: { dragon: 0, baron: 0.3, elder: 0.6 }, soulPoint: 0.9, stack: 0.3,
+        advScale: 0.8,                // 유불리 점수 반영 배율
+        w: { goldPerK: 0.25, level: 0.35, alive: 0.7, ult: 0.12, flash: 0.08, comp: 0.15, vision: 0.12 },
+        tradeBelow: -0.4,             // 이보다 불리하면 교환·포기 쪽으로
+        tradeShare: 0.7, contestShare: 0.6,
+        tiltMental: 55, tiltEngage: 7.8, tiltChance: 0.18,   // 멘탈이 낮거나 공격적인 팀이 무리하게 싸울 확률
+        scoreBase: 0.6, scoreSpan: 1.0, enterScore: 0.6, exitScore: 0.4, fightBonus: 0.15,
+        holdSec: 20,                  // 오브젝트 계획 최소 유지 시간
+        maxRetreats: 2,               // 한 번 등장 동안 같은 오브젝트 앞 후퇴 최대 횟수
+        reenterSec: 30,               // 오브젝트 계획에서 빠진 뒤 같은 오브젝트로 다시 들어가기까지
+        groupR: 0.12, groupDist: 0.22, groupUntilProg: 0.6,   // 장로·바론 견제: 모임 지점(둥지에서 0.22) 0.12 안에 4명 모일 때까지 대기 (처치 진행 60% 전까지만)
+        contestKeepR: 0.3, defendKeepR: 0.28, defendMinSec: 12,   // 견제·수비 계획 유지 반경(들어올 때보다 넓게)·최소 시간
+      },
       kill: {
-        pos: { ADC: 0.82, MID: 0.65, JGL: 0.72, TOP: 0.72, SUP: 0.18 },
+        pos: { ADC: 0.74, MID: 0.59, JGL: 0.72, TOP: 0.66, SUP: 0.18 },
         dmgSup: 0.4,             // 딜 서폿(마법사·원딜·암살자형 서폿)은 서폿 중 높게
         dmgExp: 0.5,              // 피해 기여 반영 지수 (1 = 기여에 비례)
         cls: { apAssassin: 1.3, lethality: 1.25, mageBurst: 1.15, adcCrit: 1.1, adcLethal: 1.15, adcOnhit: 1.05, ezreal: 1.05, smolder: 1.05, yasuo: 1.15, gpCrit: 1.05,
                skirm: 1.1, mageControl: 1.0, mageBattle: 1.0, apFighter: 1.0, bruiser: 0.9, tank: 0.6, apTank: 0.65, tankSup: 0.55, enchant: 0.5 },
       },
-      buffDps: { baron: 0.22, elder: 0.45, soul: 0.10, dragon: 0.025 }, // 피해 배율 가산
+      buffDps: { baron: 0, elder: 0.45, soul: 0.10, dragon: 0.025 }, // 피해 배율 가산 (바론 버프는 교전 피해를 올리지 않음)
       // 구조물
       towerRange: 0.05,
       towerDps: 0.035,         // 미니언 없이 포탑 아래 들어간 챔피언이 초당 잃는 체력
-      champStructDps: 0.0062,  // 챔피언 1명 초당 구조물 피해 (구조물 체력 1)
+      champStructDps: 0.007,   // 챔피언 1명 초당 구조물 피해 (구조물 체력 1)
+      lateStructFrom: 1800, lateStructPerMin: 0.1,    // 30분 이후 1분마다 챔피언 구조물 피해 +10%
+      veryLateFrom: 2700, veryLatePerMin: 0.25,       // 45분 이후 1분마다 +25% 추가 (끝없는 장기전 방지)
       minionStructDps: 0.0018, // 미니언 웨이브 초당 구조물 피해
       superMinionMult: 3,
       structHp: { tower: [1, 1.25, 1.35], inhib: 1.0, nexusTower: 1.1, nexus: 1.4 },
       fortifyUntil: 300,       // 이 시간 전에는 포탑 피해 -70%
       plateUntil: 840,         // 이 시간 전에는 외곽 포탑 피해 -35% (포탑 방패)
       grubsStructBonus: 0.06,  // 유충 1마리당 구조물 피해 +6%
-      baronStructBonus: 0.8,   // 바론 버프 중 구조물 피해 +80%
+      baronStructBonus: 0.35,  // 바론 버프 중 챔피언의 구조물 피해 +35%
+      baronMinionMult: 1.8,    // 바론 버프 선수 근처 미니언의 구조물 피해 배율
+      baronFarmMult: 1.12, baronDenyMult: 0.9,    // 바론 버프 중 강화 미니언: 버프 팀 파밍 +12%, 상대 파밍 -10%
+      recallChannelBaron: 4,   // 바론 버프 중 귀환 채널링(초)
+      closeLead: 3000,         // 기지가 열렸을 때 이만큼 앞서면 인원이 같아도 넥서스를 치러 간다
+      reopenAt: 2400,          // 40분 이후: 앞선 팀은 되살아난 억제기도 다시 민다
       nexusMinAttackers: 3,    // 넥서스 공격 최소 인원 (상대 기지 안)
       // 웨이브
       wavePush: 0.012,         // 라인 앞 챔피언 전력 1당 웨이브 이동 (s/틱)
@@ -102,7 +134,8 @@ export const CONFIG = {
       baronEarlyMult: 1.3,     // 25분 이전 바론 처치 시간 배율
       baronFewMult: 1.2,       // 4명 미만 바론 처치 시간 배율
       setupLead: 60,           // 오브젝트 등장 이 시간 전부터 시야 장악
-      stealBase: 0.10, stealPerMech: 0.004,
+      objDrain: { baron: 0.015 }, objDrainFloor: 0.4,   // 오브젝트 치는 동안 초당 체력 감소 (하한)
+      stealBase: 0.2,  stealPerMech: 0.004,
       heraldSpeed: 0.022, heraldStructDmg: 0.65, heraldHp: 1, heraldHoldSec: 240,
       // 장면·검사
       sceneRadius: 0.09,       // 장면 참여자 범위
@@ -121,6 +154,10 @@ export const CONFIG = {
       objCombosMin: 40,        // 바론·드래곤·장로 생성 장면 "상황+장소+인원" 조합 종류 하한
       objComboMaxShare: 0.10,  // 한 조합이 전체 생성 장면에서 차지하는 비율 상한
       recentTitleGames: 10,    // 최근 몇 경기 안에서 같은 장면 제목 금지
+      objFightRate: { dragon: [0.35, 0.50], baron: [0.40, 0.55], elder: [0.70, 0.85] },  // 오브젝트 등장 중 한타로 이어지는 비율
+      baronSwing: [1500, 3000],  // 바론 처치~버프 종료 동안 늘어나는 골드 격차 평균
+      baronSwingP90: 4000,       // 그 상위 10% 하한
+      baronWinRate: [0.70, 0.80],// 첫 바론 처치 팀 승률
     },
     objectives: {
       dragonSpawn: 300, dragonRespawn: 300,
@@ -188,11 +225,28 @@ export const CONFIG = {
     ADC: { laning: .19, teamfight: .23, mechanics: .23, decision: .13, vision: .04, mental: .08, pool: .05, stamina: .05 },
     SUP: { laning: .14, teamfight: .19, mechanics: .1, decision: .2, vision: .2, mental: .08, pool: .05, stamina: .04 },
   },
-  tierOvr: { S: 83, A: 79.5, B: 76, C: 73, D: 68 }, // 1군 평균 OVR (팀 티어별)
-  academyOffset: -13,                                 // 2군 평균 = 1군 - 13
+  tierOvr: { S: 83, A: 79.5, B: 77, C: 76, D: 71 }, // 1군 평균 OVR (팀 티어별)
+  academyOffset: -12,                                 // 2군 평균 = 1군 - 12
+  rookieMainOffset: -2,                               // 1군으로 바로 뽑는 신인 = 팀 평균 - 2
   regionOffset: { LCK: 0, LPL: 1.5, LEC: -2, LCS: -4, CBLOL: -6, LCP: -4 }, // 지역별 전력 보정 (국제대회 밸런스)
   tierThresholds: { S: 82, A: 78, B: 74, C: 70 },     // 시즌마다 1군 평균 OVR로 팀 티어 재계산
   userStartAvg: 55,
+  // ---------------- 슈퍼스타 ----------------
+  stars: {
+    // 잠재력 등급 = 도달 가능한 최대 OVR
+    potGrade: { S: [95, 99], A: [88, 94], B: [80, 87], C: [72, 79] },
+    rookieOdds: { S: 0.04, A: 0.15, B: 0.41, C: 0.4 },     // 새 유망주 등급 확률
+    rookieBoost: { S: 5, A: 2, B: 0, C: -1 },             // 등급별 데뷔 능력치 보정
+    // LCK 1군 50명 OVR 분포 (게임 시작)
+    lck: { n90: [4, 6], n85: [8, 12], nLow: [3, 6], r90: [90, 94], r85: [85, 89], rMid: [75, 84], rLow: [68, 74], maxPerTeam: 2 },
+    tierW: { S: 5, A: 2, B: 1, C: 0.5, D: 0.3 },          // 90+ 배정 가중치 (팀 티어)
+    overseas: { n: [3, 5], r: [90, 94], lecChance: 0.3 },  // 해외 슈퍼스타 (LPL 중심)
+    spikeChance: 0.5, spike: [6, 12], spikeMax: 99,       // 한 가지 압도형: 핵심 능력치 1~2개가 튐
+    starOvr: 90,                                           // 슈퍼스타 기준
+    // 캐리 보정: 슈퍼스타가 솔로킬·한타·스틸의 주인공이 될 확률
+    carry: { kill: 1.35, steal: 0.06, perOvr: 0.1 },
+    growK: 0.27,            // AI 성장: (잠재력 - OVR) × growK × 나이 보정 / 시즌
+  },
   playstyles: {
     '라인전 괴물': { laning: 8, mechanics: 4, teamfight: -3, decision: -2 },
     '한타 장인': { teamfight: 8, mechanics: 2, laning: -3 },
@@ -205,12 +259,11 @@ export const CONFIG = {
   growth: {
     baseGain: { train: 0.24, scrim: 0.10, replay: 0.19, solo: 0.08, match: 0.16 },
     ageFactor: { 17: 1.3, 18: 1.25, 19: 1.15, 20: 1.05, 21: 1.0, 22: 0.92, 23: 0.82, 24: 0.72, 25: 0.6, 26: 0.45, 27: 0.3, 28: 0.15 },
-    declineStartAge: 26, declinePerYear: [0, 1.2, 2.0, 3.0, 4.0], // 26세부터 매년 하락폭
+    declineStartAge: 26, declinePerYear: [0.6, 1.6, 2.6, 3.6, 4.6], // 26세부터 매년 하락폭
     masteryGain: { practice: 3.2, solo: 1.6, match: 2.2, scrim: 0.8 },
-    potentialRange: [72, 97],
+    potentialRange: [68, 99],
     growthRange: [0.75, 1.35],
     varianceRange: [1, 10],
-    aiSeasonGrowth: 2.4,       // AI 선수 시즌당 평균 성장(나이 보정 전)
   },
 
   // ---------------- 일상 ----------------

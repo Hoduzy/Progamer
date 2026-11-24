@@ -113,14 +113,14 @@ export function regionLane(r) {
 }
 
 // 오브젝트 대기 위치 (둥지에서 아군 기지 쪽으로 물러난 지점, i번째 선수 분산)
-export function setupPoint(side, key, i = 0) {
+export function setupPoint(side, key, i = 0, dist = 0.12) {
   const pit = OBJ_POS[key];
   const n = nexusPos(side);
   const dx = n[0] - pit[0], dy = n[1] - pit[1];
   const L = Math.hypot(dx, dy);
   const ux = dx / L, uy = dy / L;
   const spread = (i - 2) * 0.022;
-  return [pit[0] + ux * 0.12 - uy * spread, pit[1] + uy * 0.12 + ux * spread];
+  return [pit[0] + ux * dist - uy * spread, pit[1] + uy * dist + ux * spread];
 }
 // 둥지 안 위치 (분산)
 export function pitPoint(key, i = 0) {

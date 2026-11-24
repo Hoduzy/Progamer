@@ -54,12 +54,14 @@ function planValid(g, s, plan) {
     const o = g.obj[plan.key];
     if (plan.kind === 'objSetup') return !!o && (o.alive || (o.next !== null && o.next - g.t <= SIM().setupLead + 10));
     if (!o || !o.alive) return false;
-    if (plan.kind === 'objContest') return !!o.prog && o.prog.side !== s.idx;
+    // 견제: 상대 처치가 잠깐 끊겨도(둥지에서 잠시 빠짐) 상대가 근처에 있으면 유지
+    if (plan.kind === 'objContest') return g.t - plan.since < SIM().stance.holdSec || (!!o.prog && o.prog.side !== s.idx) || E.players.some(p => p.alive && distTo(p, geo.OBJ_POS[plan.key]) < SIM().stance.contestKeepR);
     return true;
   }
   if (plan.kind === 'siege') return !!structureStill(g, s.idx, plan.target);
   if (plan.kind === 'nexus') return g.sides[1 - s.idx].nexus;
-  if (plan.kind === 'defend') return E.players.some(p => p.alive && distTo(p, plan.target.pos) < 0.18);
+  // 수비: 들어올 때 반경보다 넓게(히스테리시스) 보고, 최소 시간은 유지
+  if (plan.kind === 'defend') return g.t - plan.since < SIM().stance.defendMinSec || E.players.some(p => p.alive && distTo(p, plan.target.pos) < SIM().stance.defendKeepR);
   if (plan.kind === 'pick') { const v = g.byId[plan.targetPid]; return v && v.alive; }
   if (plan.kind === 'herald') return !!s.heraldEye && !!nextLaneStructure(g, s.idx, plan.lane);
   return true;
@@ -88,15 +90,49 @@ function continueSiege(g, s, plan) {
   return mk(g, 'siege', plan.pri, { target: tg, lane: tg.lane, dur: Math.max(left, 35) });
 }
 
+// 오브젝트가 살아 있는데 그 오브젝트 계획을 떠나면 잠시 다시 들어가지 않는다 (왕복 방지)
+function leftObj(g, s, plan) {
+  if (!plan || !['objTake', 'objContest', 'objSetup'].includes(plan.kind) || !plan.key) return;
+  const o = g.obj[plan.key];
+  if (o && o.alive) { s.objCooldown = s.objCooldown || {}; s.objCooldown[plan.key] = g.t + SIM().stance.reenterSec; s.objAnyUntil = g.t + SIM().stance.reenterSec; }
+  else if (plan.kind === 'objContest') s.objAnyUntil = g.t + SIM().stance.reenterSec;   // 견제하다 상대가 먹었으면: 정비 후 다음 오브젝트
+}
+// 오브젝트에서 물러난 뒤에는 그 오브젝트도, 다른 오브젝트도 잠시 들어가지 않는다 (물러남 → 옆 오브젝트로 바로 진입 → 다시 물러남 방지)
+const objCooling = (g, s, k) => (s.objCooldown && s.objCooldown[k] > g.t) || (s.objAnyUntil || 0) > g.t;
+
 function updatePlan(g, s) {
   const t = g.t;
   if (s.plan && (s.plan.until <= t || !planValid(g, s, s.plan))) {
-    if (s.plan.kind === 'objSetup' && g.obj[s.plan.key] && g.obj[s.plan.key].alive) s.plan = { ...s.plan, kind: 'objTake', since: t, until: t + 90, pri: s.plan.pri + 0.5 };
-    else s.plan = continueSiege(g, s, s.plan);
+    if (s.plan.kind === 'objSetup' && !s.plan.lost && g.obj[s.plan.key] && g.obj[s.plan.key].alive) s.plan = { ...s.plan, kind: 'objTake', since: t, until: t + 90, pri: s.plan.pri + 0.5 };
+    else {
+      leftObj(g, s, s.plan);
+      s.plan = continueSiege(g, s, s.plan);
+    }
   }
   const cand = choosePlan(g, s);
-  if (!s.plan || cand.pri > s.plan.pri + 0.6) s.plan = cand;
-  else if (cand.kind === s.plan.kind && cand.key === s.plan.key && cand.lane === s.plan.lane) { s.plan.until = Math.max(s.plan.until, cand.until); s.plan.pri = cand.pri; s.plan.parts = cand.parts; }
+  const cur = s.plan;
+  const OBJP = ['objSetup', 'objTake', 'objContest'];
+  // 오브젝트 계획은 최소 유지 시간 동안 큰 변화가 없으면 바꾸지 않는다 (진입 → 후퇴 → 진입 왕복 방지)
+  const sameObj = cur && cand.key && cand.key === cur.key;
+  let hold = false;
+  if (cur && OBJP.includes(cur.kind) && !sameObj && t - cur.since < SIM().stance.holdSec && cand.pri < 8.8) {
+    const E = g.sides[1 - s.idx];
+    const dead = s.players.filter(p => !p.alive).length;
+    const enNear = E.players.filter(p => p.alive && distTo(p, geo.OBJ_POS[cur.key]) < 0.3).length;
+    const big = dead - (cur.dead0 || 0) >= 2 || enNear - (cur.en0 || 0) >= 2 || !(g.obj[cur.key] && (g.obj[cur.key].alive || cur.kind === 'objSetup'));
+    hold = !big;
+  }
+  if (!hold && (!cur || cand.pri > cur.pri + 0.6)) {
+    // 오브젝트에서 빠지는 것(오브젝트가 아직 살아 있는데) = 후퇴 1회. 두 번이면 이번 등장은 포기
+    if (cur && (cur.kind === 'objTake' || cur.kind === 'objContest') && !sameObj && g.obj[cur.key] && g.obj[cur.key].alive && s.objStance[cur.key]) {
+      const st = s.objStance[cur.key];
+      st.retreats++;
+      if (st.retreats >= SIM().stance.maxRetreats) st.stance = st.adv < 0 ? 'trade' : 'concede';
+    }
+    if (cur && !sameObj) leftObj(g, s, cur);
+    s.plan = cand;
+    if (OBJP.includes(cand.kind)) { cand.dead0 = s.players.filter(p => !p.alive).length; cand.en0 = g.sides[1 - s.idx].players.filter(p => p.alive && distTo(p, geo.OBJ_POS[cand.key]) < 0.3).length; }
+  } else if (cand.kind === s.plan.kind && cand.key === s.plan.key && cand.lane === s.plan.lane) { s.plan.until = Math.max(s.plan.until, cand.until); s.plan.pri = cand.pri; s.plan.parts = cand.parts; }
   s.planLabel = planLabel(s.plan);
   s.planTime[s.plan.kind] = (s.planTime[s.plan.kind] || 0) + dt();
 }
@@ -105,6 +141,53 @@ export function planLabel(plan) {
   if (plan.key) return `${OBJ_KO[plan.key]} ${plan.kind === 'objSetup' ? '준비' : plan.kind === 'objTake' ? '처치' : '견제'}`;
   if (plan.kind === 'siege' && plan.target) return `${plan.target.lane ? geo.regionKo(geo.LANE_REGION[plan.target.lane]).replace(' 라인', '') + ' ' : ''}공성`;
   return PLAN_KO[plan.kind] || plan.kind;
+}
+
+// ---------- 오브젝트 스탠스: 등장 1분 전 "이 오브젝트에 얼마나 걸지" 한 번 정한다 ----------
+//  fight 정면 승부 / contest 견제만 하고 스틸 노림 / trade 반대편 교환 / concede 완전히 포기하고 정비
+const BIG_OBJ = ['elder', 'baron', 'dragon'];
+const avgLvl = side => { const a = side.players.filter(p => p.alive); return a.length ? a.reduce((x, p) => x + p.level, 0) / a.length : 0; };
+function objImportance(g, s, E, k) {
+  const C = SIM().stance;
+  if (k === 'elder') return C.importance.elder;
+  if (k === 'baron') return C.importance.baron;
+  let v = C.importance.dragon;
+  if (s.dragons.length >= 3 || E.dragons.length >= 3) v += C.soulPoint;
+  else if (s.dragons.length >= 2 || E.dragons.length >= 2) v += C.stack;
+  return v;
+}
+export function objAdvantage(g, s, k) {
+  const C = SIM().stance, E = g.sides[1 - s.idx];
+  const pit = geo.OBJ_POS[k];
+  const my = alive(s), en = alive(E);
+  const ult = p => p.alive && g.t >= (p.ultAt || 0) && p.level >= 6;
+  const fl = p => p.alive && g.t >= (p.flashAt || 0);
+  const wards = side => side.wards.filter(w => w.until > g.t && Math.hypot(w.x - pit[0], w.y - pit[1]) < 0.25).length;
+  return clamp(sideLead(g, s.idx) / 1000, -6, 6) * C.w.goldPerK
+    + (avgLvl(s) - avgLvl(E)) * C.w.level
+    + (my.length - en.length) * C.w.alive
+    + (my.filter(ult).length - en.filter(ult).length) * C.w.ult
+    + (my.filter(fl).length - en.filter(fl).length) * C.w.flash
+    + ((s.comp.teamfight - E.comp.teamfight) - (s.comp.split - E.comp.split) * 0.5) * C.w.comp
+    + (wards(s) - wards(E)) * C.w.vision;
+}
+function stanceOf(g, s, k) {
+  const o = g.obj[k];
+  const inst = o.alive ? o.spawnedAt : o.next;
+  const m = s.objStance[k];
+  if (m && m.inst === inst) return m;
+  const C = SIM().stance, E = g.sides[1 - s.idx];
+  const adv = objAdvantage(g, s, k);
+  const imp = objImportance(g, s, E, k);
+  // 정면 승부 확률: 오브젝트 중요도 + 유불리. 멘탈이 낮거나 공격적인 조합은 가끔 무리해서 싸운다
+  const pFight = 1 / (1 + Math.exp(-(C.bias[k] + imp + adv * C.advScale)));
+  const tilt = (s.mental < C.tiltMental || s.comp.engage >= C.tiltEngage) && g.rng.chance(C.tiltChance);
+  let stance;
+  if (tilt || g.rng.chance(pFight)) stance = 'fight';
+  else if (adv < C.tradeBelow) stance = g.rng.chance(C.tradeShare) ? 'trade' : 'concede';
+  else stance = g.rng.chance(C.contestShare) ? 'contest' : (g.rng.chance(0.5) ? 'trade' : 'concede');
+  s.objStance[k] = { inst, stance, retreats: 0, adv, tilt };
+  return s.objStance[k];
 }
 
 function mk(g, kind, pri, extra = {}) { return { kind, pri, since: g.t, until: g.t + (extra.dur || 60), ...extra }; }
@@ -120,7 +203,7 @@ function choosePlan(g, s) {
   // 장면 효과로 정해진 계획
   if (s.force && s.force.until > t) {
     const f = s.force;
-    if (f.kind === 'objTake' && g.obj[f.key] && g.obj[f.key].alive) cands.push(mk(g, 'objTake', 9.5, { key: f.key, dur: f.until - t }));
+    if (f.kind === 'objTake' && g.obj[f.key] && g.obj[f.key].alive) cands.push(mk(g, 'objTake', 9.5, { key: f.key, dur: f.until - t, forced: true }));
     if (f.kind === 'siege') { const tg = nearestStructure(g, s, f.near); if (tg) cands.push(mk(g, 'siege', 9.5, { target: tg, lane: tg.lane, dur: f.until - t })); }
     if (f.kind === 'nexus') cands.push(mk(g, 'nexus', 9.6, { dur: f.until - t }));
   }
@@ -129,7 +212,14 @@ function choosePlan(g, s) {
   if (baseOpen(E) && my.length >= 3) {
     const advN = my.length - en.length;
     const lateOk = t >= CONFIG.match.midEnd || buffed;
-    if (advN >= 3 || en.length <= 1 || (lateOk && (advN >= 2 || (buffed && advN >= 0) || (nexusAttackable(g, s.idx) && advN >= 1)))) cands.push(mk(g, 'nexus', 9, { dur: 50 }));
+    // 크게 앞선 팀은 인원이 같아도 기지가 열리면 끝내러 간다 (오브젝트를 돌며 시간을 끌지 않음)
+    const closeOut = lateOk && advN >= 0 && lead >= SIM().closeLead;
+    if (advN >= 3 || en.length <= 1 || closeOut || (lateOk && (advN >= 2 || (buffed && advN >= 0) || (nexusAttackable(g, s.idx) && advN >= 1)))) cands.push(mk(g, 'nexus', 9, { dur: 50 }));
+  }
+  // 1-2) 크게 앞선 후반: 억제기가 되살아나 기지가 닫혀 있어도, 드러난 억제기부터 다시 민다 (오브젝트 싸움만 반복하지 않게)
+  if (!baseOpen(E) && my.length >= 4 && my.length >= en.length && t >= SIM().reopenAt && lead >= SIM().closeLead) {
+    const inh = attackableStructures(g, s.idx).find(x => x.kind === 'inhib');
+    if (inh) cands.push(mk(g, 'siege', 9, { target: inh, lane: inh.lane, dur: 50 }));
   }
   // 2) 기지 수비
   const baseThreat = E.players.filter(p => p.alive && geo.inBase(s.idx, p.x, p.y)).length;
@@ -139,7 +229,22 @@ function choosePlan(g, s) {
     const o = g.obj[k];
     if (!o.alive || !o.prog || o.prog.side === s.idx) continue;
     if (s.concede && s.concede[k] > t) continue;
+    if (objCooling(g, s, k)) continue;
     const pit = geo.OBJ_POS[k];
+    if (BIG_OBJ.includes(k)) {
+      // 스탠스대로: 정면 승부면 전원 견제, 견제면 정글+1명이 스틸만, 교환이면 반대편, 포기면 아무것도
+      const st = stanceOf(g, s, k);
+      // 장로는 4명 이상 모였을 때만 정면으로 (2~3명이 들어가 잘리는 소규모 교전 대신 교환·수비)
+      if (st.stance === 'fight' && !(k === 'elder' && my.length < 4)) cands.push(mk(g, 'objContest', 8 + OBJ_VALUE[k] / 10, { key: k, parts: my.map(p => p.pid), dur: 40 }));
+      else if (st.stance === 'fight' && ph !== 'early') { const tg = farStructure(g, s, pit); if (tg) cands.push(mk(g, 'siege', 6.6, { target: tg, lane: tg.lane, dur: 45, trade: true })); }
+      else if (st.stance === 'contest') {
+        const jg = my.find(p => p.pos === 'JGL');
+        const crew = my.filter(p => p !== jg).sort((a, b) => distTo(a, pit) - distTo(b, pit)).slice(0, 1);
+        if (jg) crew.unshift(jg);
+        if (crew.length && crew.some(p => distTo(p, pit) < 0.45)) cands.push(mk(g, 'objContest', 7.9, { key: k, parts: crew.map(p => p.pid), dur: 30, steal: true }));
+      } else if (st.stance === 'trade' && ph !== 'early') { const tg = farStructure(g, s, pit); if (tg) cands.push(mk(g, 'siege', 6.6, { target: tg, lane: tg.lane, dur: 45, trade: true })); }
+      continue;
+    }
     const helpers = ph === 'early' && k !== 'elder' && k !== 'baron' ? objCrew(g, s, k) : my;
     const r = ratioNear(g, s, pit, 0.35, helpers);
     const need = k === 'elder' ? 0.55 : k === 'baron' ? 0.7 : ph === 'early' ? 1.05 : 0.9;
@@ -158,15 +263,25 @@ function choosePlan(g, s) {
     if (!soon) continue;
     if (s.concede && s.concede[k] > t) continue;
     if (o.prog && o.prog.side !== s.idx) continue;
+    if (o.alive && objCooling(g, s, k) && !(s.plan && s.plan.key === k)) continue;
+    const big = BIG_OBJ.includes(k);
+    const st = big ? stanceOf(g, s, k) : null;
+    const pitK = geo.OBJ_POS[k];
+    const enemyNearPit = E.players.filter(p => p.alive && distTo(p, pitK) < 0.4).length;
+    if (big && (st.stance === 'trade' || st.stance === 'concede')) {
+      // 교환: 상대가 오브젝트로 모이면 반대편 구조물 / 포기: 정비. 단 상대가 아무도 없으면 공짜로 먹는다
+      if (st.stance === 'trade' && ph !== 'early') { const tg = farStructure(g, s, pitK); if (tg) cands.push(mk(g, 'siege', 6.4, { target: tg, lane: tg.lane, dur: 45, trade: true })); }
+      if (!(o.alive && enemyNearPit === 0 && my.length >= Math.max(3, en.length))) continue;   // 공짜로 먹는 것도 인원이 밀리지 않을 때만
+    }
     // 상대가 이미 처치하러 들어가는 중이면 견제 여부를 한 번만 정한다
     const ep = E.plan;
-    if (o.alive && ep && ep.kind === 'objTake' && ep.key === k && !(s.plan && s.plan.kind === 'objTake' && s.plan.key === k)) {
+    if (!big && o.alive && ep && ep.kind === 'objTake' && ep.key === k && !(s.plan && s.plan.kind === 'objTake' && s.plan.key === k)) {
       const m = s.contestMemo['in-' + k];
       if (!m || m.since !== ep.since) s.contestMemo['in-' + k] = { since: ep.since, yes: g.rng.chance(clamp((ratioNear(g, s, geo.OBJ_POS[k], 0.4) - 0.9 + 0.25) / 0.6, 0.04, 0.85)) };
       if (!s.contestMemo['in-' + k].yes) continue;
     }
     const crew = (ph === 'early' && k !== 'baron' && k !== 'elder') ? objCrew(g, s, k) : my.filter(p => !(s.sideLaners || []).includes(p.pid) || k === 'baron' || k === 'elder');
-    if (crew.length < (k === 'grubs' || k === 'dragon' ? 2 : 3)) continue;
+    if (crew.length < (k === 'grubs' || k === 'dragon' ? 2 : k === 'elder' ? 4 : 3)) continue;
     const pit = geo.OBJ_POS[k];
     const r = ratioNear(g, s, pit, 0.4, crew);
     let want = OBJ_VALUE[k] / 10;
@@ -176,8 +291,13 @@ function choosePlan(g, s) {
     const enemyAtPit = E.players.filter(p => p.alive && distTo(p, pit) < 0.13).length;
     // 대치: 오래 버티면 한쪽이 먼저 들어간다
     const hold = s.plan && s.plan.kind === 'objSetup' && s.plan.key === k ? t - s.plan.since : 0;
-    const commit = r >= 1.15 || enemyAtPit === 0 && r >= 0.8 || (hold > 20 && hold > (s.holdPatience || 45) && r >= 0.85);
-    if (r < 0.7 && enemyAtPit >= 2) continue;
+    // 진입 점수(히스테리시스): 이미 들어가 있으면 0.4 아래로 떨어져야 빠지고, 밖이면 0.6 이상이어야 들어간다
+    const H = SIM().stance;
+    const inNow = s.plan && s.plan.kind === 'objTake' && s.plan.key === k;
+    const score = clamp((r - H.scoreBase) / H.scoreSpan, 0, 1) + (st && st.stance === 'fight' ? H.fightBonus : 0) + (st && st.tilt ? H.fightBonus : 0);
+    let commit = inNow ? score >= H.exitScore : (score >= H.enterScore || (enemyAtPit === 0 && r >= 0.8) || (hold > 20 && hold > (s.holdPatience || 45) && r >= 0.85));
+    if (st && st.stance === 'contest' && enemyAtPit > 0 && !inNow) commit = false;   // 견제 스탠스는 정면으로 들어가지 않는다
+    if (r < 0.7 && enemyAtPit >= 2 && !(st && st.stance === 'fight')) continue;
     const pri = 6 + want + (o.alive ? 0.3 : 0);
     if (!o.alive) cands.push(mk(g, 'objSetup', pri, { key: k, parts: crew.map(p => p.pid), dur: 75 }));
     else if (commit) cands.push(mk(g, 'objTake', pri + 0.4, { key: k, parts: crew.map(p => p.pid), dur: 80 }));
@@ -296,9 +416,30 @@ function assign(g, s, p) {
   const idx = s.players.indexOf(p);
   if (plan && inPlan && plan.kind !== 'laning' && plan.kind !== 'midGroup' && plan.kind !== 'split131') {
     switch (plan.kind) {
-      case 'objSetup': return goTask(g, p, 'objSetup', geo.setupPoint(s.idx, plan.key, idx), { key: plan.key });
+      case 'objSetup': {
+        // 장로 준비: 4명이 모임 지점에 모인 뒤 함께 올라간다 (하나씩 도착해 소규모 교전으로 잘리지 않게)
+        if (plan.key === 'elder' && !plan.gathered) {
+          const crew = (plan.parts || []).map(id => g.byId[id]).filter(q => q && q.alive);
+          const gp = geo.setupPoint(s.idx, plan.key, 2, SIM().stance.groupDist);
+          const near = crew.filter(q => Math.hypot(q.x - gp[0], q.y - gp[1]) < SIM().stance.groupR).length;
+          if (crew.length >= 4 && near >= Math.min(4, crew.length)) plan.gathered = true;
+          else if (crew.length >= 4) return goTask(g, p, 'objSetup', geo.setupPoint(s.idx, plan.key, idx, SIM().stance.groupDist), { key: plan.key, gather: true });
+        }
+        return goTask(g, p, 'objSetup', geo.setupPoint(s.idx, plan.key, idx), { key: plan.key });
+      }
       case 'objTake': return goTask(g, p, 'objTake', geo.pitPoint(plan.key, idx), { key: plan.key });
-      case 'objContest': return goTask(g, p, 'objContest', geo.pitPoint(plan.key, idx + 2), { key: plan.key });
+      case 'objContest': {
+        // 장로·바론 정면 견제: 먼저 온 선수는 준비 지점에서 4명이 모일 때까지 기다렸다 함께 들어간다 (하나씩 들어가 잘리지 않게)
+        const o = g.obj[plan.key];
+        if (['elder', 'baron'].includes(plan.key) && !plan.steal && o && o.prog && o.prog.val < SIM().stance.groupUntilProg) {
+          const crew = (plan.parts || []).map(id => g.byId[id]).filter(q => q && q.alive);
+          const need = Math.min(4, crew.length);
+          const gp = geo.setupPoint(s.idx, plan.key, 2, SIM().stance.groupDist);
+          const near = crew.filter(q => Math.hypot(q.x - gp[0], q.y - gp[1]) < SIM().stance.groupR || distTo(q, geo.OBJ_POS[plan.key]) < 0.16).length;
+          if (crew.length >= 4 && near < need) return goTask(g, p, 'objContest', geo.setupPoint(s.idx, plan.key, idx, SIM().stance.groupDist), { key: plan.key, gather: true });
+        }
+        return goTask(g, p, 'objContest', geo.pitPoint(plan.key, idx + 2), { key: plan.key });
+      }
       case 'siege': return siegeTask(g, s, p, plan.target, idx);
       case 'nexus': {
         const list = attackableStructures(g, s.idx);
@@ -484,7 +625,8 @@ function doRecall(g, p) {
   const S = SIM();
   const enemyNear = g.sides[1 - p.side].players.some(q => q.alive && pdist(q, p) < 0.12);
   if (!enemyNear) {
-    p.chan = { kind: 'recall', until: g.t + S.recallChannel, dest: geo.fountain(p.side) };
+    const buffed = g.sides[p.side].baronUntil > g.t;
+    p.chan = { kind: 'recall', until: g.t + (buffed ? S.recallChannelBaron : S.recallChannel), dest: geo.fountain(p.side) };
     setTask(p, 'recall', [p.x, p.y]);
   } else setTask(p, 'recall', retreatPoint(g, p));
 }

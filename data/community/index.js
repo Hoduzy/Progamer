@@ -4,7 +4,7 @@ export { BODIES } from './bodies.js';
 export { COMMENTS } from './comments.js';
 export { REPLIES } from './replies.js';
 export { FIXED_USERS } from './users.js';
-export { NICK_A, NICK_B, NICK_FIXED, ENDINGS, STANCE_MOOD, CHOSUNG, TYPOS, TONE_RULES, BANNED } from './words.js';
+export { NICK_A, NICK_B, NICK_FIXED, ENDINGS, STANCE_MOOD, CHOSUNG, TYPOS, TONE_RULES, BANNED, STAR_NICK } from './words.js';
 export { INTERVIEW_Q, INTERVIEW_A } from './interview.js';
 
 // 커뮤니티에서 부르는 팀 이름 (없으면 팀 코드)

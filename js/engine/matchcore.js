@@ -17,9 +17,15 @@ const DMG_SUP = new Set(['mageBurst', 'mageControl', 'mageBattle', 'adcCrit', 'a
 export function killWeight(p) {
   const K = CONFIG.match.sim.kill;
   const cls = CHAMPIONS[p.champ] ? CHAMPIONS[p.champ].cls : 'bruiser';
-  if (p.pos === 'SUP') return DMG_SUP.has(cls) ? K.dmgSup : K.pos.SUP * (K.cls[cls] || 1);
-  return (K.pos[p.pos] || 0.7) * (K.cls[cls] || 1);
+  const w = p.pos === 'SUP' ? (DMG_SUP.has(cls) ? K.dmgSup : K.pos.SUP * (K.cls[cls] || 1)) : (K.pos[p.pos] || 0.7) * (K.cls[cls] || 1);
+  return w * carryMult(p);
 }
+// 슈퍼스타(OVR 90+) 캐리 보정: 솔로킬·한타 마무리·스틸의 주인공이 되기 쉽다
+export function carryMult(p) {
+  const C = CONFIG.stars;
+  return p.ovr >= C.starOvr ? C.carry.kill + (p.ovr - C.starOvr) * C.carry.perOvr : 1;
+}
+export const isStar = p => p.ovr >= CONFIG.stars.starOvr;
 // 처치한 선수 고르기: 그 대상에게 준 피해(기여) × 킬 가중치. 기여 기록이 없으면 가중치만
 export function pickKiller(g, cands, dmgMap) {
   const K = CONFIG.match.sim.kill;
@@ -73,13 +79,24 @@ export function champPower(g, p) {
 }
 function roleAvgGold(g, pos) { const i = POS.indexOf(pos); return (g.sides[0].players[i].gold + g.sides[1].players[i].gold) / 2; }
 function avgLevel(g) { return avg(allPlayers(g).map(p => p.level)); }
+// 경기 수준: 10명 평균 (기본 능력치 파워 + 챔피언 숙련도). 양 팀이 모두 강하다고 피해량·킬이 늘지 않게 교전 피해 기준점을 맞춘다
+function levelOf(p) {
+  const s = p.st;
+  return 70 + (0.4 * s.teamfight + 0.25 * s.mechanics + 0.25 * s.decision + 0.1 * s.vision - 70) * CONFIG.match.statScale + (p.mastery - 50) * 0.06;
+}
+export function matchLevel(g) {
+  if (g.matchLvl === undefined) g.matchLvl = avg(allPlayers(g).map(levelOf));
+  return g.matchLvl;
+}
 export function playerPower(g, p, kind = 'fight') {
   const s = p.st, P = CONFIG.match.power;
   const raw = kind === 'lane'
     ? 0.5 * s.laning + 0.3 * s.mechanics + 0.2 * s.decision
     : 0.4 * s.teamfight + 0.25 * s.mechanics + 0.25 * s.decision + 0.1 * s.vision;
   const base = 70 + (raw - 70) * CONFIG.match.statScale;
-  const gold = (p.gold - roleAvgGold(g, p.pos)) / 1000 * P.goldPerK;
+  // 골드 차이 효과는 softK(천 골드)를 넘으면 줄어든다 (아이템 효율 한계 — 큰 격차도 뒤집힐 여지)
+  const gk = (p.gold - roleAvgGold(g, p.pos)) / 1000, ak = Math.abs(gk);
+  const gold = Math.sign(gk) * (ak <= P.goldSoftK ? ak : P.goldSoftK + (ak - P.goldSoftK) * P.goldSoftMult) * P.goldPerK;
   const lvl = (p.level - avgLevel(g)) * P.levelPer;
   return base + champPower(g, p) + p.perf + gold + lvl + (p.boost || 0);
 }
@@ -103,7 +120,11 @@ export function dpsOf(g, p, nInFight) {
   let pw = playerPower(g, p, nInFight <= 2 ? 'lane' : 'fight') + mentalFactor(g, side);
   if (nInFight >= 3) pw += compPower(side);
   if (p.side === 0) pw += CONFIG.match.blueSideBonus;
-  return S.dps * Math.exp((pw - 70) / S.powScale) * ROLE_DMG[p.pos] * buffMult(g, side);
+  // 기지 수비 이점: 자기 기지 안에서 싸우는 수비 팀 (크게 앞선 팀도 억제기·넥서스 앞은 쉽게 못 민다)
+  const home = geo.inBase(p.side, p.x, p.y) ? 1 + CONFIG.match.power.baseDefense : 1;
+  // 피해 기준점 = 경기 수준 - refLevel (상대적 강약은 그대로, 리그 수준에 따라 킬 수가 부풀지 않게)
+  const ref = 70 + matchLevel(g) - CONFIG.match.power.refLevel;
+  return S.dps * Math.exp((pw - ref) / S.powScale) * ROLE_DMG[p.pos] * buffMult(g, side) * home;
 }
 export function ehpOf(p) { return (TANK[champCls(p)] || 1) * (1 + (p.level - 1) * 0.012); }
 
@@ -132,7 +153,10 @@ function deathTime(g, p) {
 export function killPlayer(g, killer, victim, assisters = [], opts = {}) {
   if (!victim.alive) return null;
   const G = CONFIG.match.gold;
-  const bounty = victim.streak >= 2 ? Math.min(G.maxBounty, (victim.streak - 1) * G.bountyPerStreak) : 0;
+  // 현상금 = 연속 처치 + 골드 현상금(같은 포지션 평균보다 많이 번 선수) — 앞선 팀의 스노우볼을 늦춘다
+  const streakB = victim.streak >= 2 ? (victim.streak - 1) * G.bountyPerStreak : 0;
+  const goldAhead = Math.max(0, victim.gold - roleAvgGold(g, victim.pos) - G.goldBountyFrom);
+  const bounty = Math.round(Math.min(G.maxBounty, streakB + goldAhead / 1000 * G.goldBountyPerK));
   victim.alive = false; victim.d++; victim.hp = 0; victim.chan = null; victim.fightId = null; victim.flee = false;
   victim.respawnAt = g.t + deathTime(g, victim);
   const shutdown = bounty > 0;

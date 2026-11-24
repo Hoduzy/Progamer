@@ -4,7 +4,7 @@ import { RNG } from '../core/rng.js';
 import { clamp, POS } from '../core/util.js';
 import { LCK_TEAMS, OVERSEAS_TEAMS } from '../../data/teams.js';
 import { makeNamePool, makeCoachNames } from '../../data/names.js';
-import { makePlayer, marketValue, setNextPlayerId, getNextPlayerId, genChampPool } from './players.js';
+import { makePlayer, marketValue, setNextPlayerId, getNextPlayerId, genChampPool, assignStarAliases } from './players.js';
 import { newMeta } from './meta.js';
 import { CHAMPIONS } from '../../data/champions.js';
 
@@ -12,6 +12,58 @@ import { CHAMPIONS } from '../../data/champions.js';
 const COACH_STYLES = ['공격형', '운영형', '데이터형', '베테랑형', '육성형'];
 
 export function regionTarget(tier, region) { return CONFIG.tierOvr[tier] + (CONFIG.regionOffset[region] || 0); }
+
+// LCK 1군 50명 목표 OVR: 슈퍼스타(90+)는 강팀 위주, 85~89는 약팀 에이스부터, 나머지는 팀 티어 근처
+export function lckTargets(rng, teams) {
+  const C = CONFIG.stars, L = C.lck;
+  const plan = {}, high = {};
+  for (const t of teams) { plan[t.code] = {}; high[t.code] = 0; }
+  const free = t => POS.filter(p => !plan[t.code][p]);
+  const put = (t, target, o = {}) => {
+    const pos = rng.pick(free(t));
+    plan[t.code][pos] = { target, ...o };
+    if (target >= L.r85[0]) high[t.code]++;
+  };
+  const pickTeam = (ok, w) => {
+    const c = teams.filter(ok);
+    return c.length ? rng.weighted(c.map(t => [t, w(t)])) : null;
+  };
+  const n90 = rng.int(...L.n90), n85 = rng.int(...L.n85), nLow = rng.int(...L.nLow);
+  for (let i = 0; i < n90; i++) {
+    const t = pickTeam(t => high[t.code] < L.maxPerTeam && free(t).length, t => C.tierW[t.tier] || 0.3);
+    if (t) put(t, rng.int(...L.r90), { grade: rng.chance(0.6) ? 'S' : 'A', spikes: rng.chance(C.spikeChance) ? rng.int(1, 2) : 0 });
+  }
+  let left = n85;
+  // 약팀에도 에이스: 85+ 선수가 없는 팀부터 한 명씩
+  for (const t of rng.shuffle(teams.slice())) if (left > 0 && !high[t.code]) { put(t, rng.int(...L.r85), { grade: rng.chance(0.3) ? 'S' : 'A' }); left--; }
+  for (; left > 0; left--) {
+    const t = pickTeam(t => high[t.code] < L.maxPerTeam + 1 && free(t).length > 1, t => C.tierW[t.tier] || 0.3);
+    if (t) put(t, rng.int(...L.r85), { grade: rng.chance(0.3) ? 'S' : 'A' });
+  }
+  for (let i = 0; i < nLow; i++) {
+    const t = pickTeam(t => free(t).length > 1, t => 1 / (C.tierW[t.tier] || 0.3));
+    if (t) put(t, rng.int(...L.rLow));
+  }
+  for (const t of teams) for (const pos of free(t)) {
+    plan[t.code][pos] = { target: clamp(regionTarget(t.tier, 'LCK') + rng.int(-4, 3), ...L.rMid) };
+  }
+  return plan;
+}
+
+// 해외 슈퍼스타: LPL 강팀 위주, 가끔 LEC
+function overseasStars(rng, teams) {
+  const C = CONFIG.stars, O = C.overseas;
+  const out = {};
+  const n = rng.int(...O.n);
+  for (let i = 0; i < n; i++) {
+    const lec = i === 0 && rng.chance(O.lecChance);
+    const c = teams.filter(t => t.region === (lec ? 'LEC' : 'LPL') && ['S', 'A'].includes(t.tier));
+    const t = rng.weighted(c.map(t => [t, C.tierW[t.tier]]));
+    const pos = rng.pick(POS.filter(p => !out[t.code + ':' + p]));
+    out[t.code + ':' + pos] = { target: rng.int(...O.r), grade: rng.chance(0.6) ? 'S' : 'A', spikes: rng.chance(C.spikeChance) ? rng.int(1, 2) : 0 };
+  }
+  return out;
+}
 
 export function newWorld(seed) {
   const rng = new RNG(seed);
@@ -37,9 +89,10 @@ export function newWorld(seed) {
     for (const pos of POS) team.depth[pos] = [];
     return team;
   };
-  const addPlayer = (team, pos, squad, target, ageRange) => {
+  const addPlayer = (team, pos, squad, target, ageRange, star = null) => {
     const age = rng.int(...ageRange);
-    const p = makePlayer(rng, { nick: takeName(), pos, age, target: clamp(target, 40, 95), teamId: team.id, squad, region: team.region, season: year });
+    const o = star || {};
+    const p = makePlayer(rng, { nick: takeName(), pos, age, target: clamp(target, 40, 95), teamId: team.id, squad, region: team.region, season: year, grade: o.grade || null, spikes: o.spikes ?? null, exact: squad === 'main' });
     p.contract = { salary: marketValue(p), endSeason: year + rng.int(0, 2), buyout: 0, starter: squad === 'main' };
     p.contract.buyout = Math.round(p.contract.salary * rng.float(...CONFIG.salary.buyoutMult) / 1e6) * 1e6;
     state.players[p.id] = p;
@@ -47,17 +100,22 @@ export function newWorld(seed) {
     team.squadOf[p.id] = squad;
     return p;
   };
+  const lckPlan = lckTargets(rng, LCK_TEAMS);
   for (const t of LCK_TEAMS) {
     const team = mkTeam(t, 'LCK', 'LCK');
     const base = regionTarget(t.tier, 'LCK');
-    for (const pos of POS) addPlayer(team, pos, 'main', base + rng.int(-4, 4), [19, 27]);
+    for (const pos of POS) { const o = lckPlan[t.code][pos]; addPlayer(team, pos, 'main', o.target, o.target >= 85 ? [19, 26] : [19, 27], o); }
     for (const pos of POS) addPlayer(team, pos, 'academy', base + CONFIG.academyOffset + rng.int(-4, 5), [17, 21]);
     state.teams[team.id] = team;
   }
+  const osStars = overseasStars(rng, OVERSEAS_TEAMS);
   for (const t of OVERSEAS_TEAMS) {
     const team = mkTeam(t, t.region, t.region);
     const base = regionTarget(t.tier, t.region);
-    for (const pos of POS) addPlayer(team, pos, 'main', base + rng.int(-4, 4), [19, 28]);
+    for (const pos of POS) {
+      const st = osStars[t.code + ':' + pos];
+      addPlayer(team, pos, 'main', st ? st.target : base + rng.int(-4, 4), st ? [19, 26] : [19, 28], st || null);
+    }
     state.teams[team.id] = team;
   }
   // FA 풀
@@ -67,6 +125,7 @@ export function newWorld(seed) {
     const p = makePlayer(rng, { nick: takeName(), pos, age: rng.int(18, 26), target: rng.int(58, 72), teamId: null, squad: 'fa', season: year });
     state.players[p.id] = p; state.faPool.push(p.id);
   }
+  assignStarAliases(state, rng);
   state.nextPlayerId = getNextPlayerId();
   state.rng = rng.toJSON();
   return { state, rng };
@@ -74,7 +133,8 @@ export function newWorld(seed) {
 
 // 사용자 선수 생성
 export function createUserPlayer(state, rng, { nick, pos, age, style, mains }) {
-  const p = makePlayer(rng, { nick, pos, age, target: CONFIG.userStartAvg, teamId: null, squad: 'fa', season: state.year });
+  // 사용자: 튀는 능력치·유망주 보정 없이 (능력치 성향은 플레이 스타일로, 잠재력은 아래에서 따로)
+  const p = makePlayer(rng, { nick, pos, age, target: CONFIG.userStartAvg, teamId: null, squad: 'fa', season: state.year, spikes: 0, exact: true });
   const mod = CONFIG.playstyles[style] || {};
   for (const k in mod) p.stats[k] = clamp(p.stats[k] + mod[k], 35, 80);
   p.champs = genChampPool(rng, pos, 52, mains);
@@ -82,7 +142,7 @@ export function createUserPlayer(state, rng, { nick, pos, age, style, mains }) {
   p.isUser = true;
   p.style = style;
   p.mains = mains.slice();
-  p.hidden.potential = clamp(Math.round(rng.normal(87, 5)), 76, 97);
+  p.hidden.potential = clamp(Math.round(rng.normal(87, 5)), 76, 99);
   p.rookieSeason = state.year;
   state.players[p.id] = p;
   state.nextPlayerId = getNextPlayerId();

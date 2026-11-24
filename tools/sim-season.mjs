@@ -5,6 +5,7 @@ import { createSeason, beginDay, endDay, lckRegularStandings, lckIds } from '../
 import { seasonTick, newSeason, acceptOffer } from '../js/engine/career.js';
 import { ovr } from '../js/engine/players.js';
 import { avg } from '../js/core/util.js';
+import { CONFIG } from '../js/config.js';
 
 const args = process.argv.slice(2);
 const N = Number(args.find(a => /^\d+$/.test(a)) || 10);
@@ -52,6 +53,21 @@ function collect(state) {
   }
 }
 
+// ---------- OVR 분포·슈퍼스타 ----------
+const SO = CONFIG.stars.starOvr;
+const mains = (state, region) => Object.values(state.teams).filter(t => !region || t.region === region)
+  .flatMap(t => Object.keys(t.squadOf).filter(id => t.squadOf[id] === 'main' && state.players[id]).map(id => state.players[id]));
+function dist(state) {
+  const o = mains(state, 'LCK').map(ovr);
+  return { n: o.length, s90: o.filter(v => v >= 90).length, s85: o.filter(v => v >= 85 && v < 90).length, mid: o.filter(v => v >= 75 && v < 85).length, low: o.filter(v => v < 75).length, max: Math.max(...o) };
+}
+const distStr = d => `90+ ${d.s90}명 · 85~89 ${d.s85}명 · 75~84 ${d.mid}명 · 75 미만 ${d.low}명 (LCK 1군 ${d.n}명, 최고 ${d.max.toFixed(1)})`;
+function starList(state) {
+  return mains(state).filter(p => ovr(p) >= SO).sort((a, b) => ovr(b) - ovr(a)).map(p => ({ id: p.id, nick: p.nick, ovr: ovr(p), age: p.age, team: p.teamId, region: state.teams[p.teamId].region, pos: p.pos, alias: p.alias, top: Object.entries(p.stats).sort((a, b) => b[1] - a[1])[0] }));
+}
+const starStr = l => l.map(s => `${s.nick}(${s.team} ${s.pos} ${s.ovr.toFixed(0)} ${s.age}세${s.alias ? ` '${s.alias}'` : ''} · ${s.top[0]} ${s.top[1]})`).join(', ');
+const starHist = [];   // 시즌별 { year, start, end, startStars, endStars }
+
 const t0 = Date.now();
 let state, rng;
 for (let s = 0; s < N; s++) {
@@ -62,12 +78,14 @@ for (let s = 0; s < N; s++) {
     createSeason(state, rng);
   }
   const yr = state.year;
+  const startD = dist(state), startStars = starList(state);
   const ok = runSeason.call(null, state, rng);
   // runSeason 은 새 시즌으로 넘어가기 직전에 newSeason을 호출하지 않으므로 여기서 통계 후 넘김
   collect(state);
   stats.sizes.push(JSON.stringify(state).length);
   const lckStr = lckIds().map(id => `${id}:${Math.round(avg(Object.keys(state.teams[id].squadOf).filter(p => state.teams[id].squadOf[p] === 'main' && state.players[p]).map(p => ovr(state.players[p]))))}`).join(' ');
   console.log(`시즌 ${yr} 완료${ok ? '' : ' (경고: 시즌 종료 미도달)'} · LCK컵 ${state.season.comps.lckCup.result.champion} · FS ${state.season.comps.fs.result.champion} · MSI ${state.season.comps.msi.result.champion} · LCK PO ${state.season.comps.lckpo.result.champion} · Worlds ${state.season.comps.worlds.result.champion}`);
+  starHist.push({ year: yr, start: startD, end: dist(state), startStars, endStars: starList(state) });
   if (CHAIN) { console.log('   전력: ' + lckStr); newSeason(state, rng); }
 }
 
@@ -81,12 +99,44 @@ console.log('\n[국제 대회 우승 지역 분포]');
 for (const k of ['fs', 'msi', 'worlds']) console.log(`  ${k.padEnd(6)} ${Object.entries(stats.intlRegion[k]).map(([r, n]) => `${r} ${n}`).join(', ')}   (팀: ${Object.entries(stats.intlTeam[k]).map(([r, n]) => `${r} ${n}`).join(', ')})`);
 const avgDur = stats.dur / stats.games / 60, avgK = stats.kills / stats.games;
 console.log(`\n[경기] 총 ${stats.games}세트 · 평균 경기 시간 ${avgDur.toFixed(1)}분 (10%~90%: ${(pct(stats.durs, 0.1) / 60).toFixed(0)}~${(pct(stats.durs, 0.9) / 60).toFixed(0)}분) · 평균 총 킬 ${avgK.toFixed(1)} (10%~90%: ${pct(stats.killsArr, 0.1)}~${pct(stats.killsArr, 0.9)})`);
+console.log('\n[LCK 1군 OVR 분포 — 시즌 시작 → 종료]');
+for (const h of starHist) console.log(`  ${h.year} 시작: ${distStr(h.start)}\n       종료: ${distStr(h.end)}`);
+const first = starHist[0];
+console.log('\n[슈퍼스타 명단 (OVR ' + SO + '+, 첫 시즌 시작)]');
+console.log('  LCK: ' + starStr(first.startStars.filter(s => s.region === 'LCK')));
+console.log('  해외: ' + starStr(first.startStars.filter(s => s.region !== 'LCK')));
+let newStars = 0, lostStars = 0;
+if (CHAIN && starHist.length > 1) {
+  console.log('\n[슈퍼스타 교체 흐름]');
+  for (let i = 0; i < starHist.length; i++) {
+    const h = starHist[i];
+    const prev = new Set(i ? starHist[i - 1].startStars.map(s => s.id) : []);
+    const cur = new Set(h.startStars.map(s => s.id));
+    const added = h.startStars.filter(s => i && !prev.has(s.id)), gone = i ? starHist[i - 1].startStars.filter(s => !cur.has(s.id)) : [];
+    newStars += added.length; lostStars += gone.length;
+    console.log(`  ${h.year} 시작 ${h.startStars.length}명 (LCK ${h.startStars.filter(s => s.region === 'LCK').length})` + (i ? ` · 새 스타: ${starStr(added) || '없음'} · 내려옴: ${gone.map(s => `${s.nick}(${s.age + 1}세)`).join(', ') || '없음'}` : ''));
+  }
+  const last = starList(state);
+  console.log(`  마지막 시즌 종료 뒤: ${last.length}명 — ${starStr(last)}`);
+}
 console.log(`[저장 크기] 평균 ${(avg(stats.sizes) / 1024).toFixed(0)}KB`);
 const bottom = lckIds().filter(id => ['DRX', 'DNS', 'BRO'].includes(id));
 const sTier = ['GEN', 'HLE', 'T1'];
 const sTitles = sTier.reduce((a, id) => a + (stats.lckTitles[id] || 0), 0);
 const allTitles = Object.values(stats.lckTitles).reduce((a, b) => a + b, 0);
+const S0 = first.start, L = CONFIG.stars.lck;
+const osStars = first.startStars.filter(s => s.region !== 'LCK');
+const inR = (v, [a, b]) => v >= a && v <= b;
 const checks = [
+  [`시작 LCK 90+ ${L.n90.join('~')}명 (${S0.s90})`, inR(S0.s90, L.n90)],
+  [`시작 LCK 85~89 ${L.n85.join('~')}명 (${S0.s85})`, inR(S0.s85, L.n85)],
+  [`시작 LCK 75~84가 대부분 (${S0.mid}/${S0.n})`, S0.mid >= S0.n / 2],
+  [`시작 LCK 75 미만 몇 명 (${S0.low})`, inR(S0.low, [1, 8])],
+  [`해외 슈퍼스타 ${CONFIG.stars.overseas.n.join('~')}명, LPL 중심 (${osStars.length}명, LPL ${osStars.filter(s => s.region === 'LPL').length})`, inR(osStars.length, CONFIG.stars.overseas.n) && osStars.filter(s => s.region === 'LPL').length >= osStars.length / 2],
+  ...(CHAIN && starHist.length >= 5 ? [
+    [`시즌마다 LCK 90+ 3~8명 유지 (${starHist.map(h => h.start.s90).join('/')})`, starHist.every(h => inR(h.start.s90, [3, 8]))],
+    [`세대교체: 5시즌 동안 새 슈퍼스타 3명 이상 (${newStars}명), 내려온 스타도 있음 (${lostStars}명)`, newStars >= 3 && lostStars >= 1],
+  ] : []),
   ['평균 경기 시간 28~34분', avgDur >= 28 && avgDur <= 34],
   ['평균 총 킬 18~32', avgK >= 18 && avgK <= 32],
   ['S티어 팀이 LCK 우승 다수(60% 이상)', sTitles / Math.max(1, allTitles) >= 0.6],
