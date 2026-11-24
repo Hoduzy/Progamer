@@ -465,10 +465,18 @@ function doRecall(g, p) {
   } else setTask(p, 'recall', retreatPoint(g, p));
 }
 export function retreatPoint(g, p) {
-  // 가장 가까운 아군 구조물 쪽 또는 우물
+  // 가장 가까운 아군 포탑(지금 위치보다 기지에서 멀지 않은 것) 바로 뒤, 없으면 우물.
+  // 1차 포탑 앞에서 물러날 때 2차 포탑까지 가지 않게, 바로 옆 포탑도 후보로 본다 (버그 신고 56409656: 1차↔2차 왕복)
   const s = g.sides[p.side];
+  const nx = geo.nexusPos(p.side);
+  const meBase = Math.hypot(p.x - nx[0], p.y - nx[1]);
   let best = geo.fountain(p.side), bd = Infinity;
-  const consider = pt => { const d = distTo(p, pt); const toBase = Math.hypot(pt[0] - geo.nexusPos(p.side)[0], pt[1] - geo.nexusPos(p.side)[1]); const meBase = Math.hypot(p.x - geo.nexusPos(p.side)[0], p.y - geo.nexusPos(p.side)[1]); if (toBase < meBase - 0.05 && d < bd) { bd = d; best = pt; } };
+  const consider = pt => {
+    const toBase = Math.hypot(pt[0] - nx[0], pt[1] - nx[1]);
+    if (toBase > meBase + SIM().retreatSlack) return;          // 적진 쪽 포탑은 제외
+    const d = distTo(p, pt);
+    if (d < bd) { bd = d; best = geo.stepToward(pt[0], pt[1], nx[0], nx[1], SIM().retreatBehind); }
+  };
   for (const l of geo.LANES) for (let i = 0; i < 3; i++) if (s.towers[l][i] > 0) consider(geo.towerPos(p.side, l, i));
   return best;
 }
