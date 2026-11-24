@@ -122,6 +122,15 @@ export function setupPoint(side, key, i = 0, dist = 0.12) {
   const spread = (i - 2) * 0.022;
   return [pit[0] + ux * dist - uy * spread, pit[1] + uy * dist + ux * spread];
 }
+// 둥지 앞 강가 (미드 쪽 강줄기 방향으로 dist만큼, 강을 가로질러 분산) — 오브젝트 준비 때 두 팀이 다투는 자리
+export function riverPoint(key, i = 0, dist = 0.08) {
+  const pit = OBJ_POS[key];
+  const dx = 0.5 - pit[0], dy = 0.5 - pit[1];
+  const L = Math.hypot(dx, dy) || 1;
+  const ux = dx / L, uy = dy / L;
+  const spread = (i - 2) * 0.02;
+  return [pit[0] + ux * dist - uy * spread, pit[1] + uy * dist + ux * spread];
+}
 // 둥지 안 위치 (분산)
 export function pitPoint(key, i = 0) {
   const pit = OBJ_POS[key];

@@ -48,6 +48,28 @@ function ratioNear(g, s, pt, radius = 0.6, mine = null) {
   return strength(g, my, n) / Math.max(1e-9, strength(g, en, n));
 }
 
+// 오브젝트 준비 중 강가 장악 방식 (팀마다, 히스테리시스 + 최소 유지)
+//  control: 둥지 앞 강가로 전진 / push: 크게 우세 → 상대 대기 지점까지 밀어냄 / hold: 우리 쪽 대기 / yield: 열세 → 더 뒤로
+function setupMode(g, s, plan) {
+  const R = SIM().river, t = g.t;
+  const cur = s.setupMode && s.setupMode.key === plan.key ? s.setupMode : null;
+  if (cur && cur.t === t) return cur.mode;
+  const crew = (plan.parts || []).map(id => g.byId[id]).filter(q => q && q.alive);
+  const pit = geo.OBJ_POS[plan.key];
+  const r = crew.length ? ratioNear(g, s, pit, R.radius, crew) : 0;
+  const st = BIG_OBJ.includes(plan.key) ? stanceOf(g, s, plan.key) : null;
+  const bold = st && (st.stance === 'fight' || st.tilt) ? R.boldBonus : 0;
+  const was = cur ? cur.mode : 'hold';
+  let mode;
+  if (R.pushKeys.includes(plan.key) && (r + bold >= R.pushRatio || (was === 'push' && r + bold >= R.pushKeep))) mode = 'push';
+  else if (r + bold >= R.controlEnter || ((was === 'control' || was === 'push') && r + bold >= R.controlKeep)) mode = 'control';
+  else if (R.pushKeys.includes(plan.key) && (r < R.yieldBelow || (was === 'yield' && r < R.yieldKeep))) mode = 'yield';
+  else mode = 'hold';
+  if (cur && mode !== was && t - cur.since < R.minHold) mode = was;   // 최소 유지 (들어갔다 빠졌다 반복 방지)
+  s.setupMode = { key: plan.key, mode, since: cur && mode === was ? cur.since : t, t };
+  return mode;
+}
+
 function planValid(g, s, plan) {
   const E = g.sides[1 - s.idx];
   if (['objSetup', 'objTake', 'objContest'].includes(plan.kind)) {
@@ -425,7 +447,18 @@ function assign(g, s, p) {
           if (crew.length >= 4 && near >= Math.min(4, crew.length)) plan.gathered = true;
           else if (crew.length >= 4) return goTask(g, p, 'objSetup', geo.setupPoint(s.idx, plan.key, idx, SIM().stance.groupDist), { key: plan.key, gather: true });
         }
-        return goTask(g, p, 'objSetup', geo.setupPoint(s.idx, plan.key, idx), { key: plan.key });
+        // 강가 장악: 우세하면 둥지 앞 강가를 잡고(크게 우세하면 상대 대기 지점까지 밀어냄), 열세면 더 뒤로 빠진다
+        const mode = setupMode(g, s, plan);
+        if (mode === 'push') {
+          const E = g.sides[1 - s.idx], pit = geo.OBJ_POS[plan.key];
+          const tgt = E.players.filter(q => q.alive && distTo(q, pit) < SIM().river.pushR);
+          if (tgt.length) {
+            const cx = tgt.reduce((a, q) => a + q.x, 0) / tgt.length, cy = tgt.reduce((a, q) => a + q.y, 0) / tgt.length;
+            return goTask(g, p, 'objSetup', [cx + (idx - 2) * 0.015, cy], { key: plan.key, push: true });
+          }
+        }
+        if (mode === 'control' || mode === 'push') return goTask(g, p, 'objSetup', geo.riverPoint(plan.key, idx, SIM().river.controlDist), { key: plan.key, control: true });
+        return goTask(g, p, 'objSetup', geo.setupPoint(s.idx, plan.key, idx, mode === 'yield' ? SIM().river.yieldDist : 0.12), { key: plan.key });
       }
       case 'objTake': return goTask(g, p, 'objTake', geo.pitPoint(plan.key, idx), { key: plan.key });
       case 'objContest': {

@@ -79,12 +79,16 @@ export const CONFIG = {
       catchPerChaser: 0.05,    // 추격자 1명 늘 때마다 잡힐 확률 배율 +
       catchBase: 0.2,         // 도주자가 잡힐 기본 확률
       trade: { chance: 0.07, intensity: 0.45, fleeHp: 0.45 }, // 라인전 견제
-      engage: { objective: 0.13, objTaking: { baron: 0.15, elder: 0.97 }, structure: 0.05, numbers: 0.07, gank: 0.3,  roam: 0.02, late: 0.02 },
+      engage: { objective: 0.11, objTaking: { baron: 0.15, elder: 0.85 }, structure: 0.05, numbers: 0.07, gank: 0.25, roam: 0.02, late: 0.02 },
       avoidRatio: 0.8, retreatSlack: 0.02, retreatBehind: 0.02, siegeChainRadius: 0.2, siegeChainRatio: 0.9,         // 전력비가 이 아래면 교전을 피해 물러남
       // 킬 배분: 마무리 일격 = 그 대상에게 준 피해(기여) × 포지션 가중치 × 챔피언 성향
+      // 오브젝트 준비 중 강가 장악: 둥지 근처(radius) 전력비로 control(둥지 앞 강가 전진)·push(상대 대기 지점까지 밀기)·hold·yield(더 뒤로)
+      river: { radius: 0.35, controlEnter: 1.15, controlKeep: 0.9, pushRatio: 1.9, pushKeep: 1.6, yieldBelow: 0.7, yieldKeep: 0.8,
+        boldBonus: 0.15, minHold: 10, controlDist: 0.08, yieldDist: 0.2, pushR: 0.22,
+        pushKeys: ['dragon', 'grubs', 'herald'] },   // 밀어내기·뒤로 빠지기는 이 오브젝트만 (바론·장로는 강가 장악 / 대기까지 — 끝까지 버틴다)
       // 오브젝트 스탠스 (등장 1분 전 한 번 결정) · 진입·후퇴 히스테리시스 · 계획 최소 유지
       stance: {
-        bias: { dragon: 1.9, baron: 1.0, elder: 8 },   // 정면 승부 기본 성향 (로지스틱 입력)
+        bias: { dragon: 2.6, baron: 1.0, elder: 8 },   // 정면 승부 기본 성향 (로지스틱 입력)
         importance: { dragon: 0, baron: 0.3, elder: 0.6 }, soulPoint: 0.9, stack: 0.3,
         advScale: 0.8,                // 유불리 점수 반영 배율
         w: { goldPerK: 0.25, level: 0.35, alive: 0.7, ult: 0.12, flash: 0.08, comp: 0.15, vision: 0.12 },
@@ -99,7 +103,7 @@ export const CONFIG = {
         contestKeepR: 0.3, defendKeepR: 0.28, defendMinSec: 12,   // 견제·수비 계획 유지 반경(들어올 때보다 넓게)·최소 시간
       },
       kill: {
-        pos: { ADC: 0.74, MID: 0.59, JGL: 0.72, TOP: 0.66, SUP: 0.18 },
+        pos: { ADC: 0.72, MID: 0.59, JGL: 0.69, TOP: 0.66, SUP: 0.18 },
         dmgSup: 0.4,             // 딜 서폿(마법사·원딜·암살자형 서폿)은 서폿 중 높게
         dmgExp: 0.5,              // 피해 기여 반영 지수 (1 = 기여에 비례)
         cls: { apAssassin: 1.3, lethality: 1.25, mageBurst: 1.15, adcCrit: 1.1, adcLethal: 1.15, adcOnhit: 1.05, ezreal: 1.05, smolder: 1.05, yasuo: 1.15, gpCrit: 1.05,
@@ -109,8 +113,8 @@ export const CONFIG = {
       // 구조물
       towerRange: 0.05,
       towerDps: 0.035,         // 미니언 없이 포탑 아래 들어간 챔피언이 초당 잃는 체력
-      champStructDps: 0.007,   // 챔피언 1명 초당 구조물 피해 (구조물 체력 1)
-      lateStructFrom: 1800, lateStructPerMin: 0.1,    // 30분 이후 1분마다 챔피언 구조물 피해 +10%
+      champStructDps: 0.0075,  // 챔피언 1명 초당 구조물 피해 (구조물 체력 1)
+      lateStructFrom: 1800, lateStructPerMin: 0.14,   // 30분 이후 1분마다 챔피언 구조물 피해 +14%
       veryLateFrom: 2700, veryLatePerMin: 0.25,       // 45분 이후 1분마다 +25% 추가 (끝없는 장기전 방지)
       minionStructDps: 0.0018, // 미니언 웨이브 초당 구조물 피해
       superMinionMult: 3,
@@ -118,11 +122,11 @@ export const CONFIG = {
       fortifyUntil: 300,       // 이 시간 전에는 포탑 피해 -70%
       plateUntil: 840,         // 이 시간 전에는 외곽 포탑 피해 -35% (포탑 방패)
       grubsStructBonus: 0.06,  // 유충 1마리당 구조물 피해 +6%
-      baronStructBonus: 0.35,  // 바론 버프 중 챔피언의 구조물 피해 +35%
-      baronMinionMult: 1.8,    // 바론 버프 선수 근처 미니언의 구조물 피해 배율
+      baronStructBonus: 0.15,  // 바론 버프 중 챔피언의 구조물 피해 +15%
+      baronMinionMult: 1.4,    // 바론 버프 선수 근처 미니언의 구조물 피해 배율
       baronFarmMult: 1.12, baronDenyMult: 0.9,    // 바론 버프 중 강화 미니언: 버프 팀 파밍 +12%, 상대 파밍 -10%
       recallChannelBaron: 4,   // 바론 버프 중 귀환 채널링(초)
-      closeLead: 3000,         // 기지가 열렸을 때 이만큼 앞서면 인원이 같아도 넥서스를 치러 간다
+      closeLead: 2500,         // 기지가 열렸을 때 이만큼 앞서면 인원이 같아도 넥서스를 치러 간다
       reopenAt: 2400,          // 40분 이후: 앞선 팀은 되살아난 억제기도 다시 민다
       nexusMinAttackers: 3,    // 넥서스 공격 최소 인원 (상대 기지 안)
       // 웨이브
@@ -245,7 +249,7 @@ export const CONFIG = {
     starOvr: 90,                                           // 슈퍼스타 기준
     // 캐리 보정: 슈퍼스타가 솔로킬·한타·스틸의 주인공이 될 확률
     carry: { kill: 1.35, steal: 0.06, perOvr: 0.1 },
-    topFrom: 87, topGrowth: 0.6,   // OVR 87 이상은 성장 속도 60%
+    topFrom: 87, topGrowth: 0.5,   // OVR 87 이상은 성장 속도 50%
     starAge: [21, 28], aceAge: [20, 27],   // 게임 시작 때 90+ / 85~89 선수 나이
     growK: 0.27,            // AI 성장: (잠재력 - OVR) × growK × 나이 보정 / 시즌
   },

@@ -1,0 +1,2361 @@
+{
+ "kind": "lckc-bug-report",
+ "version": 1,
+ "createdAt": "2026-11-24T16:19:45.777Z",
+ "note": "바론 타이밍에 서로 교전하는것도 아니고 물려는 것도 아니고 계속 뒤에 빠져만 있다가 바론 나오면 벽넘어서 넘어가서 먹는게 너무 이상하잖아. 상황에 따라 어떤팀이 강가를 장악하고 그럼 쫓겨나거나 아님 역으로 밀어내든가 하면서 그 상황 내에 킬이 날 수도 있는거야. ",
+ "seed": 925916790,
+ "gameT": 300,
+ "gameTime": "05:00",
+ "input": {
+  "blue": {
+   "team": {
+    "id": "KT:A",
+    "code": "KT",
+    "name": "kt 롤스터 (CL)",
+    "color": "#E4002B",
+    "academy": true
+   },
+   "players": [
+    {
+     "id": "p47",
+     "nick": "Echoes",
+     "pos": "TOP",
+     "age": 19,
+     "teamId": "KT",
+     "squad": "academy",
+     "region": "LCK",
+     "stats": {
+      "laning": 72,
+      "teamfight": 73,
+      "mechanics": 67,
+      "decision": 77,
+      "vision": 74,
+      "mental": 71,
+      "pool": 74,
+      "stamina": 80
+     },
+     "hidden": {
+      "potential": 87,
+      "growth": 0.93,
+      "variance": 7
+     },
+     "form": 0.2428059073895601,
+     "champs": {
+      "Gwen": 64.8,
+      "Kled": 76,
+      "Mordekaiser": 66.8,
+      "Gangplank": 57,
+      "Vladimir": 52,
+      "Malphite": 60,
+      "Jayce": 63,
+      "Gnar": 53,
+      "Camille": 54,
+      "Darius": 55,
+      "Renekton": 72.8,
+      "Aatrox": 45,
+      "Kennen": 54
+     },
+     "contract": {
+      "salary": 211000000,
+      "endSeason": 2028,
+      "buyout": 507000000,
+      "starter": false
+     },
+     "season": {
+      "games": 3,
+      "wins": 2,
+      "k": 6,
+      "d": 6,
+      "a": 22,
+      "ratingSum": 19.4,
+      "cs": 723,
+      "dmgShare": 0,
+      "pogs": 0,
+      "champs": {
+       "Renekton": 1,
+       "Mordekaiser": 1,
+       "Gwen": 1
+      },
+      "lckGames": 0,
+      "lckRatingSum": 0,
+      "byComp": {
+       "cl12": {
+        "g": 3,
+        "r": 19.4,
+        "w": 2,
+        "k": 6,
+        "d": 6,
+        "a": 22
+       }
+      }
+     },
+     "history": [],
+     "isUser": false,
+     "rookieSeason": 2026,
+     "lastRatings": [
+      5.1,
+      8.4,
+      5.9
+     ]
+    },
+    {
+     "id": "p48",
+     "nick": "Danoso",
+     "pos": "JGL",
+     "age": 18,
+     "teamId": "KT",
+     "squad": "academy",
+     "region": "LCK",
+     "stats": {
+      "laning": 74,
+      "teamfight": 69,
+      "mechanics": 67,
+      "decision": 70,
+      "vision": 68,
+      "mental": 72,
+      "pool": 73,
+      "stamina": 67
+     },
+     "hidden": {
+      "potential": 79,
+      "growth": 1.18,
+      "variance": 4
+     },
+     "form": 3.210231308830617,
+     "champs": {
+      "Vi": 66,
+      "Ivern": 62,
+      "MonkeyKing": 81.8,
+      "Maokai": 56,
+      "Diana": 55.8,
+      "Elise": 47,
+      "Zac": 51,
+      "Sejuani": 49,
+      "Kindred": 68,
+      "Skarner": 54,
+      "LeeSin": 53,
+      "Volibear": 43,
+      "Graves": 65.8
+     },
+     "contract": {
+      "salary": 151000000,
+      "endSeason": 2028,
+      "buyout": 279000000,
+      "starter": false
+     },
+     "season": {
+      "games": 3,
+      "wins": 2,
+      "k": 21,
+      "d": 8,
+      "a": 25,
+      "ratingSum": 24.6,
+      "cs": 512,
+      "dmgShare": 0,
+      "pogs": 1,
+      "champs": {
+       "MonkeyKing": 1,
+       "Diana": 1,
+       "Graves": 1
+      },
+      "lckGames": 0,
+      "lckRatingSum": 0,
+      "byComp": {
+       "cl12": {
+        "g": 3,
+        "r": 24.6,
+        "w": 2,
+        "k": 21,
+        "d": 8,
+        "a": 25
+       }
+      }
+     },
+     "history": [],
+     "isUser": false,
+     "rookieSeason": 2026,
+     "lastRatings": [
+      6.7,
+      8.3,
+      9.6
+     ]
+    },
+    {
+     "id": "p49",
+     "nick": "Taloion",
+     "pos": "MID",
+     "age": 20,
+     "teamId": "KT",
+     "squad": "academy",
+     "region": "LCK",
+     "stats": {
+      "laning": 69,
+      "teamfight": 79,
+      "mechanics": 74,
+      "decision": 79,
+      "vision": 80,
+      "mental": 73,
+      "pool": 79,
+      "stamina": 83
+     },
+     "hidden": {
+      "potential": 97,
+      "growth": 1.27,
+      "variance": 1
+     },
+     "form": 3.5148007829756738,
+     "champs": {
+      "Yasuo": 77,
+      "Akali": 75,
+      "Vex": 70,
+      "Aurora": 84,
+      "Syndra": 72.8,
+      "Hwei": 76,
+      "AurelionSol": 61,
+      "Tristana": 65,
+      "Viktor": 47,
+      "Annie": 57,
+      "Cassiopeia": 63,
+      "Corki": 47.8,
+      "Leblanc": 65,
+      "Galio": 72.8,
+      "Azir": 43
+     },
+     "contract": {
+      "salary": 305000000,
+      "endSeason": 2027,
+      "buyout": 549000000,
+      "starter": false
+     },
+     "season": {
+      "games": 3,
+      "wins": 2,
+      "k": 8,
+      "d": 10,
+      "a": 45,
+      "ratingSum": 24.4,
+      "cs": 712,
+      "dmgShare": 0,
+      "pogs": 0,
+      "champs": {
+       "Syndra": 1,
+       "Galio": 1,
+       "Corki": 1
+      },
+      "lckGames": 0,
+      "lckRatingSum": 0,
+      "byComp": {
+       "cl12": {
+        "g": 3,
+        "r": 24.4,
+        "w": 2,
+        "k": 8,
+        "d": 10,
+        "a": 45
+       }
+      }
+     },
+     "history": [],
+     "isUser": false,
+     "rookieSeason": 2024,
+     "lastRatings": [
+      6.6,
+      8.8,
+      9
+     ]
+    },
+    {
+     "id": "p50",
+     "nick": "Relix",
+     "pos": "ADC",
+     "age": 19,
+     "teamId": "KT",
+     "squad": "academy",
+     "region": "LCK",
+     "stats": {
+      "laning": 78,
+      "teamfight": 63,
+      "mechanics": 67,
+      "decision": 63,
+      "vision": 64,
+      "mental": 61,
+      "pool": 59,
+      "stamina": 66
+     },
+     "hidden": {
+      "potential": 85,
+      "growth": 1.31,
+      "variance": 9
+     },
+     "form": -2.062871076452174,
+     "champs": {
+      "Jinx": 73.8,
+      "Lucian": 70,
+      "Jhin": 65,
+      "KogMaw": 50,
+      "Kalista": 64,
+      "Kaisa": 61.8,
+      "Aphelios": 41,
+      "Twitch": 63.8,
+      "Ashe": 56,
+      "MissFortune": 51,
+      "Ezreal": 49,
+      "Ziggs": 51
+     },
+     "contract": {
+      "salary": 109000000,
+      "endSeason": 2028,
+      "buyout": 274000000,
+      "starter": false
+     },
+     "season": {
+      "games": 3,
+      "wins": 2,
+      "k": 17,
+      "d": 9,
+      "a": 26,
+      "ratingSum": 19.6,
+      "cs": 757,
+      "dmgShare": 0,
+      "pogs": 0,
+      "champs": {
+       "Jinx": 1,
+       "Twitch": 1,
+       "Kaisa": 1
+      },
+      "lckGames": 0,
+      "lckRatingSum": 0,
+      "byComp": {
+       "cl12": {
+        "g": 3,
+        "r": 19.6,
+        "w": 2,
+        "k": 17,
+        "d": 9,
+        "a": 26
+       }
+      }
+     },
+     "history": [],
+     "isUser": false,
+     "rookieSeason": 2026,
+     "lastRatings": [
+      5.6,
+      7.7,
+      6.3
+     ]
+    },
+    {
+     "id": "p51",
+     "nick": "Rimiy",
+     "pos": "SUP",
+     "age": 21,
+     "teamId": "KT",
+     "squad": "academy",
+     "region": "LCK",
+     "stats": {
+      "laning": 67,
+      "teamfight": 65,
+      "mechanics": 67,
+      "decision": 64,
+      "vision": 69,
+      "mental": 57,
+      "pool": 72,
+      "stamina": 57
+     },
+     "hidden": {
+      "potential": 71,
+      "growth": 0.87,
+      "variance": 1
+     },
+     "form": 1.4237765586703337,
+     "champs": {
+      "Pyke": 68,
+      "Nautilus": 51,
+      "Nami": 68,
+      "Seraphine": 69.8,
+      "Thresh": 57.8,
+      "Rakan": 55,
+      "Janna": 60,
+      "Alistar": 54.8,
+      "Blitzcrank": 42,
+      "Karma": 49
+     },
+     "contract": {
+      "salary": 97000000,
+      "endSeason": 2026,
+      "buyout": 162000000,
+      "starter": false
+     },
+     "season": {
+      "games": 3,
+      "wins": 2,
+      "k": 3,
+      "d": 6,
+      "a": 48,
+      "ratingSum": 26.6,
+      "cs": 109,
+      "dmgShare": 0,
+      "pogs": 1,
+      "champs": {
+       "Seraphine": 1,
+       "Thresh": 1,
+       "Alistar": 1
+      },
+      "lckGames": 0,
+      "lckRatingSum": 0,
+      "byComp": {
+       "cl12": {
+        "g": 3,
+        "r": 26.6,
+        "w": 2,
+        "k": 3,
+        "d": 6,
+        "a": 48
+       }
+      },
+      "pom": 1
+     },
+     "history": [],
+     "isUser": false,
+     "rookieSeason": 2023,
+     "lastRatings": [
+      7,
+      10,
+      9.6
+     ]
+    }
+   ],
+   "picks": [
+    "Renekton",
+    "Kindred",
+    "Cassiopeia",
+    "Kalista",
+    "Seraphine"
+   ],
+   "mentalBonus": 0,
+   "chem": 0
+  },
+  "red": {
+   "team": {
+    "id": "T1:A",
+    "code": "T1",
+    "name": "T1 (CL)",
+    "color": "#E2012D",
+    "academy": true
+   },
+   "players": [
+    {
+     "id": "p26",
+     "nick": "Resel",
+     "pos": "TOP",
+     "age": 20,
+     "teamId": "T1",
+     "squad": "academy",
+     "region": "LCK",
+     "stats": {
+      "laning": 70,
+      "teamfight": 75,
+      "mechanics": 74,
+      "decision": 76,
+      "vision": 72,
+      "mental": 70,
+      "pool": 74,
+      "stamina": 71
+     },
+     "hidden": {
+      "potential": 97,
+      "growth": 0.87,
+      "variance": 9
+     },
+     "form": -1.070125703275255,
+     "champs": {
+      "Kennen": 75,
+      "Ambessa": 72,
+      "Jayce": 85,
+      "Yorick": 79.8,
+      "Sion": 78.8,
+      "Mordekaiser": 88,
+      "Vladimir": 64,
+      "Fiora": 48,
+      "Gnar": 41,
+      "Gwen": 57,
+      "Aatrox": 66,
+      "Darius": 57,
+      "Irelia": 61
+     },
+     "contract": {
+      "salary": 223000000,
+      "endSeason": 2026,
+      "buyout": 407000000,
+      "starter": false
+     },
+     "season": {
+      "games": 2,
+      "wins": 0,
+      "k": 3,
+      "d": 5,
+      "a": 14,
+      "ratingSum": 10.9,
+      "cs": 413,
+      "dmgShare": 0,
+      "pogs": 0,
+      "champs": {
+       "Yorick": 1,
+       "Sion": 1
+      },
+      "lckGames": 0,
+      "lckRatingSum": 0,
+      "byComp": {
+       "cl12": {
+        "g": 2,
+        "r": 10.9,
+        "w": 0,
+        "k": 3,
+        "d": 5,
+        "a": 14
+       }
+      }
+     },
+     "history": [],
+     "isUser": false,
+     "rookieSeason": 2024,
+     "lastRatings": [
+      4.9,
+      6
+     ]
+    },
+    {
+     "id": "p27",
+     "nick": "Nyron",
+     "pos": "JGL",
+     "age": 19,
+     "teamId": "T1",
+     "squad": "academy",
+     "region": "LCK",
+     "stats": {
+      "laning": 69,
+      "teamfight": 73,
+      "mechanics": 73,
+      "decision": 70,
+      "vision": 74,
+      "mental": 69,
+      "pool": 64,
+      "stamina": 67
+     },
+     "hidden": {
+      "potential": 79,
+      "growth": 1.31,
+      "variance": 4
+     },
+     "form": 0.1366265985334354,
+     "champs": {
+      "Zac": 69,
+      "Nidalee": 76,
+      "XinZhao": 77,
+      "Taliyah": 52.8,
+      "Vi": 68.8,
+      "Diana": 57,
+      "Skarner": 74,
+      "Viego": 50,
+      "Belveth": 55,
+      "MonkeyKing": 65,
+      "Lillia": 49,
+      "LeeSin": 56
+     },
+     "contract": {
+      "salary": 179000000,
+      "endSeason": 2028,
+      "buyout": 464000000,
+      "starter": false
+     },
+     "season": {
+      "games": 2,
+      "wins": 0,
+      "k": 13,
+      "d": 6,
+      "a": 15,
+      "ratingSum": 15.6,
+      "cs": 289,
+      "dmgShare": 0,
+      "pogs": 0,
+      "champs": {
+       "Vi": 1,
+       "Taliyah": 1
+      },
+      "lckGames": 0,
+      "lckRatingSum": 0,
+      "byComp": {
+       "cl12": {
+        "g": 2,
+        "r": 15.6,
+        "w": 0,
+        "k": 13,
+        "d": 6,
+        "a": 15
+       }
+      }
+     },
+     "history": [],
+     "isUser": false,
+     "rookieSeason": 2026,
+     "lastRatings": [
+      6.9,
+      8.7
+     ]
+    },
+    {
+     "id": "p28",
+     "nick": "Juniper",
+     "pos": "MID",
+     "age": 18,
+     "teamId": "T1",
+     "squad": "academy",
+     "region": "LCK",
+     "stats": {
+      "laning": 67,
+      "teamfight": 77,
+      "mechanics": 64,
+      "decision": 75,
+      "vision": 67,
+      "mental": 60,
+      "pool": 68,
+      "stamina": 67
+     },
+     "hidden": {
+      "potential": 73,
+      "growth": 1.16,
+      "variance": 10
+     },
+     "form": 0.12423654426497477,
+     "champs": {
+      "Annie": 69,
+      "Leblanc": 77,
+      "Akali": 77.8,
+      "Galio": 66.8,
+      "Ryze": 64,
+      "Aurora": 46,
+      "Lissandra": 58,
+      "Azir": 54,
+      "Mel": 44,
+      "Tristana": 50,
+      "Ahri": 54,
+      "Vex": 48,
+      "Orianna": 43,
+      "Neeko": 46
+     },
+     "contract": {
+      "salary": 145000000,
+      "endSeason": 2026,
+      "buyout": 332000000,
+      "starter": false
+     },
+     "season": {
+      "games": 2,
+      "wins": 0,
+      "k": 1,
+      "d": 9,
+      "a": 21,
+      "ratingSum": 11.5,
+      "cs": 393,
+      "dmgShare": 0,
+      "pogs": 0,
+      "champs": {
+       "Galio": 1,
+       "Akali": 1
+      },
+      "lckGames": 0,
+      "lckRatingSum": 0,
+      "byComp": {
+       "cl12": {
+        "g": 2,
+        "r": 11.5,
+        "w": 0,
+        "k": 1,
+        "d": 9,
+        "a": 21
+       }
+      }
+     },
+     "history": [],
+     "isUser": false,
+     "rookieSeason": 2026,
+     "lastRatings": [
+      5.8,
+      5.7
+     ]
+    },
+    {
+     "id": "p238",
+     "nick": "Zephir",
+     "pos": "ADC",
+     "age": 17,
+     "teamId": "T1",
+     "squad": "academy",
+     "region": "LCK",
+     "stats": {
+      "laning": 59,
+      "teamfight": 55,
+      "mechanics": 73,
+      "decision": 48,
+      "vision": 41,
+      "mental": 52,
+      "pool": 58,
+      "stamina": 56
+     },
+     "hidden": {
+      "potential": 86,
+      "growth": 0.76,
+      "variance": 5
+     },
+     "form": -0.8214223302167967,
+     "champs": {
+      "Aphelios": 66.8,
+      "Kaisa": 70.8,
+      "Ashe": 66.2,
+      "Jinx": 33,
+      "Zeri": 26,
+      "Lucian": 53.4,
+      "Kalista": 62.6,
+      "Twitch": 45,
+      "Draven": 33,
+      "Xayah": 36,
+      "MissFortune": 19,
+      "Ziggs": 25,
+      "Sivir": 28
+     },
+     "contract": {
+      "salary": 36000000,
+      "endSeason": 2028,
+      "buyout": 89000000,
+      "starter": false
+     },
+     "season": {
+      "games": 2,
+      "wins": 0,
+      "k": 10,
+      "d": 8,
+      "a": 13,
+      "ratingSum": 10.9,
+      "cs": 440,
+      "dmgShare": 0,
+      "pogs": 0,
+      "champs": {
+       "Kaisa": 1,
+       "Kalista": 1
+      },
+      "lckGames": 0,
+      "lckRatingSum": 0,
+      "byComp": {
+       "cl12": {
+        "g": 2,
+        "r": 10.9,
+        "w": 0,
+        "k": 10,
+        "d": 8,
+        "a": 13
+       }
+      }
+     },
+     "history": [],
+     "isUser": true,
+     "rookieSeason": 2026,
+     "lastRatings": [
+      5,
+      5.9
+     ],
+     "style": "캐리형",
+     "mains": [
+      "Aphelios",
+      "Kaisa",
+      "Ashe"
+     ],
+     "statFrac": {
+      "teamfight": 0.5954039014499732,
+      "decision": 0.4339750606111599,
+      "laning": 0.8986109795064146,
+      "mechanics": 0.5924673595829097,
+      "vision": 0.4667680962455057
+     }
+    },
+    {
+     "id": "p30",
+     "nick": "Tundra",
+     "pos": "SUP",
+     "age": 17,
+     "teamId": "T1",
+     "squad": "academy",
+     "region": "LCK",
+     "stats": {
+      "laning": 62,
+      "teamfight": 69,
+      "mechanics": 59,
+      "decision": 76,
+      "vision": 71,
+      "mental": 67,
+      "pool": 74,
+      "stamina": 74
+     },
+     "hidden": {
+      "potential": 84,
+      "growth": 0.84,
+      "variance": 8
+     },
+     "form": 1.731907285912778,
+     "champs": {
+      "Pyke": 73,
+      "Renata": 80,
+      "Zilean": 52,
+      "Braum": 55,
+      "Nami": 77,
+      "Karma": 57,
+      "Thresh": 63,
+      "Nautilus": 46,
+      "Janna": 53,
+      "Lulu": 60.8,
+      "Bard": 54,
+      "Leona": 52,
+      "Milio": 43,
+      "Yuumi": 48.8
+     },
+     "contract": {
+      "salary": 145000000,
+      "endSeason": 2026,
+      "buyout": 337000000,
+      "starter": false
+     },
+     "season": {
+      "games": 2,
+      "wins": 0,
+      "k": 1,
+      "d": 4,
+      "a": 21,
+      "ratingSum": 14.6,
+      "cs": 61,
+      "dmgShare": 0,
+      "pogs": 0,
+      "champs": {
+       "Lulu": 1,
+       "Yuumi": 1
+      },
+      "lckGames": 0,
+      "lckRatingSum": 0,
+      "byComp": {
+       "cl12": {
+        "g": 2,
+        "r": 14.6,
+        "w": 0,
+        "k": 1,
+        "d": 4,
+        "a": 21
+       }
+      }
+     },
+     "history": [],
+     "isUser": false,
+     "rookieSeason": 2026,
+     "lastRatings": [
+      6.8,
+      7.8
+     ]
+    }
+   ],
+   "picks": [
+    "Mordekaiser",
+    "Taliyah",
+    "Ryze",
+    "Ashe",
+    "Yuumi"
+   ],
+   "mentalBonus": 1.0775515620962517,
+   "chem": 1.6599999999999995
+  },
+  "seed": 925916790,
+  "meta": {
+   "year": 2026,
+   "num": 3,
+   "version": "26.3",
+   "power": {
+    "Aatrox": -1.2,
+    "Ambessa": 0.5,
+    "Camille": -1.2,
+    "Gnar": 0.6,
+    "Gragas": 1.2,
+    "Gwen": -0.7,
+    "Jax": -0.9,
+    "Jayce": -0.3,
+    "KSante": -1.2,
+    "Renekton": 0.8,
+    "Rumble": 0.6,
+    "Sion": 0.4,
+    "Ornn": 0.3,
+    "Kennen": -0.7,
+    "Fiora": -0.8,
+    "Yorick": 0.3,
+    "Poppy": -0.3,
+    "Malphite": -0.3,
+    "Irelia": -1.6,
+    "Gangplank": 0,
+    "Shen": -2.6,
+    "Mordekaiser": 0.2,
+    "Darius": -0.3,
+    "Vladimir": -1.2,
+    "Riven": 0.4,
+    "Kled": 1.2,
+    "LeeSin": 0.5,
+    "Viego": 0.8,
+    "Vi": 1.3,
+    "XinZhao": -0.9,
+    "Sejuani": -1.6,
+    "Maokai": 2,
+    "Nidalee": -0.7,
+    "Elise": 0.1,
+    "JarvanIV": -0.3,
+    "MonkeyKing": 0.1,
+    "Skarner": 2.1,
+    "Kindred": 2.6,
+    "Graves": 1.2,
+    "Belveth": -0.3,
+    "Lillia": -2.1,
+    "Diana": 0.3,
+    "Nocturne": -0.5,
+    "RekSai": 1.1,
+    "Taliyah": 2.7,
+    "Ivern": -0.6,
+    "Pantheon": -2,
+    "Kayn": -1,
+    "Hecarim": 1,
+    "Zac": -0.9,
+    "Volibear": 0.4,
+    "Azir": 0.4,
+    "Orianna": -0.9,
+    "Ahri": -0.5,
+    "Syndra": -1.3,
+    "Viktor": -1.5,
+    "Sylas": 0.3,
+    "Leblanc": -1.4,
+    "Corki": 2,
+    "Yone": -1.6,
+    "Yasuo": 1.7,
+    "Akali": -0.9,
+    "Galio": 1,
+    "Tristana": -0.8,
+    "Hwei": 0,
+    "Aurora": -0.3,
+    "Ryze": -0.3,
+    "TwistedFate": 0.3,
+    "Annie": 1.5,
+    "Cassiopeia": 1.1,
+    "Zoe": -0.6,
+    "Lissandra": 0,
+    "Vex": -0.3,
+    "Mel": -1.8,
+    "Neeko": 1.6,
+    "Anivia": -0.6,
+    "AurelionSol": 0.3,
+    "Kaisa": -0.8,
+    "Varus": 2,
+    "Ezreal": -1.6,
+    "Xayah": 2,
+    "Jinx": -0.3,
+    "Aphelios": -0.6,
+    "Zeri": 1.2,
+    "Kalista": 1,
+    "Jhin": -0.4,
+    "Ashe": 1.5,
+    "Caitlyn": 0.1,
+    "Lucian": -1.9,
+    "Senna": -0.3,
+    "Sivir": -0.7,
+    "Draven": -0.3,
+    "Smolder": -2.2,
+    "Ziggs": 0.2,
+    "KogMaw": 0.3,
+    "MissFortune": -0.3,
+    "Twitch": 0.1,
+    "Rakan": 1.7,
+    "Nautilus": 1.5,
+    "Alistar": 0.2,
+    "Leona": -1.2,
+    "Rell": -0.7,
+    "Braum": 1.3,
+    "Thresh": 0.1,
+    "Renata": -0.3,
+    "Lulu": -0.1,
+    "Milio": -0.6,
+    "Karma": 1.8,
+    "Bard": 2.4,
+    "Pyke": -1.5,
+    "Blitzcrank": 0,
+    "Taric": 0.1,
+    "Yuumi": 0.6,
+    "Nami": -1.6,
+    "Janna": -0.6,
+    "Seraphine": -0.7,
+    "Zilean": -0.1
+   },
+   "tiers": {
+    "Gragas": "OP",
+    "Ornn": "2",
+    "Kled": "OP",
+    "Renekton": "1",
+    "Gnar": "1",
+    "Rumble": "1",
+    "Sion": "2",
+    "Riven": "2",
+    "Yorick": "2",
+    "Mordekaiser": "2",
+    "Gangplank": "2",
+    "Malphite": "3",
+    "Darius": "3",
+    "Jayce": "2",
+    "Poppy": "2",
+    "Ambessa": "1",
+    "Gwen": "3",
+    "Kennen": "3",
+    "Fiora": "3",
+    "Jax": "3",
+    "Aatrox": "3",
+    "Camille": "3",
+    "KSante": "4",
+    "Vladimir": "4",
+    "Irelia": "4",
+    "Shen": "4",
+    "Taliyah": "OP",
+    "Kindred": "OP",
+    "Maokai": "1",
+    "Vi": "1",
+    "Graves": "1",
+    "RekSai": "2",
+    "Hecarim": "2",
+    "Kayn": "4",
+    "Viego": "2",
+    "LeeSin": "2",
+    "Diana": "2",
+    "Elise": "2",
+    "MonkeyKing": "2",
+    "Skarner": "1",
+    "JarvanIV": "3",
+    "Belveth": "3",
+    "Volibear": "2",
+    "Nocturne": "3",
+    "Ivern": "3",
+    "Nidalee": "3",
+    "XinZhao": "3",
+    "Zac": "3",
+    "Sejuani": "4",
+    "Pantheon": "4",
+    "Lillia": "4",
+    "Corki": "OP",
+    "Yasuo": "OP",
+    "AurelionSol": "2",
+    "Cassiopeia": "1",
+    "Galio": "1",
+    "Syndra": "3",
+    "Akali": "3",
+    "Azir": "2",
+    "TwistedFate": "2",
+    "Sylas": "2",
+    "Hwei": "2",
+    "Lissandra": "2",
+    "Aurora": "2",
+    "Ryze": "2",
+    "Vex": "3",
+    "Neeko": "1",
+    "Annie": "1",
+    "Ahri": "3",
+    "Zoe": "3",
+    "Anivia": "3",
+    "Tristana": "3",
+    "Orianna": "3",
+    "Leblanc": "4",
+    "Viktor": "4",
+    "Yone": "4",
+    "Mel": "4",
+    "Xayah": "1",
+    "Varus": "OP",
+    "Twitch": "2",
+    "Ashe": "1",
+    "Zeri": "1",
+    "Aphelios": "3",
+    "Kalista": "2",
+    "Ziggs": "2",
+    "Jhin": "3",
+    "KogMaw": "2",
+    "Caitlyn": "2",
+    "Jinx": "2",
+    "Senna": "2",
+    "MissFortune": "3",
+    "Draven": "3",
+    "Sivir": "3",
+    "Kaisa": "3",
+    "Ezreal": "4",
+    "Lucian": "4",
+    "Smolder": "4",
+    "Bard": "OP",
+    "Karma": "1",
+    "Rakan": "1",
+    "Yuumi": "2",
+    "Braum": "2",
+    "Alistar": "2",
+    "Nautilus": "1",
+    "Thresh": "2",
+    "Taric": "2",
+    "Blitzcrank": "2",
+    "Lulu": "2",
+    "Zilean": "3",
+    "Renata": "3",
+    "Milio": "3",
+    "Janna": "3",
+    "Rell": "3",
+    "Seraphine": "3",
+    "Leona": "4",
+    "Pyke": "4",
+    "Nami": "4"
+   },
+   "notes": [
+    {
+     "champ": "Neeko",
+     "type": "buff",
+     "lines": [
+      "Q 마나 소모량: 10 → 9"
+     ],
+     "from": "3",
+     "to": "1"
+    },
+    {
+     "champ": "Twitch",
+     "type": "nerf",
+     "lines": [
+      "W 체력 회복량: 85 → 65"
+     ],
+     "from": "1",
+     "to": "2"
+    },
+    {
+     "champ": "Xayah",
+     "type": "nerf",
+     "lines": [
+      "기본 지속 효과 기본 공격력: 35 → 20",
+      "기본 지속 효과 사거리: 90 → 80"
+     ],
+     "from": "OP",
+     "to": "1"
+    },
+    {
+     "champ": "Ambessa",
+     "type": "buff",
+     "lines": [
+      "E 기본 방어력: 80 → 90"
+     ],
+     "from": "3",
+     "to": "1"
+    },
+    {
+     "champ": "Nautilus",
+     "type": "buff",
+     "lines": [
+      "R 보호막 흡수량: 65 → 85"
+     ],
+     "from": "2",
+     "to": "1"
+    },
+    {
+     "champ": "Ornn",
+     "type": "nerf",
+     "lines": [
+      "R 레벨당 체력: 25 → 15",
+      "Q 재사용 대기시간: 14초 → 16초"
+     ],
+     "from": "OP",
+     "to": "2"
+    },
+    {
+     "champ": "Akali",
+     "type": "nerf",
+     "lines": [
+      "E 사거리: 35 → 20"
+     ],
+     "from": "2",
+     "to": "3"
+    },
+    {
+     "champ": "Syndra",
+     "type": "nerf",
+     "lines": [
+      "Q 피해량: 75 → 60",
+      "기본 지속 효과 피해량: 40 → 25"
+     ],
+     "from": "1",
+     "to": "3"
+    },
+    {
+     "champ": "Skarner",
+     "type": "buff",
+     "lines": [
+      "E 재사용 대기시간: 7초 → 6초"
+     ],
+     "from": "2",
+     "to": "1"
+    },
+    {
+     "champ": "Braum",
+     "type": "buff",
+     "lines": [
+      "R 마나 소모량: 8 → 6"
+     ],
+     "from": "3",
+     "to": "2"
+    }
+   ],
+   "history": [
+    {
+     "version": "26.3",
+     "notes": [
+      {
+       "champ": "Neeko",
+       "type": "buff",
+       "lines": [
+        "Q 마나 소모량: 10 → 9"
+       ],
+       "from": "3",
+       "to": "1"
+      },
+      {
+       "champ": "Twitch",
+       "type": "nerf",
+       "lines": [
+        "W 체력 회복량: 85 → 65"
+       ],
+       "from": "1",
+       "to": "2"
+      },
+      {
+       "champ": "Xayah",
+       "type": "nerf",
+       "lines": [
+        "기본 지속 효과 기본 공격력: 35 → 20",
+        "기본 지속 효과 사거리: 90 → 80"
+       ],
+       "from": "OP",
+       "to": "1"
+      },
+      {
+       "champ": "Ambessa",
+       "type": "buff",
+       "lines": [
+        "E 기본 방어력: 80 → 90"
+       ],
+       "from": "3",
+       "to": "1"
+      },
+      {
+       "champ": "Nautilus",
+       "type": "buff",
+       "lines": [
+        "R 보호막 흡수량: 65 → 85"
+       ],
+       "from": "2",
+       "to": "1"
+      },
+      {
+       "champ": "Ornn",
+       "type": "nerf",
+       "lines": [
+        "R 레벨당 체력: 25 → 15",
+        "Q 재사용 대기시간: 14초 → 16초"
+       ],
+       "from": "OP",
+       "to": "2"
+      },
+      {
+       "champ": "Akali",
+       "type": "nerf",
+       "lines": [
+        "E 사거리: 35 → 20"
+       ],
+       "from": "2",
+       "to": "3"
+      },
+      {
+       "champ": "Syndra",
+       "type": "nerf",
+       "lines": [
+        "Q 피해량: 75 → 60",
+        "기본 지속 효과 피해량: 40 → 25"
+       ],
+       "from": "1",
+       "to": "3"
+      },
+      {
+       "champ": "Skarner",
+       "type": "buff",
+       "lines": [
+        "E 재사용 대기시간: 7초 → 6초"
+       ],
+       "from": "2",
+       "to": "1"
+      },
+      {
+       "champ": "Braum",
+       "type": "buff",
+       "lines": [
+        "R 마나 소모량: 8 → 6"
+       ],
+       "from": "3",
+       "to": "2"
+      }
+     ]
+    },
+    {
+     "version": "26.2",
+     "notes": [
+      {
+       "champ": "Annie",
+       "type": "buff",
+       "lines": [
+        "기본 지속 효과 둔화 지속시간: 80 → 85"
+       ],
+       "from": "3",
+       "to": "1"
+      },
+      {
+       "champ": "Aphelios",
+       "type": "nerf",
+       "lines": [
+        "Q 보호막 흡수량: 20 → 10",
+        "R 기본 공격력: 25 → 10"
+       ],
+       "from": "2",
+       "to": "3"
+      },
+      {
+       "champ": "Volibear",
+       "type": "buff",
+       "lines": [
+        "E 둔화 지속시간: 70 → 85",
+        "Q 피해량: 35 → 55"
+       ],
+       "from": "3",
+       "to": "2"
+      },
+      {
+       "champ": "Jhin",
+       "type": "nerf",
+       "lines": [
+        "Q 사거리: 35 → 30"
+       ],
+       "from": "2",
+       "to": "3"
+      },
+      {
+       "champ": "Ziggs",
+       "type": "nerf",
+       "lines": [
+        "W 둔화 지속시간: 30 → 20",
+        "Q 보호막 흡수량: 25 → 20"
+       ],
+       "from": "2",
+       "to": "2"
+      },
+      {
+       "champ": "Braum",
+       "type": "nerf",
+       "lines": [
+        "Q 기본 공격력: 35 → 15"
+       ],
+       "from": "2",
+       "to": "3"
+      },
+      {
+       "champ": "AurelionSol",
+       "type": "nerf",
+       "lines": [
+        "Q 레벨당 체력: 45 → 40",
+        "R 기본 방어력: 25 → 15"
+       ],
+       "from": "1",
+       "to": "2"
+      },
+      {
+       "champ": "Kayn",
+       "type": "nerf",
+       "lines": [
+        "기본 지속 효과 레벨당 체력: 20 → 15"
+       ],
+       "from": "2",
+       "to": "4"
+      }
+     ]
+    }
+   ]
+  },
+  "userPid": "p238",
+  "userMods": {
+   "condition": 80,
+   "mental": 81.55103124192503,
+   "fatigue": 20.643333333333327
+  },
+  "gameNo": 1
+ },
+ "choices": [
+  {
+   "t": 300,
+   "id": "obj:dragon:theyTake",
+   "opt": 2
+  }
+ ],
+ "recent": [
+  {
+   "t": 270,
+   "ps": [
+    [
+     "p47",
+     0.2303,
+     0.0847,
+     1,
+     1,
+     "lane",
+     ""
+    ],
+    [
+     "p48",
+     0.568,
+     0.7585,
+     1,
+     1,
+     "objSetup",
+     ""
+    ],
+    [
+     "p49",
+     0.5611,
+     0.7376,
+     1,
+     1,
+     "objSetup",
+     ""
+    ],
+    [
+     "p50",
+     0.5542,
+     0.7168,
+     1,
+     1,
+     "objSetup",
+     ""
+    ],
+    [
+     "p51",
+     0.5473,
+     0.6959,
+     1,
+     1,
+     "objSetup",
+     ""
+    ],
+    [
+     "p26",
+     0.3,
+     0.0763,
+     1,
+     1,
+     "retreat",
+     ""
+    ],
+    [
+     "p27",
+     0.6948,
+     0.5796,
+     1,
+     1,
+     "objSetup",
+     ""
+    ],
+    [
+     "p28",
+     0.7155,
+     0.5871,
+     1,
+     1,
+     "objSetup",
+     ""
+    ],
+    [
+     "p238",
+     0.7363,
+     0.5945,
+     1,
+     1,
+     "objSetup",
+     ""
+    ],
+    [
+     "p30",
+     0.757,
+     0.6019,
+     1,
+     1,
+     "objSetup",
+     ""
+    ]
+   ],
+   "plans": [
+    "드래곤 준비",
+    "드래곤 준비"
+   ],
+   "waves": [
+    0.603,
+    0.551,
+    0.425
+   ]
+  },
+  {
+   "t": 275,
+   "ps": [
+    [
+     "p47",
+     0.2303,
+     0.0847,
+     1,
+     1,
+     "lane",
+     ""
+    ],
+    [
+     "p48",
+     0.568,
+     0.7585,
+     1,
+     1,
+     "objSetup",
+     ""
+    ],
+    [
+     "p49",
+     0.5611,
+     0.7376,
+     1,
+     1,
+     "objSetup",
+     ""
+    ],
+    [
+     "p50",
+     0.5542,
+     0.7168,
+     1,
+     1,
+     "objSetup",
+     ""
+    ],
+    [
+     "p51",
+     0.5473,
+     0.6959,
+     1,
+     1,
+     "objSetup",
+     ""
+    ],
+    [
+     "p26",
+     0.2927,
+     0.075,
+     1,
+     1,
+     "lane",
+     ""
+    ],
+    [
+     "p27",
+     0.6948,
+     0.5796,
+     1,
+     1,
+     "objSetup",
+     ""
+    ],
+    [
+     "p28",
+     0.7155,
+     0.5871,
+     1,
+     1,
+     "objSetup",
+     ""
+    ],
+    [
+     "p238",
+     0.7363,
+     0.5945,
+     1,
+     1,
+     "objSetup",
+     ""
+    ],
+    [
+     "p30",
+     0.757,
+     0.6019,
+     1,
+     1,
+     "objSetup",
+     ""
+    ]
+   ],
+   "plans": [
+    "드래곤 준비",
+    "드래곤 준비"
+   ],
+   "waves": [
+    0.603,
+    0.545,
+    0.429
+   ]
+  },
+  {
+   "t": 280,
+   "ps": [
+    [
+     "p47",
+     0.2303,
+     0.0847,
+     1,
+     1,
+     "lane",
+     ""
+    ],
+    [
+     "p48",
+     0.568,
+     0.7585,
+     1,
+     1,
+     "objSetup",
+     ""
+    ],
+    [
+     "p49",
+     0.5611,
+     0.7376,
+     1,
+     1,
+     "objSetup",
+     ""
+    ],
+    [
+     "p50",
+     0.5542,
+     0.7168,
+     1,
+     1,
+     "objSetup",
+     ""
+    ],
+    [
+     "p51",
+     0.5473,
+     0.6959,
+     1,
+     1,
+     "objSetup",
+     ""
+    ],
+    [
+     "p26",
+     0.3,
+     0.0763,
+     1,
+     1,
+     "retreat",
+     ""
+    ],
+    [
+     "p27",
+     0.6948,
+     0.5796,
+     1,
+     1,
+     "objSetup",
+     ""
+    ],
+    [
+     "p28",
+     0.7155,
+     0.5871,
+     1,
+     1,
+     "objSetup",
+     ""
+    ],
+    [
+     "p238",
+     0.7363,
+     0.5945,
+     1,
+     1,
+     "objSetup",
+     ""
+    ],
+    [
+     "p30",
+     0.757,
+     0.6019,
+     1,
+     1,
+     "objSetup",
+     ""
+    ]
+   ],
+   "plans": [
+    "드래곤 준비",
+    "드래곤 준비"
+   ],
+   "waves": [
+    0.603,
+    0.539,
+    0.433
+   ]
+  },
+  {
+   "t": 285,
+   "ps": [
+    [
+     "p47",
+     0.2303,
+     0.0847,
+     1,
+     1,
+     "lane",
+     ""
+    ],
+    [
+     "p48",
+     0.568,
+     0.7585,
+     1,
+     1,
+     "objSetup",
+     ""
+    ],
+    [
+     "p49",
+     0.5611,
+     0.7376,
+     1,
+     1,
+     "objSetup",
+     ""
+    ],
+    [
+     "p50",
+     0.5542,
+     0.7168,
+     1,
+     1,
+     "objSetup",
+     ""
+    ],
+    [
+     "p51",
+     0.5473,
+     0.6959,
+     1,
+     1,
+     "objSetup",
+     ""
+    ],
+    [
+     "p26",
+     0.3,
+     0.0763,
+     1,
+     1,
+     "retreat",
+     ""
+    ],
+    [
+     "p27",
+     0.6948,
+     0.5796,
+     1,
+     1,
+     "objSetup",
+     ""
+    ],
+    [
+     "p28",
+     0.7155,
+     0.5871,
+     1,
+     1,
+     "objSetup",
+     ""
+    ],
+    [
+     "p238",
+     0.7363,
+     0.5945,
+     1,
+     1,
+     "objSetup",
+     ""
+    ],
+    [
+     "p30",
+     0.757,
+     0.6019,
+     1,
+     1,
+     "objSetup",
+     ""
+    ]
+   ],
+   "plans": [
+    "드래곤 준비",
+    "드래곤 준비"
+   ],
+   "waves": [
+    0.603,
+    0.533,
+    0.437
+   ]
+  },
+  {
+   "t": 290,
+   "ps": [
+    [
+     "p47",
+     0.2303,
+     0.0847,
+     1,
+     1,
+     "lane",
+     ""
+    ],
+    [
+     "p48",
+     0.568,
+     0.7585,
+     1,
+     1,
+     "objSetup",
+     ""
+    ],
+    [
+     "p49",
+     0.5611,
+     0.7376,
+     1,
+     1,
+     "objSetup",
+     ""
+    ],
+    [
+     "p50",
+     0.5542,
+     0.7168,
+     1,
+     1,
+     "objSetup",
+     ""
+    ],
+    [
+     "p51",
+     0.5473,
+     0.6959,
+     1,
+     1,
+     "objSetup",
+     ""
+    ],
+    [
+     "p26",
+     0.2927,
+     0.075,
+     1,
+     1,
+     "lane",
+     ""
+    ],
+    [
+     "p27",
+     0.6948,
+     0.5796,
+     1,
+     1,
+     "objSetup",
+     ""
+    ],
+    [
+     "p28",
+     0.7155,
+     0.5871,
+     1,
+     1,
+     "objSetup",
+     ""
+    ],
+    [
+     "p238",
+     0.7363,
+     0.5945,
+     1,
+     1,
+     "objSetup",
+     ""
+    ],
+    [
+     "p30",
+     0.757,
+     0.6019,
+     1,
+     1,
+     "objSetup",
+     ""
+    ]
+   ],
+   "plans": [
+    "드래곤 준비",
+    "드래곤 준비"
+   ],
+   "waves": [
+    0.603,
+    0.527,
+    0.441
+   ]
+  },
+  {
+   "t": 295,
+   "ps": [
+    [
+     "p47",
+     0.2303,
+     0.0847,
+     1,
+     1,
+     "lane",
+     ""
+    ],
+    [
+     "p48",
+     0.568,
+     0.7585,
+     1,
+     1,
+     "objSetup",
+     ""
+    ],
+    [
+     "p49",
+     0.5611,
+     0.7376,
+     1,
+     1,
+     "objSetup",
+     ""
+    ],
+    [
+     "p50",
+     0.5542,
+     0.7168,
+     1,
+     1,
+     "objSetup",
+     ""
+    ],
+    [
+     "p51",
+     0.5473,
+     0.6959,
+     1,
+     1,
+     "objSetup",
+     ""
+    ],
+    [
+     "p26",
+     0.3,
+     0.0763,
+     1,
+     1,
+     "retreat",
+     ""
+    ],
+    [
+     "p27",
+     0.6948,
+     0.5796,
+     1,
+     1,
+     "objSetup",
+     ""
+    ],
+    [
+     "p28",
+     0.7155,
+     0.5871,
+     1,
+     1,
+     "objSetup",
+     ""
+    ],
+    [
+     "p238",
+     0.7363,
+     0.5945,
+     1,
+     1,
+     "objSetup",
+     ""
+    ],
+    [
+     "p30",
+     0.757,
+     0.6019,
+     1,
+     1,
+     "objSetup",
+     ""
+    ]
+   ],
+   "plans": [
+    "드래곤 준비",
+    "드래곤 준비"
+   ],
+   "waves": [
+    0.603,
+    0.521,
+    0.446
+   ]
+  },
+  {
+   "t": 300,
+   "ps": [
+    [
+     "p47",
+     0.2303,
+     0.0847,
+     1,
+     1,
+     "lane",
+     ""
+    ],
+    [
+     "p48",
+     0.6806,
+     0.7171,
+     1,
+     1,
+     "objTake",
+     ""
+    ],
+    [
+     "p49",
+     0.6604,
+     0.7106,
+     1,
+     1,
+     "objTake",
+     ""
+    ],
+    [
+     "p50",
+     0.6604,
+     0.6894,
+     1,
+     1,
+     "objTake",
+     ""
+    ],
+    [
+     "p51",
+     0.6806,
+     0.6829,
+     1,
+     1,
+     "objTake",
+     ""
+    ],
+    [
+     "p26",
+     0.3,
+     0.0763,
+     1,
+     1,
+     "retreat",
+     ""
+    ],
+    [
+     "p27",
+     0.6948,
+     0.5796,
+     1,
+     1,
+     "objSetup",
+     ""
+    ],
+    [
+     "p28",
+     0.7155,
+     0.5871,
+     1,
+     1,
+     "objSetup",
+     ""
+    ],
+    [
+     "p238",
+     0.7363,
+     0.5945,
+     1,
+     1,
+     "objSetup",
+     ""
+    ],
+    [
+     "p30",
+     0.757,
+     0.6019,
+     1,
+     1,
+     "objSetup",
+     ""
+    ]
+   ],
+   "plans": [
+    "드래곤 처치",
+    "드래곤 준비"
+   ],
+   "waves": [
+    0.603,
+    0.515,
+    0.451
+   ]
+  }
+ ],
+ "events": [
+  {
+   "type": "spawn",
+   "obj": "dragon",
+   "pos": [
+    0.675,
+    0.7
+   ],
+   "parts": [],
+   "dragon": "화염",
+   "t": 300,
+   "id": 2
+  },
+  {
+   "type": "objStart",
+   "obj": "dragon",
+   "side": 0,
+   "pos": [
+    0.675,
+    0.7
+   ],
+   "parts": [
+    "p48",
+    "p49",
+    "p50",
+    "p51"
+   ],
+   "t": 300,
+   "id": 3
+  }
+ ],
+ "plans": [
+  {
+   "plan": {
+    "kind": "objTake",
+    "pri": 7.2,
+    "since": 300,
+    "until": 380,
+    "key": "dragon",
+    "parts": [
+     "p48",
+     "p50",
+     "p51",
+     "p49"
+    ],
+    "dur": 80,
+    "dead0": 0,
+    "en0": 4
+   },
+   "label": "드래곤 처치"
+  },
+  {
+   "plan": {
+    "kind": "objSetup",
+    "pri": 6.8,
+    "since": 240,
+    "until": 370,
+    "key": "dragon",
+    "parts": [
+     "p27",
+     "p238",
+     "p30",
+     "p28"
+    ],
+    "dur": 75,
+    "dead0": 0,
+    "en0": 3
+   },
+   "label": "드래곤 준비"
+  }
+ ],
+ "objectives": {
+  "dragon": {
+   "alive": true,
+   "next": 300,
+   "prog": {
+    "side": 0,
+    "val": 0,
+    "start": 300,
+    "need": 32.8,
+    "n": 4
+   },
+   "spawnedAt": 300,
+   "done": false,
+   "type": "화염"
+  },
+  "grubs": {
+   "alive": false,
+   "next": 480,
+   "prog": null,
+   "spawnedAt": null,
+   "done": false
+  },
+  "herald": {
+   "alive": false,
+   "next": 900,
+   "prog": null,
+   "spawnedAt": null,
+   "done": false
+  },
+  "baron": {
+   "alive": false,
+   "next": 1200,
+   "prog": null,
+   "spawnedAt": null,
+   "done": false
+  },
+  "elder": {
+   "alive": false,
+   "next": null,
+   "prog": null,
+   "spawnedAt": null,
+   "done": false
+  },
+  "atakhan": {
+   "alive": false,
+   "next": null,
+   "prog": null,
+   "spawnedAt": null,
+   "done": true
+  }
+ },
+ "waves": {
+  "TOP": {
+   "s": 0.6030971359322309,
+   "atRed": true,
+   "atBlue": false
+  },
+  "MID": {
+   "s": 0.5146579962589524,
+   "atRed": false,
+   "atBlue": false
+  },
+  "BOT": {
+   "s": 0.4509903822148309,
+   "atRed": false,
+   "atBlue": false
+  }
+ },
+ "structures": [
+  {
+   "towers": {
+    "TOP": [
+     1,
+     1,
+     1
+    ],
+    "MID": [
+     1,
+     1,
+     1
+    ],
+    "BOT": [
+     0.7749999999999998,
+     1,
+     1
+    ]
+   },
+   "inhibs": {
+    "TOP": {
+     "alive": true,
+     "at": 0,
+     "hp": 1
+    },
+    "MID": {
+     "alive": true,
+     "at": 0,
+     "hp": 1
+    },
+    "BOT": {
+     "alive": true,
+     "at": 0,
+     "hp": 1
+    }
+   },
+   "nexusTowerHp": [
+    1,
+    1
+   ],
+   "nexusHp": 1
+  },
+  {
+   "towers": {
+    "TOP": [
+     0.7029999999999997,
+     1,
+     1
+    ],
+    "MID": [
+     0.6895000000000006,
+     1,
+     1
+    ],
+    "BOT": [
+     1,
+     1,
+     1
+    ]
+   },
+   "inhibs": {
+    "TOP": {
+     "alive": true,
+     "at": 0,
+     "hp": 1
+    },
+    "MID": {
+     "alive": true,
+     "at": 0,
+     "hp": 1
+    },
+    "BOT": {
+     "alive": true,
+     "at": 0,
+     "hp": 1
+    }
+   },
+   "nexusTowerHp": [
+    1,
+    1
+   ],
+   "nexusHp": 1
+  }
+ ]
+}
