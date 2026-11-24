@@ -1,11 +1,27 @@
 // 저장: 자동 저장 + 슬롯 3개 + JSON 내보내기/불러오기
 import { CONFIG } from '../config.js';
-import { serialize, deserialize } from '../engine/state.js';
+import { serialize, deserialize, needsNameMigration } from '../engine/state.js';
 import { fmtDate } from '../core/util.js';
 
 const P = CONFIG.storagePrefix;
 export const SLOT_KEYS = ['auto', 'slot1', 'slot2', 'slot3'];
 export const SLOT_NAMES = { auto: '자동 저장', slot1: '슬롯 1', slot2: '슬롯 2', slot3: '슬롯 3' };
+// 이름 변환 전 백업: 원래 슬롯마다 하나 (backup.auto, backup.slot1 … , 파일·코드로 가져온 것은 backup.import)
+const BACKUP_SRC = { auto: '자동 저장', slot1: '슬롯 1', slot2: '슬롯 2', slot3: '슬롯 3', import: '가져온 세이브' };
+for (const [k, n] of Object.entries(BACKUP_SRC)) SLOT_NAMES['backup.' + k] = `${n} 백업 (이름 변환 전)`;
+export const isBackupKey = k => k.startsWith('backup.');
+// 불러오기 목록: 저장 슬롯 + 있는 백업
+export const loadKeys = () => SLOT_KEYS.concat(Object.keys(BACKUP_SRC).map(k => 'backup.' + k).filter(k => localStorage.getItem(`${P}.${k}`)));
+
+// 선수 이름 변환(실제 로스터 영문 표기) 전 세이브는 변환하기 전에 원본을 백업 슬롯에 한 부 남긴다
+function backupBeforeMigration(data, src) {
+  try {
+    const st = data && (data.state || data);
+    if (!needsNameMigration(st)) return false;
+    localStorage.setItem(`${P}.backup.${src}`, JSON.stringify(data.state ? data : { version: 1, savedAt: Date.now(), summary: null, state: data }));
+    return true;
+  } catch (e) { console.error('백업 실패', e); return false; }
+}
 
 export function summaryOf(state) {
   const u = state.players[state.user.pid];
@@ -22,6 +38,7 @@ export function loadFrom(key) {
   const raw = localStorage.getItem(`${P}.${key}`);
   if (!raw) return null;
   const data = JSON.parse(raw);
+  if (!isBackupKey(key)) backupBeforeMigration(data, key);
   return deserialize(data.state);
 }
 export function slotInfo(key) {
@@ -40,13 +57,14 @@ export function exportJSON(state, rng) {
 export function importJSON(file) {
   return new Promise((resolve, reject) => {
     const fr = new FileReader();
-    fr.onload = () => { try { const d = JSON.parse(fr.result); const r = deserialize(d.state || d); r.summary = d.summary || null; resolve(r); } catch (e) { reject(e); } };
+    fr.onload = () => { try { const d = JSON.parse(fr.result); backupBeforeMigration(d, 'import'); const r = deserialize(d.state || d); r.summary = d.summary || null; resolve(r); } catch (e) { reject(e); } };
     fr.onerror = reject;
     fr.readAsText(file);
   });
 }
 export function describeSlot(info) {
   if (!info) return '비어 있음';
+  if (!info.nick) return `저장 ${new Date(info.savedAt).toLocaleString()}`;
   return `${info.nick} (${info.team}) · ${fmtDate(info.date)}`;
 }
 
@@ -88,6 +106,7 @@ export async function readSaveCode(text) {
     data = JSON.parse(new TextDecoder().decode(bytes));
   } catch { throw new Error('코드가 손상됐거나 일부만 복사됐어요. 처음부터 끝까지 다시 복사해 주세요'); }
   if (!data || !(data.state || data.players)) throw new Error('세이브 데이터가 아닙니다');
+  backupBeforeMigration(data, 'import');
   return { data, loaded: deserialize(data.state || data) };
 }
 // 클립보드 복사 (Safari는 사용자 터치 직후에만 허용하므로 ClipboardItem에 Promise를 넘긴다)

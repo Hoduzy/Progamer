@@ -11,7 +11,7 @@ import { TIER_ORDER, TIER_LABEL } from '../../engine/meta.js';
 import { champIcon, teamLogo, playerPhoto } from '../assets.js';
 import { CHAMPIONS, champName } from '../../../data/champions.js';
 import { REGIONS } from '../../../data/teams.js';
-import { SLOT_KEYS, SLOT_NAMES, slotInfo, saveTo, loadFrom, deleteSlot, exportJSON, importJSON, describeSlot } from '../save.js';
+import { SLOT_KEYS, SLOT_NAMES, loadKeys, isBackupKey, slotInfo, saveTo, loadFrom, deleteSlot, exportJSON, importJSON, describeSlot } from '../save.js';
 import { startLoaded } from './title.js';
 import { copyCodeFlow, pasteCodeFlow, importFile } from '../saveTransfer.js';
 import { setImgDebug } from '../imgLoader.js';
@@ -191,8 +191,8 @@ function settingsPage(root) {
   const st = App.state;
   const html = `<div class="grid2" style="align-items:start">
     <div class="panel"><h3>세이브 슬롯</h3>
-      ${SLOT_KEYS.map(k => { const i = slotInfo(k); return `<div class="row between" style="padding:8px 0;border-bottom:1px solid var(--line)"><div><b>${SLOT_NAMES[k]}</b><div class="small muted">${esc(describeSlot(i))}${i ? ` · ${(i.size / 1024).toFixed(0)}KB` : ''}</div></div>
-        <div class="row">${k !== 'auto' ? `<button class="btn sm" data-save="${k}">저장</button>` : ''}<button class="btn sm" data-load="${k}" ${i ? '' : 'disabled'}>불러오기</button>${k !== 'auto' && i ? `<button class="btn sm danger" data-del="${k}">삭제</button>` : ''}</div></div>`; }).join('')}
+      ${loadKeys().map(k => { const i = slotInfo(k); return `<div class="row between" style="padding:8px 0;border-bottom:1px solid var(--line)"><div><b>${SLOT_NAMES[k]}</b><div class="small muted">${esc(describeSlot(i))}${i ? ` · ${(i.size / 1024).toFixed(0)}KB` : ''}</div></div>
+        <div class="row">${k !== 'auto' && !isBackupKey(k) ? `<button class="btn sm" data-save="${k}">저장</button>` : ''}<button class="btn sm" data-load="${k}" ${i ? '' : 'disabled'}>불러오기</button>${k !== 'auto' && i ? `<button class="btn sm danger" data-del="${k}">삭제</button>` : ''}</div></div>`; }).join('')}
       <h3 style="margin-top:16px">다른 기기로 옮기기</h3>
       <div class="row wrap"><button class="btn primary" id="code-copy">📋 세이브 코드 복사</button><button class="btn" id="code-paste">세이브 코드 붙여넣기</button></div>
       <div class="row wrap" style="margin-top:8px"><button class="btn" id="export">JSON 파일로 내보내기</button><label class="btn" style="cursor:pointer">JSON 불러오기<input type="file" id="file" accept=".json,application/json" style="display:none"></label></div>

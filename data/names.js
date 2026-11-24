@@ -1,4 +1,7 @@
-// 가상 닉네임 생성기. 실존 프로 선수 닉네임은 BLOCKLIST로 걸러낸다.
+// 가상 닉네임 생성기 (2군·신인·해외·FA). 실존 프로 선수 닉네임은 BLOCKLIST로 걸러낸다.
+// LCK 1군 실제 로스터 이름은 data/rosters.js에만 둔다.
+import { LCK_ROSTERS } from './rosters.js';
+const ROSTER_KO = new Set(Object.values(LCK_ROSTERS).flat().map(r => r[2]));
 const WORDS = [
   'Lantern', 'Comet', 'Ember', 'Nocturn', 'Quill', 'Halcyon', 'Pyrex', 'Vanta', 'Morrow', 'Sable',
   'Glint', 'Tundra', 'Orbit', 'Riptide', 'Zenith', 'Cobalt', 'Fable', 'Mirage', 'Harbor', 'Warden',
@@ -43,7 +46,19 @@ export const BLOCKLIST = new Set([
   'zven', 'doublelift', 'bjergsen', 'sneaky', 'jensen', 'blaber', 'fudge', 'emenes', 'berserker', 'zven', 'busio',
   'quad', 'massu', 'eyla', 'yeon', 'contractz', 'spica', 'tactical', 'palafox', 'wildturtle', 'robo', 'tinowns',
   'brtt', 'titan', 'route', 'croc', 'robo', 'wiz', 'shrimp', 'kogi', 'ceos', 'aegis', 'jojo', 'mikasa', 'hiro',
+  // 게임 안 LCK 로스터(data/rosters.js) — 가상 선수가 같은 이름을 받지 않게
+  'career', 'pollu', 'taeyoon', 'daystar', 'casting', 'fisher', 'namgung', 'vincenzo',
 ]);
+
+// 내 선수 닉네임 추천 (영문 스타일, 실존 선수 이름 제외). rnd: 0~1 난수 함수
+export function suggestNick(rnd = Math.random) {
+  const pick = a => a[Math.floor(rnd() * a.length)];
+  for (let i = 0; i < 50; i++) {
+    const n = rnd() < 0.5 ? pick(WORDS) : pick(SYL_A) + pick(SYL_B) + pick(SUFFIX);
+    if (n.length >= 3 && n.length <= 9 && !BLOCKLIST.has(n.toLowerCase())) return n;
+  }
+  return 'Starling';
+}
 
 export function makeNamePool(rng, count) {
   const out = new Set();
@@ -59,7 +74,11 @@ export function makeNamePool(rng, count) {
   return rng.shuffle([...out]);
 }
 
-export function isBlocked(nick) { return BLOCKLIST.has(String(nick).toLowerCase().replace(/\s/g, '')); }
+// 실존 선수 닉네임(영문) + 게임 로스터 선수의 한글 표기는 내 선수 이름으로 쓸 수 없다
+export function isBlocked(nick) {
+  const n = String(nick).toLowerCase().replace(/\s/g, '');
+  return BLOCKLIST.has(n) || ROSTER_KO.has(n);
+}
 
 const COACH_PRE = ['Mentor', 'Tactica', 'Overseer', 'Sensei', 'Compass', 'Anchor', 'Architect', 'Pilot', 'Keeper', 'Scholar', 'Bastion', 'Helm', 'Sage', 'Admiral', 'Maestro', 'Navigator', 'Forge', 'Pillar', 'Beacon', 'Strategos'];
 export function makeCoachNames(rng, count) {

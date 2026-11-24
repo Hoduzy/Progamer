@@ -9,6 +9,7 @@ import { competitorOf } from './state.js';
 import { allMatches, userRef, lckRegularStandings } from './season.js';
 import { sortStandings } from './tournament.js';
 import { ovr } from './players.js';
+import { KO_OF } from '../../data/rosters.js';
 
 const C = () => CONFIG.community;
 
@@ -228,6 +229,11 @@ function otherTeams(state, info, rng) {
   const a = rng.pick(ids), b = rng.pick(ids.filter(x => x !== a));
   return [a, b];
 }
+// 실제 로스터 선수는 커뮤니티에서 한글 표기도 섞어 쓴다 (예: Faker / 페이커)
+function callName(nick, rng) {
+  const ko = nick && KO_OF[nick.toLowerCase()];
+  return ko && rng.chance(C().koShare) ? ko : nick;
+}
 function starOf(state, teamId, pos, rng) {
   const t = state.teams[teamId];
   if (!t || !t.squadOf) return null;
@@ -236,7 +242,7 @@ function starOf(state, teamId, pos, rng) {
   const same = ids.filter(id => state.players[id].pos === pos);
   const pool = same.length && rng.chance(0.6) ? same : ids;
   pool.sort((a, b) => ovr(state.players[b]) - ovr(state.players[a]));
-  return state.players[pool[0]].nick;
+  return callName(state.players[pool[0]].nick, rng);
 }
 
 // 별명이 붙은 슈퍼스타 (사용자 제외): {슈퍼스타} {별명} {슈퍼스타팀}, 사용자 별명: {내별명}
@@ -246,7 +252,7 @@ function superstarVars(state, rng, u) {
   const s = (lck.length && rng.chance(0.75)) ? rng.pick(lck) : stars.length ? rng.pick(stars) : null;
   const t = s && state.teams[s.teamId];
   return {
-    슈퍼스타: s ? s.nick : null, 별명: s ? s.alias : null, 슈퍼스타팀: t ? (D.TEAM_NICK[t.code] || t.name) : null,
+    슈퍼스타: s ? callName(s.nick, rng) : null, 별명: s ? s.alias : null, 슈퍼스타팀: t ? (D.TEAM_NICK[t.code] || t.name) : null,
     내별명: u.alias || null,
   };
 }
@@ -297,7 +303,7 @@ export function buildContext(state, rng, info = {}) {
     상대팀: hasMatch ? tName(state, info.oppRef) : null, 스코어: hasMatch ? info.score : null,
     챔피언: info.champ ? champName(info.champ) : null, KDA: info.played ? info.kda : null, 평점: info.played ? info.rating.toFixed(1) : null,
     분: hasMatch && info.dur ? Math.round(info.dur / 60) : null, 오브젝트: objective, 대회: hasMatch ? info.compShort : null,
-    라이벌: rivalId ? state.players[rivalId].nick : null, 상대선수: info.played ? info.laneOpp : null, 장면: info.moment || null,
+    라이벌: rivalId ? callName(state.players[rivalId].nick, rng) : null, 상대선수: info.played && info.laneOpp ? callName(info.laneOpp, rng) : null, 장면: info.moment || null,
     다른팀: o1 ? (D.TEAM_NICK[o1] || state.teams[o1].name) : null, 다른팀2: o2 ? (D.TEAM_NICK[o2] || state.teams[o2].name) : null,
     다른선수: o1 ? starOf(state, o1, u.pos, rng) : null,
     ...superstarVars(state, rng, u),

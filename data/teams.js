@@ -8,9 +8,9 @@ export const LCK_TEAMS = [
   { code: 'KT', name: 'kt 롤스터', color: '#E4002B', tier: 'A' },
   { code: 'NS', name: '농심 레드포스', color: '#DE2027', tier: 'B' },
   { code: 'BFX', name: 'BNK 피어엑스', color: '#F5A623', tier: 'B' },
-  { code: 'DRX', name: 'DRX', color: '#3B6CFF', tier: 'C' },
+  { code: 'DRX', name: '키움 DRX', color: '#3B6CFF', tier: 'C' },
   { code: 'DNS', name: 'DN 수퍼스', color: '#7B4DFF', tier: 'C' },
-  { code: 'BRO', name: '브리온', color: '#0B6E4F', tier: 'C' },
+  { code: 'BRO', name: '한진 브리온', color: '#0B6E4F', tier: 'C' },
 ];
 
 // 첫 시즌 LCK컵 그룹

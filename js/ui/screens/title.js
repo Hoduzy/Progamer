@@ -3,7 +3,7 @@ import { DD, teamLogo, champIconUrl } from '../assets.js';
 import { preloadIcons } from '../imgLoader.js';
 import { CHAMP_IDS } from '../../../data/champions.js';
 import { LCK_TEAMS } from '../../../data/teams.js';
-import { SLOT_KEYS, SLOT_NAMES, slotInfo, loadFrom, importJSON, describeSlot } from '../save.js';
+import { SLOT_KEYS, SLOT_NAMES, loadKeys, slotInfo, loadFrom, importJSON, describeSlot } from '../save.js';
 import { esc } from '../../core/util.js';
 import { pasteCodeFlow, importFile } from '../saveTransfer.js';
 
@@ -48,7 +48,7 @@ function render(root) {
 }
 
 export async function loadDialog() {
-  const rows = SLOT_KEYS.map(k => { const i = slotInfo(k); return `<div class="row between" style="padding:8px 0;border-bottom:1px solid var(--line)"><div><b>${SLOT_NAMES[k]}</b><div class="small muted">${esc(describeSlot(i))}</div></div><button class="btn sm" data-k="${k}" ${i ? '' : 'disabled'}>불러오기</button></div>`; }).join('');
+  const rows = loadKeys().map(k => { const i = slotInfo(k); return `<div class="row between" style="padding:8px 0;border-bottom:1px solid var(--line)"><div><b>${SLOT_NAMES[k]}</b><div class="small muted">${esc(describeSlot(i))}</div></div><button class="btn sm" data-k="${k}" ${i ? '' : 'disabled'}>불러오기</button></div>`; }).join('');
   modal({
     title: '불러오기',
     body: `${rows}<div class="row" style="margin-top:14px;gap:10px;align-items:center"><span class="small muted grow">홈 화면 앱과 사파리는 저장 공간이 따로예요. 다른 쪽에서 하던 게임은 세이브 코드로 옮겨 오세요.</span><button class="btn sm primary" id="code-paste" style="flex:none">세이브 코드 붙여넣기</button></div><div class="row wrap" style="margin-top:6px"><label class="btn sm" style="cursor:pointer">JSON 파일 불러오기<input type="file" id="file" accept=".json,application/json" style="display:none"></label></div>`,

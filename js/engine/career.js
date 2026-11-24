@@ -302,7 +302,9 @@ function agePlayers(state, rng) {
     const af = G.ageFactor[p.age] ?? 0.1;
     // 성장: 잠재력(최대 OVR)까지 남은 폭에 비례 — 높은 등급 유망주는 2~3년 안에 스타가 된다
     const gap = p.hidden.potential - ovr(p);
-    const up = p.age < G.declineStartAge && gap > 0 ? Math.min(gap, gap * CONFIG.stars.growK * af * p.hidden.growth * rng.float(0.7, 1.3)) : 0;
+    let up = p.age < G.declineStartAge && gap > 0 ? Math.min(gap, gap * CONFIG.stars.growK * af * p.hidden.growth * rng.float(0.7, 1.3)) : 0;
+    // 정상급 근처에서는 성장이 느려진다 (90+ 슈퍼스타가 한꺼번에 늘지 않게)
+    if (up > 0 && ovr(p) >= CONFIG.stars.topFrom) up *= CONFIG.stars.topGrowth;
     for (const k of STAT_KEYS) {
       let v = p.stats[k] + up;
       if (p.age >= G.declineStartAge) {

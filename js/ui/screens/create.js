@@ -3,7 +3,7 @@ import { App, go, toast } from '../app.js';
 import { CONFIG } from '../../config.js';
 import { POS, POS_KO, esc } from '../../core/util.js';
 import { champsForPos, CHAMPIONS } from '../../../data/champions.js';
-import { isBlocked } from '../../../data/names.js';
+import { isBlocked, suggestNick } from '../../../data/names.js';
 import { champIcon } from '../assets.js';
 import { newWorld, createUserPlayer } from '../../engine/state.js';
 
@@ -18,14 +18,14 @@ const STYLE_DESC = {
 };
 
 function render(root) {
-  const f = { nick: '', pos: 'MID', age: 18, style: '캐리형', mains: [], seed: '' };
+  const f = { nick: suggestNick(), pos: 'MID', age: 18, style: '캐리형', mains: [], seed: '' };
   const draw = () => {
     const champs = champsForPos(f.pos).filter(id => CHAMPIONS[id].pos[0] === f.pos).concat(champsForPos(f.pos).filter(id => CHAMPIONS[id].pos[0] !== f.pos));
     root.innerHTML = `<div class="create">
       <div class="row between"><h1>선수 등록</h1><button class="btn ghost" id="back">← 타이틀</button></div>
       <div class="grid2" style="gap:18px">
         <div class="col" style="gap:14px">
-          <div class="field"><label>닉네임 (실존 프로 선수 이름은 사용할 수 없음)</label><input class="inp" id="nick" maxlength="14" placeholder="예: Starling" value="${esc(f.nick)}"></div>
+          <div class="field"><label>닉네임 (중계 화면처럼 영문 권장 · 실존 프로 선수 이름은 사용할 수 없음)</label><div class="row" style="gap:8px"><input class="inp grow" id="nick" maxlength="14" placeholder="예: Starling" value="${esc(f.nick)}"><button class="btn" id="nick-roll" title="다른 이름 추천" style="flex:none">🎲 추천</button></div></div>
           <div class="field"><label>포지션</label><div class="opt-row">${POS.map(p => `<button class="btn ${f.pos === p ? 'active' : ''}" data-pos="${p}" style="width:82px">${POS_KO[p]}</button>`).join('')}</div></div>
           <div class="field"><label>나이</label><div class="opt-row">${[17, 18, 19, 20].map(a => `<button class="btn ${f.age === a ? 'active' : ''}" data-age="${a}" style="width:82px">${a}세</button>`).join('')}</div></div>
           <div class="field"><label>플레이스타일</label><div class="col" style="gap:6px">${Object.keys(CONFIG.playstyles).map(s => `<button class="btn ${f.style === s ? 'active' : ''}" data-style="${s}" style="justify-content:flex-start;height:auto;min-height:46px;padding:6px 14px"><b>${s}</b><span class="small muted" style="margin-left:8px;white-space:normal;text-align:left">${STYLE_DESC[s]}</span></button>`).join('')}</div></div>
@@ -40,6 +40,7 @@ function render(root) {
       </div></div>`;
     const nick = root.querySelector('#nick');
     nick.addEventListener('input', () => { f.nick = nick.value; });
+    root.querySelector('#nick-roll').addEventListener('click', () => { f.nick = suggestNick(); nick.value = f.nick; });
     root.querySelector('#seed').addEventListener('input', e => { f.seed = e.target.value; });
     root.querySelectorAll('[data-pos]').forEach(b => b.addEventListener('click', () => { if (f.pos !== b.dataset.pos) f.mains = []; f.pos = b.dataset.pos; draw(); }));
     root.querySelectorAll('[data-age]').forEach(b => b.addEventListener('click', () => { f.age = Number(b.dataset.age); draw(); }));

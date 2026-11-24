@@ -7,6 +7,7 @@ import { makeNamePool, makeCoachNames } from '../../data/names.js';
 import { makePlayer, marketValue, setNextPlayerId, getNextPlayerId, genChampPool, assignStarAliases } from './players.js';
 import { newMeta } from './meta.js';
 import { CHAMPIONS } from '../../data/champions.js';
+import { rosterOf, LCK_ROSTERS } from '../../data/rosters.js';
 
 
 const COACH_STYLES = ['공격형', '운영형', '데이터형', '베테랑형', '육성형'];
@@ -19,8 +20,14 @@ export function lckTargets(rng, teams) {
   const plan = {}, high = {};
   for (const t of teams) { plan[t.code] = {}; high[t.code] = 0; }
   const free = t => POS.filter(p => !plan[t.code][p]);
+  // 자리 고르기: 로스터 비중(data/rosters.js)이 높은 주전부터 (low = 75 미만 자리는 비중이 낮은 쪽부터), 같으면 무작위
+  const wOf = (t, pos) => { const r = rosterOf(t.code)[pos]; return r ? r[0].w : 1; };
+  const pickPos = (t, low) => {
+    const f = rng.shuffle(free(t));
+    return f.sort((a, b) => low ? wOf(t, a) - wOf(t, b) : wOf(t, b) - wOf(t, a))[0];
+  };
   const put = (t, target, o = {}) => {
-    const pos = rng.pick(free(t));
+    const pos = pickPos(t, target < CONFIG.stars.lck.rMid[0]);
     plan[t.code][pos] = { target, ...o };
     if (target >= L.r85[0]) high[t.code]++;
   };
@@ -65,6 +72,9 @@ function overseasStars(rng, teams) {
   return out;
 }
 
+// 시작 나이: 이미 정상급인 선수는 경력 중반 (몇 시즌 안에 노화로 내려오는 스타도 생기게)
+const starAges = target => target >= CONFIG.stars.starOvr ? CONFIG.stars.starAge : target >= CONFIG.stars.lck.r85[0] ? CONFIG.stars.aceAge : [19, 27];
+
 export function newWorld(seed) {
   const rng = new RNG(seed);
   setNextPlayerId(1);
@@ -75,7 +85,7 @@ export function newWorld(seed) {
     version: CONFIG.saveVersion, seed, year, date: `${year}-01-02`, startDate: `${year}-01-02`,
     players: {}, teams: {}, namePool: names, coachPool: coachNames.slice(34),
     meta: newMeta(rng, year), news: [], inbox: [], community: [], records: { seasons: [], hof: [] },
-    awards: [], user: null, season: null, flags: {}, eventLog: [], nextMsgId: 1,
+    awards: [], user: null, season: null, flags: {}, eventLog: [], nextMsgId: 1, nameVersion: NAME_VERSION,
   };
   const takeName = () => state.namePool.length ? state.namePool.pop() : 'Rookie' + rng.int(100, 999);
   let ci = 0;
@@ -89,12 +99,13 @@ export function newWorld(seed) {
     for (const pos of POS) team.depth[pos] = [];
     return team;
   };
-  const addPlayer = (team, pos, squad, target, ageRange, star = null) => {
+  const addPlayer = (team, pos, squad, target, ageRange, star = null, real = null) => {
     const age = rng.int(...ageRange);
     const o = star || {};
-    const p = makePlayer(rng, { nick: takeName(), pos, age, target: clamp(target, 40, 95), teamId: team.id, squad, region: team.region, season: year, grade: o.grade || null, spikes: o.spikes ?? null, exact: squad === 'main' });
+    const p = makePlayer(rng, { nick: real ? real.nick : takeName(), pos, age, target: clamp(target, 40, 95), teamId: team.id, squad, region: team.region, season: year, grade: o.grade || null, spikes: o.spikes ?? null, exact: squad === 'main' });
     p.contract = { salary: marketValue(p), endSeason: year + rng.int(0, 2), buyout: 0, starter: squad === 'main' };
     p.contract.buyout = Math.round(p.contract.salary * rng.float(...CONFIG.salary.buyoutMult) / 1e6) * 1e6;
+    if (real) p.ko = real.ko;   // 한글 표기 (커뮤니티에서 섞어 씀)
     state.players[p.id] = p;
     team.depth[pos].push(p.id);
     team.squadOf[p.id] = squad;
@@ -104,7 +115,16 @@ export function newWorld(seed) {
   for (const t of LCK_TEAMS) {
     const team = mkTeam(t, 'LCK', 'LCK');
     const base = regionTarget(t.tier, 'LCK');
-    for (const pos of POS) { const o = lckPlan[t.code][pos]; addPlayer(team, pos, 'main', o.target, o.target >= 85 ? [19, 26] : [19, 27], o); }
+    // 1군: 실제 로스터 이름(data/rosters.js). 같은 포지션 경쟁 선수는 주전보다 조금 낮게 1군 후보로
+    const ros = rosterOf(t.code);
+    for (const pos of POS) {
+      const o = lckPlan[t.code][pos], r = ros[pos] && ros[pos][0];
+      addPlayer(team, pos, 'main', o.target, starAges(o.target), o, r);
+    }
+    for (const pos of POS) for (const r of (ros[pos] || []).slice(1)) {
+      const p = addPlayer(team, pos, 'main', lckPlan[t.code][pos].target - rng.int(...CONFIG.stars.lck.benchGap), [19, 26], null, r);
+      p.contract.starter = false;
+    }
     for (const pos of POS) addPlayer(team, pos, 'academy', base + CONFIG.academyOffset + rng.int(-4, 5), [17, 21]);
     state.teams[team.id] = team;
   }
@@ -114,7 +134,7 @@ export function newWorld(seed) {
     const base = regionTarget(t.tier, t.region);
     for (const pos of POS) {
       const st = osStars[t.code + ':' + pos];
-      addPlayer(team, pos, 'main', st ? st.target : base + rng.int(-4, 4), st ? [19, 26] : [19, 28], st || null);
+      addPlayer(team, pos, 'main', st ? st.target : base + rng.int(-4, 4), st ? starAges(st.target) : [19, 28], st || null);
     }
     state.teams[team.id] = team;
   }
@@ -201,8 +221,48 @@ export function serialize(state, rng) {
   state.nextPlayerId = getNextPlayerId();
   return JSON.stringify(state);
 }
+// ---------- 선수 이름 변환 (실제 로스터 영문 표기) ----------
+// nameVersion 2: LCK 1군이 data/rosters.js 이름. 그 전 세이브는 게임 시작 때 만든 순서대로 id가 정해져 있다
+//   (LCK 팀 순서대로 팀마다 1군 TOP~SUP 5명, 2군 5명 → p1~p100) — 그 id의 1군 선수 이름만 바꾼다.
+export const NAME_VERSION = 2;
+export function needsNameMigration(state) { return !!state && (state.nameVersion || 1) < NAME_VERSION && !!state.players; }
+export function migrateNames(state) {
+  if (!needsNameMigration(state)) return { renamed: 0, map: {} };
+  const map = {};
+  LCK_TEAMS.forEach((t, i) => {
+    const ros = rosterOf(t.code);
+    POS.forEach((pos, j) => {
+      const id = 'p' + (i * 10 + j + 1);
+      const p = state.players[id], r = ros[pos] && ros[pos][0];
+      if (!p || !r || p.isUser || p.pos !== pos) return;
+      if (p.nick !== r.nick) map[p.nick] = r.nick;
+      p.nick = r.nick; p.ko = r.ko;
+    });
+  });
+  // 팀 이름도 지금 표기로 (예: 브리온 → 한진 브리온)
+  for (const t of LCK_TEAMS) if (state.teams[t.code]) state.teams[t.code].name = t.name;
+  // 같은 이름이 남아 있으면(가상 선수가 우연히 같은 이름) 뒤에 숫자를 붙인다
+  const real = new Set(Object.values(LCK_ROSTERS).flat().map(r => r[1]));
+  const renamedIds = new Set(LCK_TEAMS.flatMap((t, i) => POS.map((_, j) => 'p' + (i * 10 + j + 1))));
+  for (const p of Object.values(state.players)) if (!renamedIds.has(p.id) && real.has(p.nick) && !p.isUser) { map[p.nick] = p.nick + '2'; p.nick += '2'; }
+  // 뉴스·기록·커뮤니티 등 저장된 문장 속 옛 이름도 바꾼다 (단어 단위)
+  const olds = Object.keys(map).sort((a, b) => b.length - a.length);
+  if (olds.length) {
+    const re = new RegExp('(^|[^A-Za-z0-9])(' + olds.map(o => o.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')(?![A-Za-z0-9])', 'g');
+    const fix = v => typeof v === 'string' ? v.replace(re, (m, a, b) => a + map[b])
+      : Array.isArray(v) ? v.map(fix)
+      : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, fix(x)])) : v;
+    for (const k of ['news', 'inbox', 'community', 'records', 'awards', 'eventLog', 'commLog']) if (state[k]) state[k] = fix(state[k]);
+    if (state.user) for (const k of ['matchLog', 'career', 'trophies', 'awards']) if (state.user[k]) state.user[k] = fix(state.user[k]);
+    for (const p of Object.values(state.players)) if (p.history) p.history = fix(p.history);
+  }
+  state.nameVersion = NAME_VERSION;
+  return { renamed: Object.keys(map).length, map };
+}
+
 export function deserialize(json) {
   const state = typeof json === 'string' ? JSON.parse(json) : json;
+  migrateNames(state);
   setNextPlayerId(state.nextPlayerId || 10000);
   const rng = RNG.from(state.rng);
   return { state, rng };

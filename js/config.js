@@ -238,13 +238,15 @@ export const CONFIG = {
     rookieOdds: { S: 0.04, A: 0.15, B: 0.41, C: 0.4 },     // 새 유망주 등급 확률
     rookieBoost: { S: 5, A: 2, B: 0, C: -1 },             // 등급별 데뷔 능력치 보정
     // LCK 1군 50명 OVR 분포 (게임 시작)
-    lck: { n90: [4, 6], n85: [8, 12], nLow: [3, 6], r90: [90, 94], r85: [85, 89], rMid: [75, 84], rLow: [68, 74], maxPerTeam: 2 },
+    lck: { n90: [4, 6], n85: [8, 12], nLow: [3, 6], r90: [90, 94], r85: [85, 89], rMid: [75, 84], rLow: [68, 74], maxPerTeam: 2, benchGap: [2, 5] },   // benchGap: 같은 포지션 경쟁 선수는 주전보다 이만큼 낮게
     tierW: { S: 5, A: 2, B: 1, C: 0.5, D: 0.3 },          // 90+ 배정 가중치 (팀 티어)
     overseas: { n: [3, 5], r: [90, 94], lecChance: 0.3 },  // 해외 슈퍼스타 (LPL 중심)
     spikeChance: 0.5, spike: [6, 12], spikeMax: 99,       // 한 가지 압도형: 핵심 능력치 1~2개가 튐
     starOvr: 90,                                           // 슈퍼스타 기준
     // 캐리 보정: 슈퍼스타가 솔로킬·한타·스틸의 주인공이 될 확률
     carry: { kill: 1.35, steal: 0.06, perOvr: 0.1 },
+    topFrom: 87, topGrowth: 0.6,   // OVR 87 이상은 성장 속도 60%
+    starAge: [21, 28], aceAge: [20, 27],   // 게임 시작 때 90+ / 85~89 선수 나이
     growK: 0.27,            // AI 성장: (잠재력 - OVR) × growK × 나이 보정 / 시즌
   },
   playstyles: {
@@ -352,6 +354,7 @@ export const CONFIG = {
 
   // ---------------- 커뮤니티 ----------------
   community: {
+    koShare: 0.4,                        // 실제 로스터 선수를 한글 표기(예: 페이커)로 부를 확률
     postsMin: 3, postsMax: 5,            // 시리즈 하나 끝나면 올라오는 글 수
     commentsMin: 4, commentsMax: 8,      // 글 하나의 댓글 수
     repliesMax: 6,                       // 글 하나의 대댓글 최대 수

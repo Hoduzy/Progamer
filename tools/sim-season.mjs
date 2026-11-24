@@ -57,11 +57,16 @@ function collect(state) {
 const SO = CONFIG.stars.starOvr;
 const mains = (state, region) => Object.values(state.teams).filter(t => !region || t.region === region)
   .flatMap(t => Object.keys(t.squadOf).filter(id => t.squadOf[id] === 'main' && state.players[id]).map(id => state.players[id]));
+// 주전 50명: 팀·포지션마다 1군에서 OVR이 가장 높은 선수 (같은 포지션 경쟁 선수 제외)
+const starters = (state, region) => Object.values(state.teams).filter(t => !region || t.region === region).flatMap(t => {
+  const ps = Object.keys(t.squadOf).filter(id => t.squadOf[id] === 'main' && state.players[id]).map(id => state.players[id]);
+  return ['TOP', 'JGL', 'MID', 'ADC', 'SUP'].map(pos => ps.filter(p => p.pos === pos).sort((a, b) => ovr(b) - ovr(a))[0]).filter(Boolean);
+});
 function dist(state) {
-  const o = mains(state, 'LCK').map(ovr);
+  const o = starters(state, 'LCK').map(ovr);
   return { n: o.length, s90: o.filter(v => v >= 90).length, s85: o.filter(v => v >= 85 && v < 90).length, mid: o.filter(v => v >= 75 && v < 85).length, low: o.filter(v => v < 75).length, max: Math.max(...o) };
 }
-const distStr = d => `90+ ${d.s90}명 · 85~89 ${d.s85}명 · 75~84 ${d.mid}명 · 75 미만 ${d.low}명 (LCK 1군 ${d.n}명, 최고 ${d.max.toFixed(1)})`;
+const distStr = d => `90+ ${d.s90}명 · 85~89 ${d.s85}명 · 75~84 ${d.mid}명 · 75 미만 ${d.low}명 (LCK 주전 ${d.n}명, 최고 ${d.max.toFixed(1)})`;
 function starList(state) {
   return mains(state).filter(p => ovr(p) >= SO).sort((a, b) => ovr(b) - ovr(a)).map(p => ({ id: p.id, nick: p.nick, ovr: ovr(p), age: p.age, team: p.teamId, region: state.teams[p.teamId].region, pos: p.pos, alias: p.alias, top: Object.entries(p.stats).sort((a, b) => b[1] - a[1])[0] }));
 }

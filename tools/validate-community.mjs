@@ -3,7 +3,9 @@
 //  - 템플릿 개수 (제목 200 / 본문 150 / 댓글 500 / 대댓글 150 이상)
 //  - 시즌 1개를 돌리며 만들어진 모든 글에 대해:
 //    쿨타임 안 재사용 0 (제목 60글, 댓글 150개, 본문·대댓글도 설정값), 한 글 안 같은 댓글·대댓글 템플릿 0,
-//    금지 표현(혐오·가족 욕·성적·협박) 0, 실제 선수 이름 0, 채워지지 않은 변수 0, 순한맛 필터 뒤 센 욕 0
+//    금지 표현(혐오·가족 욕·성적·협박) 0, 채워지지 않은 변수 0, 순한맛 필터 뒤 센 욕 0
+//    실존 인물: 템플릿 원문에 실명 0. 만든 문장에는 게임 로스터(data/rosters.js) 선수만 변수로 들어갈 수 있고,
+//    그 문장에 센 욕(ㅅㅂ 등)이 같이 있으면 위반. 센 욕 댓글 종류(curse)에는 다른 선수 변수를 쓰지 않는다.
 //  - 가장 많이 쓰인 템플릿 상위 10개, 고닉 호감도 변화·이야기 글·싸움 스레드 통계
 import { newWorld, createUserPlayer, signUserToTeam } from '../js/engine/state.js';
 import { createSeason, beginDay, endDay, userRef, allMatches } from '../js/engine/season.js';
@@ -12,6 +14,7 @@ import { generatePosts, generateTopicPosts, seriesPostInfo, templateCounts, TPL,
 import { CONFIG } from '../js/config.js';
 import { BANNED, FIXED_USERS } from '../data/community/index.js';
 import { BLOCKLIST } from '../data/names.js';
+import { LCK_ROSTERS } from '../data/rosters.js';
 
 const args = process.argv.slice(2);
 const N = Number(args.find(a => /^\d+$/.test(a)) || 5);
@@ -21,6 +24,11 @@ const MIN = { titles: 200, bodies: 150, comments: 500, replies: 150 };
 // 실제 프로 선수·코치·해설 이름 (한글 표기) — 커뮤니티 문장에 나오면 안 됨
 const REAL_KO = ['페이커', '쵸비', '케리아', '제우스', '구마유시', '쇼메이커', '캐니언', '데프트', '피넛', '도란', '쿠로', '클템', '단군', '전용준', '이현우', '앰비션', '베릴', '비디디', '리헨즈', '스맵', '벵기', '쿠비', '에포트', '표식', '킹겐', '클로저', '루시드', '페이즈', '딜라이트', '크로코', '룰러', '오너'];
 const STRONG = /ㅅㅂ|ㅆㅂ|ㅈㄴ|개같이|정병|접어라/;
+// 게임 로스터 실제 선수 (영문·한글 표기) — 변수로만 들어갈 수 있음
+const ROSTER = Object.values(LCK_ROSTERS).flat();
+const ROSTER_EN = new Set(ROSTER.map(r => r[1].toLowerCase()));
+const ROSTER_KO = ROSTER.map(r => r[2]);
+const PLAYER_VARS = ['다른선수', '라이벌', '상대선수', '슈퍼스타', '별명'];
 
 const viol = [];
 const v = (kind, msg) => { if (viol.filter(x => x.kind === kind).length < 8) console.log(`  ✗ [${kind}] ${msg}`); viol.push({ kind, msg }); };
@@ -41,12 +49,18 @@ for (const t of allTpl) for (const n of [...t.need, ...t.not]) if (!KNOWN.has(n)
 const KNOWN_VARS = new Set('선수 팀 상대팀 챔피언 스코어 KDA 평점 분 오브젝트 대회 라이벌 상대선수 포지션 장면 다른팀 다른팀2 순위 메타챔 패치 다음상대 연승 연패 국제대회 다른선수 고닉 대상 슈퍼스타 별명 슈퍼스타팀 내별명'.split(' '));
 for (const t of allTpl) for (const x of t.vars) if (!KNOWN_VARS.has(x)) v('변수', `${t.id} 알 수 없는 변수 {${x}}`);
 
+// 센 욕 댓글 종류에는 다른 (실존일 수 있는) 선수 변수를 쓰지 않는다
+for (const t of TPL.c.filter(t => t.cat === 'curse')) for (const x of t.vars) if (PLAYER_VARS.includes(x)) v('실존 선수 욕', `${t.id} 센 욕 댓글에 {${x}} (${t.text})`);
 function checkText(s, where, tpl = false) {
   const low = s.toLowerCase();
   for (const b of BANNED) if (s.includes(b)) v('금지 표현', `"${b}" — ${where}: ${s}`);
-  for (const r of REAL_KO) if (s.includes(r)) v('실명', `"${r}" — ${where}: ${s}`);
+  // 템플릿 원문: 실명 0 (로스터 선수도 변수로만). 만든 문장: 로스터에 없는 실명 0
+  for (const r of REAL_KO) if (s.includes(r) && (tpl || !ROSTER_KO.includes(r))) v('실명', `"${r}" — ${where}: ${s}`);
+  if (tpl) for (const r of ROSTER_KO) if (s.includes(r)) v('실명', `"${r}" — ${where}: ${s}`);
   if (!tpl) {
-    for (const w of low.split(/[^a-z0-9]+/)) if (w.length >= 3 && /[a-z]/.test(w) && BLOCKLIST.has(w)) v('실명', `"${w}" — ${where}: ${s}`);
+    for (const w of low.split(/[^a-z0-9]+/)) if (w.length >= 3 && /[a-z]/.test(w) && BLOCKLIST.has(w) && !ROSTER_EN.has(w)) v('실명', `"${w}" — ${where}: ${s}`);
+    const hasReal = ROSTER_KO.some(r => s.includes(r)) || low.split(/[^a-z0-9]+/).some(w => ROSTER_EN.has(w));
+    if (hasReal && STRONG.test(s)) v('실존 선수 욕', `${where}: ${s}`);
     if (/\{[^{}]+\}/.test(s)) v('변수 누락', `${where}: ${s}`);
     if (STRONG.test(toneText(s, 'mild'))) v('순한맛', `${where}: ${toneText(s, 'mild')}`);
     if (!s.trim()) v('빈 문장', where);
