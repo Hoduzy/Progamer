@@ -7,12 +7,13 @@ import { saveTo } from '../save.js';
 import { userMatchOn, nextUserMatch, userRef } from '../../engine/season.js';
 import { teamInfo, rivalProfile, userProfile } from '../../engine/roster.js';
 import { competitorOf } from '../../engine/state.js';
-import { ACTIVITIES, TRAINABLE, computeCondition, soloRankLabel, activityPreview, fatigueWarning, isRecoveryDay } from '../../engine/daily.js';
+import { ACTIVITIES, TRAINABLE, actKey, computeCondition, soloRankLabel, activityPreview, fatigueWarning, isRecoveryDay } from '../../engine/daily.js';
 import { topChamps } from '../../engine/players.js';
 import { ovr } from '../../stats.js';
 import { champIcon, teamLogo } from '../assets.js';
 import { champName, CHAMPIONS } from '../../../data/champions.js';
 import { todayAct, actLabel, runDay, autoAdvance } from '../dayFlow.js';
+import { recommendAll, applyPlan, undoPlan } from '../../routine-advisor.js';
 
 export function register(reg) { reg('hub', { render }); }
 
@@ -98,7 +99,7 @@ function render(root) {
   c.querySelectorAll('[data-act]').forEach(el => el.addEventListener('click', () => chooseToday(el.dataset.act)));
   c.querySelector('#day').addEventListener('click', () => runDay());
   c.querySelectorAll('[data-nav2]').forEach(b => b.addEventListener('click', () => go(b.dataset.nav2)));
-  c.querySelector('#week').addEventListener('click', () => autoAdvance(7, '일주일 넘기기'));
+  c.querySelector('#week').addEventListener('click', () => autoAdvance(7, '일주일 넘기기', { advise: true }));
   c.querySelector('#auto').addEventListener('click', () => autoAdvance(60, '다음 경기까지'));
   c.querySelector('#editRoutine').addEventListener('click', () => editRoutine());
   // 능력치 기준 보정 알림 (옛 세이브를 처음 불러왔을 때 한 번)
@@ -191,17 +192,84 @@ export function pickActivity(st, current, opts = {}) {
   });
 }
 
+// ---------- 주간 루틴 편집 + 추천 루틴 ----------
+const fmtMan = w => `${w >= 0 ? '+' : '−'}${Math.round(Math.abs(w) / 1e4).toLocaleString()}만 원`;
+const signed = (v, d = 1) => `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(d)}`;
+function planCardHTML(st, plan, idx) {
+  const S = plan.summary, order = [1, 2, 3, 4, 5, 6, 0];
+  const byWd = Object.fromEntries(plan.days.map(d => [d.wd, d]));
+  const rows = order.map(wd => {
+    const d = byWd[wd];
+    const label = d.match ? '<span class="gold">⚔ 경기</span>' : esc(actLabel(st, d.act));
+    return `<div class="rc-row${d.date === st.date ? ' today' : ''}"><b>${WEEKDAY_KO[wd]}</b><span class="rc-act">${label}</span><span class="rc-why">${esc(d.reason)}</span></div>`;
+  }).join('');
+  const gains = Object.entries(S.stats).filter(([, v]) => v >= 0.05).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k, v]) => `${STAT_KO[k]} +${v.toFixed(1)}`).join(' · ') || '거의 없음';
+  const risk = Math.round(S.injuryRisk * 100);
+  const gauge = S.gauge
+    ? (S.gauge.need !== null
+      ? `<div class="kv-row"><span>콜업 게이지</span><b>${signed(S.gauge.delta)} <span class="tiny dim">(${S.gauge.now.toFixed(1)} → ${S.gauge.after.toFixed(1)}, 기준 +${S.gauge.need})</span></b></div>`
+      : `<div class="kv-row"><span>주전 점수 차</span><b>${signed(S.gauge.delta)} <span class="tiny dim">(${S.gauge.now.toFixed(1)} → ${S.gauge.after.toFixed(1)})</span></b></div>`)
+    : '';
+  return `<div class="rec-card" data-rec="${idx}" tabindex="0" role="button">
+    <div class="rc-head"><span class="rc-name">${plan.icon} ${esc(plan.name)}</span>${plan.kind === 'growth' ? `<span class="chip ${risk >= 10 ? 'red' : 'gold'}">피로·부상 위험 ${risk}%</span>` : ''}</div>
+    <div class="small muted">${esc(plan.desc)}</div>
+    <div class="rc-days">${rows}</div>
+    <div class="rc-sum">
+      <div class="kv-row"><span>능력치 경험치</span><b>${gains} <span class="tiny dim">(OVR ${signed(S.ovrGain, 2)})</span></b></div>
+      <div class="kv-row"><span>피로</span><b>${Math.round(S.fatigue.from)} → ${Math.round(S.fatigue.to)} <span class="tiny dim">(최고 ${Math.round(S.fatigue.peak)}${S.fatigue.peak > CONFIG.injury.threshold ? ' ⚠' : ''})</span></b></div>
+      <div class="kv-row"><span>멘탈</span><b>${Math.round(S.mental.from)} → ${Math.round(S.mental.to)}</b></div>
+      ${gauge}
+      <div class="kv-row"><span>감독 신뢰</span><b>${S.trust.from.toFixed(1)} → ${S.trust.to.toFixed(1)}</b></div>
+      <div class="kv-row"><span>수입</span><b>${fmtMan(S.money.total)} <span class="tiny dim">${S.money.stream ? `(방송 ${fmtMan(S.money.stream)}${S.money.salary ? ' + 월급' : ''})` : S.money.salary ? '(월급)' : ''}</span></b></div>
+      ${S.matchCond.length ? `<div class="kv-row"><span>경기 당일 컨디션</span><b>${S.matchCond.map(Math.round).join(' / ')}</b></div>` : ''}
+    </div>
+    <div class="rc-why-list">${plan.reasons.slice(0, 2).map(r => `<div>💡 ${esc(r)}</div>`).join('')}</div>
+    <button class="btn sm primary rc-apply" data-rec="${idx}">이 루틴 적용</button>
+  </div>`;
+}
+
 async function editRoutine() {
-  const st = App.state;
+  const st = App.state, u = st.user;
   const order = [1, 2, 3, 4, 5, 6, 0];
+  let view = 'edit', plans = null, banner = '';
   const draw = bg => {
-    bg.querySelector('.modal-body').innerHTML = `<table class="tbl"><tr><th>요일</th><th>활동 (하루 1개)</th></tr>
-      ${order.map(d => `<tr><td><b>${WEEKDAY_KO[d]}</b></td><td><button class="btn sm" data-d="${d}" style="width:100%;justify-content:flex-start">${esc(actLabel(st, st.user.routine[d]))}</button></td></tr>`).join('')}</table>
-      <div class="small muted" style="margin-top:8px">"루틴대로 하루", "일주일 넘기기", "다음 경기까지"는 이 루틴대로 하루를 보냅니다. 경기일은 활동 없이 경기만 합니다. 같은 훈련을 3일 넘게 이어 하면 효과가 줄어듭니다.</div>`;
-    bg.querySelectorAll('[data-d]').forEach(b => b.addEventListener('click', async () => {
+    const body = bg.querySelector('.modal-body');
+    const foot = bg.querySelector('.modal-foot .btn');
+    if (view === 'rec') {
+      body.innerHTML = `<div class="row between" style="margin-bottom:8px"><div class="small muted">앞으로 7일 일정·상태·약점·메타를 보고 실제 공식의 기댓값으로 계산한 추천안입니다. 카드를 누르면 편집 화면에 채워지고, 그 뒤 하루씩 바꿀 수 있습니다.</div><button class="btn sm" id="rec-back">← 편집으로</button></div>
+        <div class="rec-grid">${plans.map((p, i) => planCardHTML(st, p, i)).join('')}</div>`;
+      if (foot) foot.textContent = '닫기';
+      const pick = i => {
+        const plan = plans[i];
+        applyPlan(st, plan);
+        banner = `${plan.icon} ${plan.name} 추천을 적용했습니다. 칸을 눌러 하루씩 바꿀 수 있고, "되돌리기"로 적용 전 루틴을 복구할 수 있습니다.`;
+        view = 'edit'; draw(bg);
+      };
+      body.querySelectorAll('.rec-card').forEach(c => {
+        c.addEventListener('click', () => pick(Number(c.dataset.rec)));
+        c.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(Number(c.dataset.rec)); } });
+      });
+      body.querySelector('#rec-back').addEventListener('click', () => { view = 'edit'; draw(bg); });
+      return;
+    }
+    if (foot) foot.textContent = '닫기';
+    const planInfo = u.routinePlan;
+    body.innerHTML = `<div class="row wrap" style="gap:8px;margin-bottom:10px">
+        <button class="btn primary" id="rec-open">✨ 추천 루틴</button>
+        ${u.routineBackup ? `<button class="btn" id="rec-undo">↩ 되돌리기 <span class="tiny dim">(${esc(u.routineBackup.label)} 적용 전)</span></button>` : ''}
+        ${planInfo ? `<span class="chip gold">${esc(planInfo.name)}${planInfo.auto ? ' · 자동' : ''} 적용 중</span>` : ''}
+      </div>
+      ${banner ? `<div class="small gold" style="margin-bottom:8px">${esc(banner)}</div>` : ''}
+      <table class="tbl"><tr><th>요일</th><th>활동 (하루 1개)</th></tr>
+      ${order.map(d => { const r = planInfo && planInfo.days && planInfo.days[d], same = r && r.key === actKey(u.routine[d]); return `<tr><td><b>${WEEKDAY_KO[d]}</b></td><td><button class="btn sm" data-d="${d}" style="width:100%;justify-content:flex-start">${esc(actLabel(st, u.routine[d]))}${same ? ` <span class="tiny dim" style="margin-left:8px;white-space:normal">· ${esc(r.reason)}</span>` : ''}</button></td></tr>`; }).join('')}</table>
+      <div class="small muted" style="margin-top:8px">"루틴대로 하루", "일주일 넘기기", "다음 경기까지"는 이 루틴대로 하루를 보냅니다. 경기일은 활동 없이 경기만 합니다. 같은 훈련을 3일 넘게 이어 하면 효과가 줄어듭니다.${App.settings.autoRoutine ? '<br><b class="gold">설정의 "매주 자동으로 균형형 추천 적용"이 켜져 있어 "일주일 넘기기" 때 이 루틴이 새로 계산됩니다.</b>' : ''}</div>`;
+    body.querySelector('#rec-open').addEventListener('click', () => { plans = recommendAll(st); view = 'rec'; banner = ''; draw(bg); body.scrollTop = 0; });
+    const undo = body.querySelector('#rec-undo');
+    if (undo) undo.addEventListener('click', () => { undoPlan(st); banner = '추천 적용 전 루틴으로 되돌렸습니다.'; draw(bg); });
+    body.querySelectorAll('[data-d]').forEach(b => b.addEventListener('click', async () => {
       const d = Number(b.dataset.d);
-      const v = await pickActivity(st, st.user.routine[d]);
-      if (v) { st.user.routine[d] = v; draw(bg); }
+      const v = await pickActivity(st, u.routine[d]);
+      if (v) { u.routine[d] = v; draw(bg); }
     }));
   };
   await modal({ title: '주간 루틴', body: '', wide: true, buttons: [{ label: '닫기', primary: true }], onOpen: bg => draw(bg) });

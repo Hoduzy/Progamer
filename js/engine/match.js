@@ -82,7 +82,8 @@ function mkPlayer(g, pl, champ, side, pos, userMods) {
   let perf = g.rng.normal(0, sd) + (pl.form || 0) * 0.5;
   const isUser = pl.id === g.userPid;
   if (isUser && userMods) {
-    perf += (userMods.condition - 70) * 0.06 - Math.max(0, userMods.fatigue - 40) * 0.05 + (userMods.mental - 60) * 0.03;
+    const U = CONFIG.match.userPerf;   // 컨디션·피로·멘탈이 내 선수 경기력(파워)에 미치는 영향
+    perf += (userMods.condition - U.conditionRef) * U.condition - Math.max(0, userMods.fatigue - U.fatigueFrom) * U.fatigue + (userMods.mental - 60) * U.mental;
   }
   const build = BUILDS[BUILD_OVERRIDE[champ] || (CHAMPIONS[champ] ? CHAMPIONS[champ].cls : 'bruiser')] || BUILDS.bruiser;
   return {

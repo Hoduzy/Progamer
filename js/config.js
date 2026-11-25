@@ -15,6 +15,9 @@ export const CONFIG = {
     maxTime: 4200,             // 안전장치: 70분이 넘으면 강제 종료 판정 (검사기에서 위반으로 집계)
     blueSideBonus: 0.25,       // 블루 진영 파워 보정 (교전 피해량)
     statScale: 0.27,           // 능력치 차이가 파워에 반영되는 비율 (클수록 강팀이 더 자주 이김)
+    // 내 선수 경기력(파워) 보정 = (컨디션−conditionRef)×condition − max(0, 피로−fatigueFrom)×fatigue + (멘탈−60)×mental
+    // 처음엔 컨디션 0.06·기준 70·피로 0.05·멘탈 0.03이라 컨디션이 평점에 거의 영향이 없었다(좋음 vs 나쁨 평점 차 0.6). 영향을 키우되 푹 쉰 선수가 덤으로 세지지 않게 기준을 80으로 올림
+    userPerf: { condition: 0.12, conditionRef: 80, fatigue: 0.1, fatigueFrom: 40, mental: 0.05 },
     perfSdBase: 2.0,           // 경기 당 개인 컨디션 흔들림 기본값 (+variance 보정)
     // 포지션별 기본 GPM (패시브 골드 포함)
     gpm: { TOP: 345, JGL: 315, MID: 365, ADC: 385, SUP: 215 },
@@ -322,11 +325,51 @@ export const CONFIG = {
     recoveryDay: { fatigue: 8, mental: 2, restMult: 1.3 }, // 경기 다음 날: 피로 -8, 멘탈 +2, 휴식 효과 ×1.3
     fatigueWarn: 70,                                       // 활동 선택 화면 경고 기준 (훈련 효과 감소·부상 위험)
     fatigue: { scrim: 8, train: 7, practice: 5, solo: 6, replay: 3, rest: -18, stream: 7, bond: 1, match: 14 },
-    nightRecovery: 18,
+    // 활동 효과 보정(예전 3칸 vs 하루 1개 ±10%) 비교는 피로 모델과 분리해 예전 피로 기준으로 돌린다 — tools/sim-career.mjs (--advisor 없이)
+    // 피로·컨디션이 실제로 영향을 주게 바꾼 뒤(nightRecovery·match.userPerf)에는 스크림 많은 시험 루틴이 부상·낮은 컨디션으로 비교가 틀어진다
+    legacyFatigue: { nightRecovery: 18, userPerf: { condition: 0.06, conditionRef: 70, fatigue: 0.05, fatigueFrom: 40, mental: 0.03 } },
+    nightRecovery: 14,         // 하룻밤 피로 회복 (처음 18 — 어떤 루틴으로도 피로가 쌓이지 않아 부상·피로 경고가 의미 없었다. tools/sim-career.mjs --advisor 로 맞춤)
     mental: { rest: 3, stream: 1, bond: 2, solo: 0, scrim: 0 },
     streamFans: [300, 1500], streamMoney: [300000, 1500000], streamControversy: 0.04,
     bondChem: [3, 7],
     soloWinBase: 0.55, soloLpWin: [18, 24], soloLpLoss: [15, 21],
+  },
+  // ---------------- 추천 루틴 (js/routine-advisor.js) ----------------
+  // 7일 앞으로 실제 공식(daily.js)의 기댓값을 계산해 가장 점수가 높은 배치를 고른다.
+  //  점수 = 약점 능력치 성장·숙련도·멘탈·감독 신뢰·스크림 점수 − 부상 확률 + 경기 당일 컨디션 − 피로 (플랜마다 가중치가 다름)
+  advisor: {
+    beam: 40,                           // 탐색 폭 (7일 × 활동 후보)
+    restAbove: 70,                      // 이 피로를 넘을 것 같으면 그날은 휴식 (플랜마다 따로 지정 가능)
+    metaTiers: ['OP', '1'],             // 챔피언 연습 후보: 이번 패치 이 티어 이상
+    metaMastery: 60,                    // 숙련도가 이보다 낮은 메타 챔피언만
+    chemLow: 40,                        // 케미가 이보다 낮은 팀원이 있으면 팀원과 시간 주 1회
+    moneyLow: 3000000,                  // 자금이 이보다 적거나
+    fansTarget: { academy: 2000, main: 15000 },   // 팬 수가 목표보다 적으면 개인 방송 주 1회
+    matchGames: 2.4,                    // 경기 하루에 치르는 세트 수 평균 (Bo3) — 경기 경험 성장·감독 신뢰는 세트마다 적용
+    defaultRating: 6.8,                 // 경기 기록이 아직 없을 때 예상 평점 (시뮬레이션에서 내 선수 평균 평점이 6.9~7.3)
+    matchFatigueFrac: 0.8,              // 경기 하루 피로 = daily.fatigue.match × 이 값 (세트 수 평균)
+    weakLow: 0.3,                       // 약점 2개 밖 능력치 훈련의 가치 비중
+    maxPractice: 1,                     // 챔피언 연습은 주 1회까지
+    epoch: '2026-01-05',                // 주 단위 격주 계산의 기준 월요일
+    impPow: 1,                          // 능력치 가치에 포지션 중요도(OVR 가중치)를 반영하는 정도 (0이면 무시)
+    gainSat: 2.0,                       // 한 능력치 경험치는 이만큼 쌓일수록 가치가 줄어듦 (약점 2개를 번갈아 훈련)
+    plans: {
+      // preRestAbove: 경기 전날 피로가 이보다 높을 때만 휴식 (−1 = 항상 휴식만, 101 = 휴식 없이 가벼운 리플레이)
+      // comfort: 이 피로까지는 쌓여도 감점 없음 / fat: 그 위로 하루 피로 1당 감점 / short: 경기 날 피로가 fatigueTarget을 넘은 만큼 감점
+      // gauge: 감독 신뢰·스크림 점수(콜업 게이지·주전 점수) 가치 (가중치는 lineup.w를 따름) / injury: 부상 확률 1.0당 감점
+      balance: {
+        name: '균형형', icon: '⚖', desc: '성장과 컨디션을 같이 챙김', restAbove: 70, fatigueTarget: 45, comfort: 35, preRestAbove: 35,
+        w: { growth: 1.0, mastery: 0.04, mental: 0.04, gauge: 1.2, injury: 8, matchCond: 0.05, short: 0.05, endFatigue: 0.03, fat: 0.04 },
+      },
+      growth: {
+        name: '성장 집중형', icon: '🔥', desc: '약점 능력치를 최대한 끌어올림 (피로·부상 위험)', restAbove: 90, fatigueTarget: 70, comfort: 70, preRestAbove: 101, softEvery: 2, ignoreTired: true,   // ignoreTired: 피로가 다음 훈련 효율을 깎는 것을 계산에 넣지 않고 훈련량으로 밀어붙임
+        w: { growth: 1.8, mastery: 0.05, mental: 0, gauge: 0.5, injury: 1.2, matchCond: 0, short: 0, endFatigue: 0, fat: 0 },
+      },
+      condition: {
+        name: '컨디션 관리형', icon: '🧘', desc: '다음 경기에 최상의 컨디션으로 나가게 함', restAbove: 55, fatigueTarget: 20, comfort: 15, preRestAbove: -1,
+        w: { growth: 0.6, mastery: 0.03, mental: 0.08, gauge: 0.8, injury: 12, matchCond: 0.12, short: 0.15, endFatigue: 0.08, fat: 0.12 },
+      },
+    },
   },
   injury: { threshold: 72, perPoint: 0.004, days: [3, 14], types: ['손목 염증', '허리 통증', '어깨 결림', '목 디스크 증상'] },
   condition: { base: 75, fatigueWeight: 0.45, mentalWeight: 0.2 },

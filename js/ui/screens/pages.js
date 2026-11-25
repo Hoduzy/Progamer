@@ -254,6 +254,7 @@ function settingsPage(root) {
     <div class="panel"><h3>연출·진행</h3>
       <label class="row" style="min-height:44px"><input type="checkbox" id="big" ${App.settings.showBigEvents ? 'checked' : ''} style="width:24px;height:24px"> 큰 장면(바론·장로·대규모 한타·다른 라인 솔로킬) 연출 보기</label>
       <label class="row" style="min-height:44px"><input type="checkbox" id="debugMatch" ${App.settings.debugMatch ? 'checked' : ''} style="width:24px;height:24px"> 디버그 모드 (경기 미니맵에 이동 그래프·선수별 계획·목표 화살표·팀 계획·오브젝트 처치 게이지 표시, 화면 왼쪽 아래 🖼 이미지 상태 패널)</label>
+      <label class="row" style="min-height:44px"><input type="checkbox" id="autoRoutine" ${App.settings.autoRoutine ? 'checked' : ''} style="width:24px;height:24px"> 매주 자동으로 균형형 추천 적용 ("일주일 넘기기"를 할 때 그 주 상황에 맞는 균형형 추천 루틴을 새로 계산해서 씁니다)</label>
       <label class="row" style="min-height:44px"><input type="checkbox" id="moveTrails" ${App.settings.moveTrails ? 'checked' : ''} style="width:24px;height:24px"> 이동 궤적 (경기 미니맵에 선수별 최근 20초 이동 경로를 희미한 선으로)</label>
       <label class="row" style="min-height:44px"><input type="checkbox" id="fastDraft" ${App.settings.fastDraft ? 'checked' : ''} style="width:24px;height:24px"> AI 밴픽 빠르게</label>
       <div class="row wrap" style="min-height:44px">커뮤니티 수위 ${[['mild', '순한맛'], ['normal', '보통'], ['spicy', '매운맛']].map(([k, l]) => `<button class="btn sm ${(App.settings.communityTone || 'spicy') === k ? 'active' : ''}" data-tone="${k}">${l}</button>`).join('')}</div>
@@ -273,6 +274,7 @@ function settingsPage(root) {
   c.querySelector('#code-paste').addEventListener('click', () => pasteCodeFlow());
   c.querySelector('#big').addEventListener('change', e => { App.settings.showBigEvents = e.target.checked; saveSettings(); });
   c.querySelector('#debugMatch').addEventListener('change', e => { App.settings.debugMatch = e.target.checked; saveSettings(); setImgDebug(e.target.checked); });
+  c.querySelector('#autoRoutine').addEventListener('change', e => { App.settings.autoRoutine = e.target.checked; saveSettings(); });
   c.querySelector('#moveTrails').addEventListener('change', e => { App.settings.moveTrails = e.target.checked; saveSettings(); });
   c.querySelector('#fastDraft').addEventListener('change', e => { App.settings.fastDraft = e.target.checked; saveSettings(); });
   c.querySelector('#cache-reset').addEventListener('click', async () => {

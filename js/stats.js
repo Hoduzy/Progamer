@@ -11,12 +11,14 @@ export { STAT_KEYS };
 export const statClamp = v => clamp(Math.round(v), CONFIG.statRange[0], CONFIG.statRange[1]);
 
 // OVR: 포지션 가중치 합 (소수 첫째 자리)
-export function ovrOf(pos, stats) {
+// 반올림 없는 OVR (소수 능력치 경험치까지 반영해야 하는 예상 계산용)
+export function ovrExact(pos, stats) {
   const w = CONFIG.ovrWeights[pos];
   let s = 0;
   for (const k of STAT_KEYS) s += (stats[k] || 0) * w[k];
-  return Math.round(s * 10) / 10;
+  return s;
 }
+export function ovrOf(pos, stats) { return Math.round(ovrExact(pos, stats) * 10) / 10; }
 export const ovr = p => ovrOf(p.pos, p.stats);
 
 // 능력치 생성: 목표 OVR 근처

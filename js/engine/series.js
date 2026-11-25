@@ -45,14 +45,15 @@ export function recordGame(s, { blueIdx, firstIdx, picks, bans, result }) {
 }
 
 // 한 세트를 화면 없이 진행
-export function simGame(s, rng, meta) {
+// user: { pid, mods: { condition, mental, fatigue } } — 내 선수가 뛰는 경기는 컨디션이 경기력에 반영된다 (화면에서 직접 하는 경기와 같게)
+export function simGame(s, rng, meta, user = null) {
   const ch = aiFirstSelection(rng);
   const rem = aiRemaining(rng, ch);
   const { blueIdx, firstIdx } = resolveSelection(s.selector, ch, rem);
   const d = createDraft({ teams: s.teams, blueIdx, firstIdx, unavailable: s.used, meta });
   autoDraft(d, rng);
   const input = draftToMatchInput(d);
-  const g = createMatch({ blue: input.blue, red: input.red, seed: rng.int(1, 2 ** 30), meta });
+  const g = createMatch({ blue: input.blue, red: input.red, seed: rng.int(1, 2 ** 30), meta, ...(user ? { userPid: user.pid, userMods: user.mods, scenes: false } : {}) });
   runToEnd(g);
   const sum = summary(g);
   const ratings = computeRatings(sum);
@@ -62,8 +63,8 @@ export function simGame(s, rng, meta) {
   return result;
 }
 
-export function simSeries(s, rng, meta) {
+export function simSeries(s, rng, meta, user = null) {
   let guard = 0;
-  while (!s.over && guard++ < 9) simGame(s, rng, meta);
+  while (!s.over && guard++ < 9) simGame(s, rng, meta, user);
   return s;
 }

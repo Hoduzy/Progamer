@@ -13,6 +13,7 @@ import { champName } from '../../data/champions.js';
 import * as hooks from './hooks.js';
 import { seasonTick, newSeason } from '../engine/career.js';
 import { generateTopicPosts } from '../engine/community.js';
+import { autoApply } from '../routine-advisor.js';
 
 // 오늘 활동: 직접 고른 것(dayAct) 또는 요일 루틴
 export function todayAct(state) {
@@ -120,13 +121,18 @@ export async function finishDay(extraLines = []) {
 
 // ---------------- 자동 진행 (루틴대로 하루 1개 활동) ----------------
 // maxDays: 일주일 넘기기 = 7, 다음 경기까지 = 60 (경기일·부상·로스터 변동·시즌 단계에서 멈춤)
-export async function autoAdvance(maxDays = 60, title = '자동 진행') {
+export async function autoAdvance(maxDays = 60, title = '자동 진행', { advise = false } = {}) {
   const st = App.state, rng = App.rng;
   if (userMatchOn(st, st.date)) { toast('오늘은 경기일입니다. "경기 준비"로 경기를 진행하세요.'); return; }
   const notes = [];
   const tally = {};
   let days = 0, stopReason = '';
   while (days < maxDays) {
+    // 설정 "매주 자동으로 균형형 추천 적용": 일주일 넘기기 때 그 주 상황으로 추천 루틴을 새로 계산해 쓴다
+    if (advise && App.settings.autoRoutine && days % 7 === 0 && !userMatchOn(st, st.date)) {
+      const plan = autoApply(st, 'balance');
+      notes.push(`${st.date} ⚖ ${plan.name} 추천 루틴을 새로 계산해 적용`);
+    }
     beginDay(st, rng);
     if (userMatchOn(st, st.date)) { stopReason = '경기일'; break; }
     const before = { inj: st.user.injury };

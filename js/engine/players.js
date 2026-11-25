@@ -113,9 +113,11 @@ export function growStat(p, key, base, fatigue = 0) {
   return up;
 }
 
+// 숙련도 상승량 (예상 계산과 같은 식)
+export const masteryGainOf = (cur, pool, base) => base * (1 - cur / 110) * (0.7 + pool / 200);
 export function growMastery(p, champ, base) {
   const cur = p.champs[champ] || 0;
-  const gain = base * (1 - cur / 110) * (0.7 + p.stats.pool / 200);
+  const gain = masteryGainOf(cur, p.stats.pool, base);
   p.champs[champ] = clamp(Math.round((cur + gain) * 10) / 10, 0, 100);
   return gain;
 }

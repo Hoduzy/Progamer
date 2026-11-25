@@ -3,7 +3,7 @@
 // 알림의 새로고침을 누르면 SKIP_WAITING → 새 버전으로 바뀐 뒤 페이지를 다시 불러온다.
 
 // BUILD:BEGIN (node tools/build-pages.mjs 가 채움)
-const VERSION = '06cb0efbce43';
+const VERSION = 'c9517e50850c';
 const FILES = [
   "./",
   "assets/teams/BFX.png",
@@ -71,6 +71,7 @@ const FILES = [
   "js/engine/teamai.js",
   "js/engine/tournament.js",
   "js/engine/world.js",
+  "js/routine-advisor.js",
   "js/stats.js",
   "js/ui/app.js",
   "js/ui/assets.js",

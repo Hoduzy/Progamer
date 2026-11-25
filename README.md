@@ -54,6 +54,7 @@ node tools/validate-community.mjs   # ★ 커뮤니티 검사: 템플릿 개수,
 node tools/build-pages.mjs     # 배포 준비: 이미지 목록·서비스 워커 캐시 목록·버전 생성 + 경로(절대 경로·대소문자) 검사
 node tools/render-minimap.mjs 7 --out docs/movement --tag after   # 미니맵 연속 컷 시트 (0~3분·8~12분·20~25분, 20초 이동 궤적)
 node tools/build-navgraph.mjs  # 미니맵 이미지에서 걸을 수 있는 격자·이동 그래프(data/navgraph.js) 다시 만들기
+node tools/sim-career.mjs 6 --advisor   # 추천 루틴 3종을 시즌 내내 쓴 경우 비교 (시즌 말 OVR·부상·1군 출전·평점 안정성)
 node tools/stats-report.mjs    # 능력치 기준 비교표: LCK 1군·2군·내 선수 OVR 분포와 능력치 8개 평균 (세이브 JSON을 주면 그 세이브 기준)
 node tools/sim-callup.mjs 6    # 2군 → 1군 콜업·첫 1군 출전까지 기간 (난이도별·옛 세이브 보정 후)
 ```
@@ -100,6 +101,7 @@ icons/                앱 아이콘 (180·192·512px)
 css/style.css         전체 스타일 (1180×820 기준 + 폰 세로 .pt / 가로 .pl)
 js/config.js          ★ 모든 수치 상수
 js/stats.js           ★ OVR 계산·능력치 생성 (모든 선수 공통 기준, 하나뿐)
+js/routine-advisor.js 추천 루틴: 7일 앞 기댓값 계산(실제 활동 공식)으로 균형·성장 집중·컨디션 관리 3안 추천
 js/core/              rng.js(시드 난수), util.js
 js/engine/            화면 없는 로직 (node에서 실행 가능)
   match.js            경기 엔진 (5초 틱): 팀 계획 → 선수 목표 → 이동 → 판정
@@ -135,6 +137,7 @@ tools/                검증 스크립트 (validate-match, replay-bug, sim-seaso
 bug-reports/          버그 신고 JSON을 넣는 곳
 docs/DESIGN.md        전체 설계
 docs/MATCH_FIX.md     경기 엔진 정합성 수정 기록 (원인·새 구조·검사 결과)
+docs/ROUTINE_ADVISOR.md 추천 루틴 (계산 방식·플랜별 가중치·예상 vs 실제·시즌 비교)
 docs/STATS_FIX.md     능력치 기준 통일 (내 선수·AI 같은 OVR 공식·생성기, 난이도, 옛 세이브 보정)
 docs/MOVEMENT.md      선수 이동 시스템 (4층 구조·자연스러움 기준 판정·바꾸기 전후 비교, docs/movement/ 시트)
 CLAUDE.md             작업 규칙 (엔진 수정 시 검사기 위반 0건 확인 후 커밋)

@@ -3,6 +3,7 @@ import { CONFIG } from '../config.js';
 import { clamp, avg, dateAdd, dateDiff, weekday, POS } from '../core/util.js';
 import { LCK_TEAMS, FIRST_CUP_GROUPS } from '../../data/teams.js';
 import { createSeries, simSeries } from './series.js';
+import { conditionOf } from './daily.js';
 import { squadForSeries, teamInfo, isAcademyRef, teamIdOf, weeklyReview } from './roster.js';
 import { mkMatch, newStandings, addResult, sortStandings, rrRounds, scheduleSequential, nextDay, newBracket, advanceBracket, newGauntlet, advanceGauntlet } from './tournament.js';
 import { rollPatch } from './meta.js';
@@ -226,7 +227,10 @@ export function buildSeries(state, match) {
 
 export function simulateMatch(state, rng, match) {
   const s = buildSeries(state, match);
-  simSeries(s, rng, state.meta);
+  // 내 선수가 뛰는 경기면 컨디션·멘탈·피로를 경기력에 반영 (직접 진행하는 경기와 같은 식)
+  const u = state.user, me = u && state.players[u.pid];
+  const plays = me && s.teams.some(t => t.players.some(p => p && p.id === me.id));
+  simSeries(s, rng, state.meta, plays ? { pid: me.id, mods: { condition: conditionOf(u.fatigue, u.mental, !!u.injury), mental: u.mental, fatigue: u.fatigue } } : null);
   recordSeries(state, rng, match, s);
   return s;
 }

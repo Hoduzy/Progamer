@@ -36,17 +36,21 @@ function updateSoloTier(sr) {
   sr.rank = sr.tier === '챌린저' ? Math.max(1, Math.round(300 - (sr.lp - 900) / 4)) : null;
 }
 
+export function conditionOf(fatigue, mental, injured = false) {
+  const C = CONFIG.condition;
+  return clamp(Math.round(C.base + 10 - fatigue * C.fatigueWeight + (mental - 60) * C.mentalWeight + (injured ? -25 : 0)), 5, 100);
+}
 export function computeCondition(state) {
   const u = state.user;
-  const C = CONFIG.condition;
-  return clamp(Math.round(C.base + 10 - u.fatigue * C.fatigueWeight + (u.mental - 60) * C.mentalWeight + (u.injury ? -25 : 0)), 5, 100);
+  return conditionOf(u.fatigue, u.mental, !!u.injury);
 }
+// 피로가 쌓일 때 체력 능력치 보정 (체력이 높을수록 덜 쌓임)
+export const staminaMult = stamina => clamp(1.25 - stamina / 200, 0.7, 1.2);
 
 function addFatigue(state, v, rng) {
   const u = state.user;
   const me = state.players[u.pid];
-  const staminaMult = v > 0 ? clamp(1.25 - me.stats.stamina / 200, 0.7, 1.2) : 1;
-  u.fatigue = clamp(u.fatigue + v * staminaMult, 0, 100);
+  u.fatigue = clamp(u.fatigue + v * (v > 0 ? staminaMult(me.stats.stamina) : 1), 0, 100);
   // 부상 체크
   const I = CONFIG.injury;
   if (v > 0 && !u.injury && u.fatigue > I.threshold && rng.chance((u.fatigue - I.threshold) * I.perPoint)) {
@@ -226,8 +230,7 @@ export function activityPreview(state, act) {
     case 'stream': parts.push('팬·수입 증가', '가끔 논란'); break;
     case 'bond': parts.push(`케미 +${Math.round(D.bondChem[0] * mult)}~${Math.round(D.bondChem[1] * mult)}`); break;
   }
-  const staminaMult = D.fatigue[act.a] > 0 ? clamp(1.25 - me.stats.stamina / 200, 0.7, 1.2) : 1;
-  const fatigue = Math.round(D.fatigue[act.a] * mult * staminaMult * (act.a === 'rest' && recovery ? D.recoveryDay.restMult : 1));
+  const fatigue = Math.round(D.fatigue[act.a] * mult * (D.fatigue[act.a] > 0 ? staminaMult(me.stats.stamina) : 1) * (act.a === 'rest' && recovery ? D.recoveryDay.restMult : 1));
   const mental = Math.round((D.mental[act.a] || 0) * mult);
   const note = factor < 1 ? `같은 훈련 연속 — 효과 ${Math.round(factor * 100)}%` : '';
   return { parts, fatigue, mental, factor, note, recovery };
