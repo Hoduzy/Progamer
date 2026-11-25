@@ -8,7 +8,7 @@ import { clamp, avg, POS } from '../core/util.js';
 import { CHAMPIONS } from '../../data/champions.js';
 import { BUILDS, BUILD_OVERRIDE, SPELL_BY_POS } from '../../data/items.js';
 import * as geo from './mapgeo.js';
-import { ovr } from './players.js';
+import { ovr } from '../stats.js';
 import {
   allPlayers, alive, teamGold, goldDiff, enemyOf, byPos, userPlayer, emit, towersStanding, compTraits, SIM,
 } from './matchcore.js';

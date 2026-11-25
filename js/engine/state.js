@@ -6,6 +6,8 @@ import { LCK_TEAMS, OVERSEAS_TEAMS } from '../../data/teams.js';
 import { makeNamePool, makeCoachNames } from '../../data/names.js';
 import { makePlayer, marketValue, setNextPlayerId, getNextPlayerId, genChampPool, assignStarAliases } from './players.js';
 import { newMeta } from './meta.js';
+import { academyTarget, aceTarget, userStartTarget, styleBonus, ovr, genStats, statClamp } from '../stats.js';
+import { STAT_KEYS } from '../core/util.js';
 import { CHAMPIONS } from '../../data/champions.js';
 import { rosterOf, LCK_ROSTERS } from '../../data/rosters.js';
 
@@ -102,7 +104,7 @@ export function newWorld(seed) {
   const addPlayer = (team, pos, squad, target, ageRange, star = null, real = null) => {
     const age = rng.int(...ageRange);
     const o = star || {};
-    const p = makePlayer(rng, { nick: real ? real.nick : takeName(), pos, age, target: clamp(target, 40, 95), teamId: team.id, squad, region: team.region, season: year, grade: o.grade || null, spikes: o.spikes ?? null, exact: squad === 'main' });
+    const p = makePlayer(rng, { nick: real ? real.nick : takeName(), pos, age, target: clamp(target, 40, 95), teamId: team.id, squad, region: team.region, season: year, grade: o.grade || null, spikes: o.spikes ?? null, exact: squad === 'main' || !!o.exact });
     p.contract = { salary: marketValue(p), endSeason: year + rng.int(0, 2), buyout: 0, starter: squad === 'main' };
     p.contract.buyout = Math.round(p.contract.salary * rng.float(...CONFIG.salary.buyoutMult) / 1e6) * 1e6;
     if (real) p.ko = real.ko;   // 한글 표기 (커뮤니티에서 섞어 씀)
@@ -112,6 +114,8 @@ export function newWorld(seed) {
     return p;
   };
   const lckPlan = lckTargets(rng, LCK_TEAMS);
+  // 2군 에이스 자리 (팀·포지션): 1군 바로 아래 수준
+  const aceSlots = new Set(rng.shuffle(LCK_TEAMS.flatMap(t => POS.map(p => t.code + ':' + p))).slice(0, rng.int(...CONFIG.academy.aces.n)));
   for (const t of LCK_TEAMS) {
     const team = mkTeam(t, 'LCK', 'LCK');
     const base = regionTarget(t.tier, 'LCK');
@@ -125,7 +129,8 @@ export function newWorld(seed) {
       const p = addPlayer(team, pos, 'main', lckPlan[t.code][pos].target - rng.int(...CONFIG.stars.lck.benchGap), [19, 26], null, r);
       p.contract.starter = false;
     }
-    for (const pos of POS) addPlayer(team, pos, 'academy', base + CONFIG.academyOffset + rng.int(-4, 5), [17, 21]);
+    // 2군: 목표 분포(CONFIG.academy)를 그대로 (신인 등급 보정 없이 — exact)
+    for (const pos of POS) addPlayer(team, pos, 'academy', aceSlots.has(t.code + ':' + pos) ? aceTarget(rng) : academyTarget(rng, t.tier), [17, 21], { exact: true });
     state.teams[team.id] = team;
   }
   const osStars = overseasStars(rng, OVERSEAS_TEAMS);
@@ -152,11 +157,10 @@ export function newWorld(seed) {
 }
 
 // 사용자 선수 생성
-export function createUserPlayer(state, rng, { nick, pos, age, style, mains }) {
-  // 사용자: 튀는 능력치·유망주 보정 없이 (능력치 성향은 플레이 스타일로, 잠재력은 아래에서 따로)
-  const p = makePlayer(rng, { nick, pos, age, target: CONFIG.userStartAvg, teamId: null, squad: 'fa', season: state.year, spikes: 0, exact: true });
-  const mod = CONFIG.playstyles[style] || {};
-  for (const k in mod) p.stats[k] = clamp(p.stats[k] + mod[k], 35, 80);
+export function createUserPlayer(state, rng, { nick, pos, age, style, mains, difficulty = 'normal' }) {
+  // 사용자: AI 선수와 같은 생성기(js/stats.js genStats)·같은 OVR 공식. 시작 OVR = 난이도 목표(보통 = 2군 평균 근처)
+  // 플레이스타일 강점 1~2개만 시작 기준보다 +5~10, 나머지는 OVR에 맞춰 고르게. 튀는 능력치·유망주 보정 없음
+  const p = makePlayer(rng, { nick, pos, age, target: userStartTarget(rng, difficulty, pos, style), teamId: null, squad: 'fa', season: state.year, spikes: 0, exact: true, bonus: styleBonus(style), spread: CONFIG.userStart.spread });
   p.champs = genChampPool(rng, pos, 52, mains);
   mains.forEach((m, i) => { p.champs[m] = clamp(62 + rng.int(0, 8) - i * 3, 0, 100); });
   p.isUser = true;
@@ -172,6 +176,7 @@ export function createUserPlayer(state, rng, { nick, pos, age, style, mains }) {
     routine: defaultRoutine(), dayAct: null, actStreak: null, lastMatchDate: null, joinedDate: state.date, matchLog: [], career: [], trophies: [], awards: [],
     evalLevel: 0, lastReview: state.date, totalGames: 0, retired: false, competitorId: null, lastLineup: null,
     salaryHistory: [], seasonStart: { fans: 500 }, flags: {},
+    difficulty, startStats: { ...p.stats }, statsVersion: STATS_VERSION,
   };
   return p;
 }
@@ -288,12 +293,43 @@ export function migrateDaily(state) {
   state.dayVersion = DAY_VERSION;
   return true;
 }
-export const needsMigration = state => needsNameMigration(state) || needsDailyMigration(state);
+// ---------- 능력치 기준 보정 ----------
+// statsVersion 2: 내 선수도 AI와 같은 기준(시작 OVR = 난이도 목표, 플레이스타일 = 강점만 +5~10).
+//   예전 세이브의 내 선수는 목표 55 + 옛 플레이스타일 가감으로 만들어져 2군 평균보다 10 정도 낮았다.
+//   시작 시점 기준 차이만 고친다: 능력치마다 (새 기준 시작값 - 옛 기준 시작값)을 더한다.
+//   두 시작값은 같은 생성기에서 무작위 흔들림을 뺀 기댓값이라, 지금까지 쌓은 성장(과 시작 때 무작위 차이)은 그대로 남는다.
+export const STATS_VERSION = 2;
+export function needsStatsMigration(state) { return !!state && !!state.user && !!state.players && (state.user.statsVersion || 1) < STATS_VERSION; }
+// 무작위 없이 기댓값으로 만드는 rng (정규분포 = 평균, 범위 = 가운데)
+const MEAN_RNG = { normal: m => m, float: (a, b) => (a + b) / 2, int: (a, b) => Math.round((a + b) / 2), pick: a => a[0], chance: () => false, shuffle: a => a };
+export function baseStartStats(pos, style, mode, difficulty = 'normal') {
+  if (mode === 'legacy') {
+    const L = CONFIG.legacyStats;
+    const st = genStats(MEAN_RNG, pos, L.userStartAvg, { spread: 0 });
+    for (const [k, v] of Object.entries(L.playstyles[style] || {})) st[k] = clamp(st[k] + v, ...L.clamp);
+    return st;
+  }
+  return genStats(MEAN_RNG, pos, userStartTarget(MEAN_RNG, difficulty, pos, style), { spread: 0, bonus: styleBonus(style) });
+}
+export function migrateStats(state) {
+  if (!needsStatsMigration(state)) return null;
+  const u = state.user, p = state.players[u.pid];
+  const before = { ...p.stats }, ovrBefore = ovr(p);
+  const oldBase = baseStartStats(p.pos, p.style, 'legacy'), newBase = baseStartStats(p.pos, p.style, 'new', 'normal');
+  for (const k of STAT_KEYS) p.stats[k] = statClamp(before[k] + newBase[k] - oldBase[k]);
+  u.difficulty = u.difficulty || 'normal';
+  u.startStats = Object.fromEntries(STAT_KEYS.map(k => [k, statClamp(newBase[k])]));
+  u.statFix = { date: state.date, before, after: { ...p.stats }, ovrBefore, ovrAfter: ovr(p), shown: false };
+  u.statsVersion = STATS_VERSION;
+  return u.statFix;
+}
+export const needsMigration = state => needsNameMigration(state) || needsDailyMigration(state) || needsStatsMigration(state);
 
 export function deserialize(json) {
   const state = typeof json === 'string' ? JSON.parse(json) : json;
   migrateNames(state);
   migrateDaily(state);
+  migrateStats(state);
   setNextPlayerId(state.nextPlayerId || 10000);
   const rng = RNG.from(state.rng);
   return { state, rng };

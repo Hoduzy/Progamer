@@ -8,7 +8,7 @@ import { teamInfo } from './roster.js';
 import { competitorOf } from './state.js';
 import { allMatches, userRef, lckRegularStandings } from './season.js';
 import { sortStandings } from './tournament.js';
-import { ovr } from './players.js';
+import { ovr } from '../stats.js';
 import { KO_OF } from '../../data/rosters.js';
 
 const C = () => CONFIG.community;
@@ -320,10 +320,14 @@ function behavior(state, def) {
   const c = commUsers(state)[def.id].cat;
   return c === 'fan' || c === 'anti' ? c : def.role;
 }
-function withTic(text, def, vars, rng) {
+// 고닉 말버릇(앞·뒤에 붙는 말). 센 욕 문장·curse 댓글에는 실존 선수 변수가 든 말버릇을 붙이지 않는다
+const hasPlayerVar = s => D.PLAYER_VARS.some(v => s.includes(`{${v}}`));
+const isStrong = (s, cat) => cat === 'curse' || D.STRONG_CURSE.some(w => s.includes(w));
+function withTic(text, def, vars, rng, cat = null) {
   const r = rng.next();
-  if (r < 0.3) { const p = fillK(rng.pick(def.pre), vars); if (p) return `${p} ${text}`; }
-  else if (r < 0.65) { const p = fillK(rng.pick(def.post), vars); if (p && !/\{/.test(p)) return `${text} ${p}`; }
+  const ok = raw => raw && !(hasPlayerVar(raw) && isStrong(text, cat));
+  if (r < 0.3) { const raw = rng.pick(def.pre); const p = ok(raw) ? fillK(raw, vars) : ''; if (p) return `${p} ${text}`; }
+  else if (r < 0.65) { const raw = rng.pick(def.post); const p = ok(raw) ? fillK(raw, vars) : ''; if (p && !/\{/.test(p)) return `${text} ${p}`; }
   return text;
 }
 
@@ -464,7 +468,7 @@ function makePost(state, rng, ctx, kind, story) {
     if (!ct) continue;
     blockC.add(ct.id);
     let text = vary(fillK(ct.text, pv), D.STANCE_MOOD[ct.cat], rng);
-    if (def) text = withTic(text, def, pv, rng);
+    if (def) text = withTic(text, def, pv, rng, ct.cat);
     post.comments.push({ who: def ? def.nick : randomNick(rng), uid: def ? def.id : null, text, stance: ct.cat, tid: ct.id, up: rng.int(0, ct.cat === 'curse' || ct.cat === 'joke' ? 160 : 90), replies: [] });
   }
   addThreads(state, rng, ctx, post, pv, blockR, kind);
@@ -495,7 +499,7 @@ function addThreads(state, rng, ctx, post, pv, blockR, kind) {
     if (!rt) return false;
     blockR.add(rt.id);
     let text = vary(fillK(rt.text, { ...pv, 대상: target }), D.STANCE_MOOD[type], rng);
-    if (def) text = withTic(text, def, pv, rng);
+    if (def) text = withTic(text, def, pv, rng, type);
     c.replies.push({ who: def ? def.nick : randomNick(rng), uid: def ? def.id : null, text, type, tid: rt.id, up: rng.int(0, 80) });
     budget--;
     return true;

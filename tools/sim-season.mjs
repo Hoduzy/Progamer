@@ -3,8 +3,8 @@
 import { newWorld, createUserPlayer, signUserToTeam } from '../js/engine/state.js';
 import { createSeason, beginDay, endDay, lckRegularStandings, lckIds } from '../js/engine/season.js';
 import { seasonTick, newSeason, acceptOffer } from '../js/engine/career.js';
-import { ovr } from '../js/engine/players.js';
-import { avg } from '../js/core/util.js';
+import { ovr } from '../js/stats.js';
+import { avg, POS, STAT_KEYS } from '../js/core/util.js';
 import { CONFIG } from '../js/config.js';
 
 const args = process.argv.slice(2);
@@ -73,6 +73,41 @@ function starList(state) {
 const starStr = l => l.map(s => `${s.nick}(${s.team} ${s.pos} ${s.ovr.toFixed(0)} ${s.age}세${s.alias ? ` '${s.alias}'` : ''} · ${s.top[0]} ${s.top[1]})`).join(', ');
 const starHist = [];   // 시즌별 { year, start, end, startStars, endStars }
 
+// 내 선수 vs 2군 같은 포지션 평균 vs 같은 팀 1군 주전 경쟁자 (모두 js/stats.js의 같은 OVR 공식)
+function userCmp(state) {
+  const u = state.players[state.user.pid];
+  const lck = Object.values(state.teams).filter(t => t.region === 'LCK');
+  const cl = lck.flatMap(t => t.depth[u.pos].filter(id => t.squadOf[id] === 'academy' && id !== u.id)).map(id => state.players[id]);
+  const team = u.teamId ? state.teams[u.teamId] : null;
+  const rival = team ? team.depth[u.pos].filter(id => id !== u.id && team.squadOf[id] === 'main').map(id => state.players[id]).sort((a, b) => ovr(b) - ovr(a))[0] : null;
+  const allCl = lck.flatMap(t => Object.keys(t.squadOf).filter(id => t.squadOf[id] === 'academy' && id !== u.id)).map(id => state.players[id]);
+  return { pos: u.pos, squad: u.squad, me: ovr(u), cl: avg(cl.map(ovr)), clAll: avg(allCl.map(ovr)), clMin: Math.min(...allCl.map(ovr)), clMax: Math.max(...allCl.map(ovr)), rival: rival ? ovr(rival) : null, rivalNick: rival ? rival.nick : '-' };
+}
+const cmpStr = c => `내 선수(${c.pos}, ${c.squad === 'main' ? '1군' : '2군'}) ${c.me.toFixed(1)} · 2군 ${c.pos} 평균 ${c.cl.toFixed(1)} · 1군 주전 경쟁자 ${c.rivalNick} ${c.rival === null ? '-' : c.rival.toFixed(1)} · (2군 전체 평균 ${c.clAll.toFixed(1)}, ${c.clMin.toFixed(0)}~${c.clMax.toFixed(0)})`;
+const cmpHist = [];
+
+// 난이도별 새 캐릭터 100명: 시작 OVR이 목표 ±2 안인지 + 2군 분포(평균·범위·에이스)
+const START_N = 100, startRes = {};
+const tS = Date.now();
+for (const diff of Object.keys(CONFIG.userStart.ovr)) {
+  const ovrs = [];
+  for (let i = 0; i < START_N; i++) {
+    const w = newWorld(`start-${diff}-${i}`);
+    const styles = Object.keys(CONFIG.playstyles);
+    ovrs.push(ovr(createUserPlayer(w.state, w.rng, { nick: 'S' + i, pos: POS[i % 5], age: 18, style: styles[i % styles.length], mains: [], difficulty: diff })));
+    if (diff === 'normal') {
+      const cl = Object.values(w.state.teams).filter(t => t.region === 'LCK').flatMap(t => Object.keys(t.squadOf).filter(id => t.squadOf[id] === 'academy')).map(id => ovr(w.state.players[id]));
+      (startRes.cl = startRes.cl || []).push({ mean: avg(cl), min: Math.min(...cl), max: Math.max(...cl), aces: cl.filter(v => v >= CONFIG.academy.aceFrom).length });
+    }
+  }
+  const t = CONFIG.userStart.ovr[diff];
+  startRes[diff] = { t, mean: avg(ovrs), min: Math.min(...ovrs), max: Math.max(...ovrs), inside: ovrs.filter(v => Math.abs(v - t) <= 2).length };
+}
+console.log(`[난이도별 새 캐릭터 ${START_N}명 시작 OVR] (${((Date.now() - tS) / 1000).toFixed(1)}초)`);
+for (const [d, r] of Object.entries(startRes)) if (d !== 'cl') console.log(`  ${CONFIG.difficultyNames[d]} 목표 ${r.t}±2: 평균 ${r.mean.toFixed(1)} · ${r.min.toFixed(1)}~${r.max.toFixed(1)} · 범위 안 ${r.inside}/${START_N}`);
+const clS = startRes.cl;
+console.log(`  2군(LCK CL) ${clS.length}개 월드: 평균 ${avg(clS.map(c => c.mean)).toFixed(1)} (월드별 ${Math.min(...clS.map(c => c.mean)).toFixed(1)}~${Math.max(...clS.map(c => c.mean)).toFixed(1)}) · 최저 ${Math.min(...clS.map(c => c.min)).toFixed(1)} · 최고 ${Math.max(...clS.map(c => c.max)).toFixed(1)} · 에이스(${CONFIG.academy.aceFrom}+) 월드당 ${avg(clS.map(c => c.aces)).toFixed(1)}명`);
+
 const t0 = Date.now();
 let state, rng;
 for (let s = 0; s < N; s++) {
@@ -84,6 +119,7 @@ for (let s = 0; s < N; s++) {
   }
   const yr = state.year;
   const startD = dist(state), startStars = starList(state);
+  const cmp0 = userCmp(state);
   const ok = runSeason.call(null, state, rng);
   // runSeason 은 새 시즌으로 넘어가기 직전에 newSeason을 호출하지 않으므로 여기서 통계 후 넘김
   collect(state);
@@ -91,6 +127,7 @@ for (let s = 0; s < N; s++) {
   const lckStr = lckIds().map(id => `${id}:${Math.round(avg(Object.keys(state.teams[id].squadOf).filter(p => state.teams[id].squadOf[p] === 'main' && state.players[p]).map(p => ovr(state.players[p]))))}`).join(' ');
   console.log(`시즌 ${yr} 완료${ok ? '' : ' (경고: 시즌 종료 미도달)'} · LCK컵 ${state.season.comps.lckCup.result.champion} · FS ${state.season.comps.fs.result.champion} · MSI ${state.season.comps.msi.result.champion} · LCK PO ${state.season.comps.lckpo.result.champion} · Worlds ${state.season.comps.worlds.result.champion}`);
   starHist.push({ year: yr, start: startD, end: dist(state), startStars, endStars: starList(state) });
+  cmpHist.push({ year: yr, start: cmp0, end: userCmp(state) });
   if (CHAIN) { console.log('   전력: ' + lckStr); newSeason(state, rng); }
 }
 
@@ -104,6 +141,8 @@ console.log('\n[국제 대회 우승 지역 분포]');
 for (const k of ['fs', 'msi', 'worlds']) console.log(`  ${k.padEnd(6)} ${Object.entries(stats.intlRegion[k]).map(([r, n]) => `${r} ${n}`).join(', ')}   (팀: ${Object.entries(stats.intlTeam[k]).map(([r, n]) => `${r} ${n}`).join(', ')})`);
 const avgDur = stats.dur / stats.games / 60, avgK = stats.kills / stats.games;
 console.log(`\n[경기] 총 ${stats.games}세트 · 평균 경기 시간 ${avgDur.toFixed(1)}분 (10%~90%: ${(pct(stats.durs, 0.1) / 60).toFixed(0)}~${(pct(stats.durs, 0.9) / 60).toFixed(0)}분) · 평균 총 킬 ${avgK.toFixed(1)} (10%~90%: ${pct(stats.killsArr, 0.1)}~${pct(stats.killsArr, 0.9)})`);
+console.log('\n[내 선수 OVR vs 2군 평균 vs 1군 주전 경쟁자 — 시즌 시작 → 종료]');
+for (const h of cmpHist) console.log(`  ${h.year} 시작: ${cmpStr(h.start)}\n       종료: ${cmpStr(h.end)}`);
 console.log('\n[LCK 1군 OVR 분포 — 시즌 시작 → 종료]');
 for (const h of starHist) console.log(`  ${h.year} 시작: ${distStr(h.start)}\n       종료: ${distStr(h.end)}`);
 const first = starHist[0];
@@ -142,6 +181,9 @@ const checks = [
     [`시즌마다 LCK 90+ 3~8명 유지 (${starHist.map(h => h.start.s90).join('/')})`, starHist.every(h => inR(h.start.s90, [3, 8]))],
     [`세대교체: 5시즌 동안 새 슈퍼스타 3명 이상 (${newStars}명), 내려온 스타도 있음 (${lostStars}명)`, newStars >= 3 && lostStars >= 1],
   ] : []),
+  ...Object.entries(startRes).filter(([d]) => d !== 'cl').map(([d, r]) => [`새 캐릭터 시작 OVR ${CONFIG.difficultyNames[d]} ${r.t}±2 (${r.inside}/${START_N}명, 평균 ${r.mean.toFixed(1)})`, r.inside === START_N]),
+  [`시작 2군 평균 ${CONFIG.academy.mean}±1.5, 범위 ${CONFIG.academy.range.join('~')} (평균 ${avg(clS.map(c => c.mean)).toFixed(1)}, ${Math.min(...clS.map(c => c.min)).toFixed(0)}~${Math.max(...clS.map(c => c.max)).toFixed(0)})`, Math.abs(avg(clS.map(c => c.mean)) - CONFIG.academy.mean) <= 1.5 && Math.min(...clS.map(c => c.min)) >= CONFIG.academy.range[0] - 0.5 && Math.max(...clS.map(c => c.max)) <= CONFIG.academy.range[1] + 0.5],
+  [`시작 2군 에이스 ${CONFIG.academy.aces.r.join('~')} 월드당 ${CONFIG.academy.aces.n.join('~')}명 (평균 ${avg(clS.map(c => c.aces)).toFixed(1)})`, inR(avg(clS.map(c => c.aces)), CONFIG.academy.aces.n)],
   ['평균 경기 시간 28~34분', avgDur >= 28 && avgDur <= 34],
   ['평균 총 킬 18~32', avgK >= 18 && avgK <= 32],
   ['S티어 팀이 LCK 우승 다수(60% 이상)', sTitles / Math.max(1, allTitles) >= 0.6],

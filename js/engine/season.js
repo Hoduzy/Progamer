@@ -7,7 +7,8 @@ import { squadForSeries, teamInfo, isAcademyRef, teamIdOf, weeklyReview } from '
 import { mkMatch, newStandings, addResult, sortStandings, rrRounds, scheduleSequential, nextDay, newBracket, advanceBracket, newGauntlet, advanceGauntlet } from './tournament.js';
 import { rollPatch } from './meta.js';
 import { nightRecovery } from './daily.js';
-import { growStat, growMastery, ovr, makePlayer, marketValue } from './players.js';
+import { growStat, growMastery, makePlayer, marketValue } from './players.js';
+import { ovr, academyTarget } from '../stats.js';
 import { addNews, addMsg } from './state.js';
 import { champName } from '../../data/champions.js';
 import * as intl from './international.js';
@@ -369,8 +370,7 @@ export function endDay(state, rng) {
 export function ensureAcademy(state, rng, teamId, pos) {
   const team = state.teams[teamId];
   if (team.depth[pos].some(id => team.squadOf[id] === 'academy')) return;
-  const base = CONFIG.tierOvr[team.tier] + CONFIG.academyOffset;
-  const p = makePlayer(rng, { nick: state.namePool.pop() || 'Rookie' + rng.int(100, 999), pos, age: rng.int(17, 19), target: base + rng.int(-3, 3), teamId, squad: 'academy', season: state.year });
+  const p = makePlayer(rng, { nick: state.namePool.pop() || 'Rookie' + rng.int(100, 999), pos, age: rng.int(17, 19), target: academyTarget(rng, team.tier), teamId, squad: 'academy', season: state.year, exact: true });
   p.contract = { salary: marketValue(p), endSeason: state.year + 1, buyout: 0, starter: false };
   state.players[p.id] = p;
   team.depth[pos].push(p.id); team.squadOf[p.id] = 'academy';

@@ -2,7 +2,8 @@
 // 활동 1개 = 예전 한 칸 효과 × ACTIVITY_DAY_MULTIPLIER. 경기일은 활동 없이 경기만, 경기 다음 날은 회복일.
 import { CONFIG } from '../config.js';
 import { clamp, avg, STAT_KO, POS } from '../core/util.js';
-import { growStat, growMastery, ovr, topChamps, potentialGrade } from './players.js';
+import { growStat, growMastery, topChamps, potentialGrade } from './players.js';
+import { ovr } from '../stats.js';
 import { CHAMPIONS, champName } from '../../data/champions.js';
 import { addMsg } from './state.js';
 import { dateAdd } from '../core/util.js';

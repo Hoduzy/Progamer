@@ -255,11 +255,26 @@ export const CONFIG = {
     SUP: { laning: .14, teamfight: .19, mechanics: .1, decision: .2, vision: .2, mental: .08, pool: .05, stamina: .04 },
   },
   tierOvr: { S: 83, A: 79.5, B: 77, C: 76, D: 71 }, // 1군 평균 OVR (팀 티어별)
-  academyOffset: -12,                                 // 2군 평균 = 1군 - 12
+  // 2군(LCK CL) OVR 분포: 평균 63, 범위 55~74. 팀마다 에이스 몇 명은 72~74 (1군 바로 아래). 티어가 높은 팀 2군이 조금 강함
+  academy: { mean: 63, sd: 3, range: [55, 74], aceFrom: 72, slots: 50, tierShift: { S: 1, A: 0.5, B: 0, C: -1, D: -1.5 }, aces: { n: [4, 6], r: [72, 74] } },   // mean = 에이스 포함 전체 평균
   rookieMainOffset: -2,                               // 1군으로 바로 뽑는 신인 = 팀 평균 - 2
   regionOffset: { LCK: 0, LPL: 1.5, LEC: -2, LCS: -4, CBLOL: -6, LCP: -4 }, // 지역별 전력 보정 (국제대회 밸런스)
   tierThresholds: { S: 82, A: 78, B: 74, C: 70 },     // 시즌마다 1군 평균 OVR로 팀 티어 재계산
-  userStartAvg: 55,
+  // 능력치 범위 (모든 선수 공통) · 포지션 특성 (생성 때 조금 더함)
+  statRange: [30, 99],
+  posStatLean: { SUP: { vision: 5 }, JGL: { decision: 3 }, ADC: { mechanics: 3 } },
+  // 내 선수 시작 OVR (난이도). 보통 = 2군 평균 근처. jitter: ±흔들림, spread: 능력치끼리 흩어진 정도
+  // 플레이스타일 강점 때문에 오르는 OVR의 styleAllow(최대 styleAllowMax)만큼은 OVR로 인정 — 나머지 능력치가 2군 평균보다 크게 낮아지지 않게
+  userStart: { ovr: { easy: 70, normal: 62, hard: 57 }, jitter: 0.6, spread: 1.5, styleAllow: 0.3, styleAllowMax: 0.8 },
+  difficultyNames: { easy: '쉬움', normal: '보통', hard: '어려움' },
+  // 옛 기준 (세이브 보정용 기록): 예전에는 내 선수만 목표 55로 만들고, 맞춘 뒤 플레이스타일 가감을 35~80 안에서 더했다
+  legacyStats: { userStartAvg: 55, clamp: [35, 80], playstyles: {
+    '라인전 괴물': { laning: 8, mechanics: 4, teamfight: -3, decision: -2 },
+    '한타 장인': { teamfight: 8, mechanics: 2, laning: -3 },
+    '운영형': { decision: 7, vision: 5, mechanics: -4, laning: -2 },
+    '캐리형': { mechanics: 7, laning: 3, mental: -3, vision: -3 },
+    '헌신형': { vision: 6, teamfight: 3, decision: 3, mechanics: -4, laning: -3 },
+  } },
   // ---------------- 슈퍼스타 ----------------
   stars: {
     // 잠재력 등급 = 도달 가능한 최대 OVR
@@ -278,12 +293,13 @@ export const CONFIG = {
     starAge: [21, 28], aceAge: [20, 27],   // 게임 시작 때 90+ / 85~89 선수 나이
     growK: 0.27,            // AI 성장: (잠재력 - OVR) × growK × 나이 보정 / 시즌
   },
+  // 플레이스타일 = 강점 능력치 1~2개를 시작 OVR 기준보다 +5~10 (나머지는 OVR에 맞춰 고르게)
   playstyles: {
-    '라인전 괴물': { laning: 8, mechanics: 4, teamfight: -3, decision: -2 },
-    '한타 장인': { teamfight: 8, mechanics: 2, laning: -3 },
-    '운영형': { decision: 7, vision: 5, mechanics: -4, laning: -2 },
-    '캐리형': { mechanics: 7, laning: 3, mental: -3, vision: -3 },
-    '헌신형': { vision: 6, teamfight: 3, decision: 3, mechanics: -4, laning: -3 },
+    '라인전 괴물': { laning: 9, mechanics: 6 },
+    '한타 장인': { teamfight: 9, decision: 6 },
+    '운영형': { decision: 9, vision: 6 },
+    '캐리형': { mechanics: 9, laning: 6 },
+    '헌신형': { vision: 9, teamfight: 6 },
   },
 
   // ---------------- 성장 ----------------
@@ -319,7 +335,7 @@ export const CONFIG = {
   lineup: {
     w: { trust: 0.30, rating: 6.0, condition: 0.12, scrim: 0.25, ovr: 0.55 },
     noise: 3,
-    callupMargin: 1.0,         // 2군 → 1군 콜업 기준 점수 차
+    callupMargin: 0.7,         // 2군 → 1군 콜업 기준 점수 차 (×10). 보통 난이도 콜업 6~10주 (tools/sim-callup.mjs)
     demoteBenchStreak: 4,      // 연속 벤치 시 강등 검토
     demoteRatingBelow: 6.0,
     reviewEveryDays: 7,

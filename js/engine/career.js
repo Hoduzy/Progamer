@@ -1,7 +1,8 @@
 // 계약·연봉·FA·이적·노화·은퇴·신인·다음 시즌
 import { CONFIG } from '../config.js';
 import { clamp, avg, POS, dateAdd, STAT_KEYS } from '../core/util.js';
-import { ovr, makePlayer, marketValue, emptySeason, potentialGrade, assignStarAliases } from './players.js';
+import { makePlayer, marketValue, emptySeason, potentialGrade, assignStarAliases } from './players.js';
+import { ovr, academyTarget } from '../stats.js';
 import { addNews, addMsg, regionTarget, competitorOf } from './state.js';
 import { createSeason, lckRegularStandings, lckIds } from './season.js';
 import { REGIONS } from '../../data/teams.js';
@@ -210,8 +211,10 @@ function signPlayer(state, team, pid, squad, years, rng) {
 }
 
 function newRookie(state, rng, team, pos, squad) {
-  const base = regionTarget(team.tier, team.region) + (squad === 'academy' ? CONFIG.academyOffset : CONFIG.rookieMainOffset);
-  const p = makePlayer(rng, { nick: state.namePool.pop() || 'Rookie' + rng.int(100, 999), pos, age: rng.int(17, 19), target: base + rng.int(-3, 4), teamId: team.id, squad, region: team.region, season: state.year + 1 });
+  // 2군 신인 = 2군 분포(CONFIG.academy) 그대로, 1군 신인 = 팀 평균 - 2 (+ 유망주 등급 보정)
+  const academy = squad === 'academy' && team.region === 'LCK';
+  const target = academy ? academyTarget(rng, team.tier) : regionTarget(team.tier, team.region) + CONFIG.rookieMainOffset + rng.int(-3, 4);
+  const p = makePlayer(rng, { nick: state.namePool.pop() || 'Rookie' + rng.int(100, 999), pos, age: rng.int(17, 19), target, teamId: team.id, squad, region: team.region, season: state.year + 1, exact: academy });
   p.contract = { salary: marketValue(p), endSeason: state.year + rng.int(1, 2), buyout: 0, starter: false };
   state.players[p.id] = p;
   team.depth[pos].push(p.id); team.squadOf[p.id] = squad;

@@ -33,9 +33,16 @@ const ci = (x, y) => Math.min(N - 1, Math.max(0, Math.floor(y * N))) * N + Math.
 export const walkable = (x, y) => x > 0 && y > 0 && x < 1 && y < 1 && grid[ci(x, y)] === 1;
 export const clearance = (x, y) => (x > 0 && y > 0 && x < 1 && y < 1 ? clear[ci(x, y)] : 0);
 // 두 점 사이 직선이 길 위인가 (need: 벽에서 떨어진 칸 수)
+// 반 칸 간격으로 본다 (clearance를 풀어 쓴 것 — 같은 점을 보고 같은 결과)
 export function segWalkable(ax, ay, bx, by, need = 1) {
   const d = Math.hypot(bx - ax, by - ay), n = Math.max(1, Math.ceil(d * N * 2));
-  for (let k = 0; k <= n; k++) if (clearance(ax + (bx - ax) * k / n, ay + (by - ay) * k / n) < need) return false;
+  const dx = bx - ax, dy = by - ay;
+  for (let k = 0; k <= n; k++) {
+    const x = ax + dx * k / n, y = ay + dy * k / n;
+    if (!(x > 0 && y > 0 && x < 1 && y < 1)) { if (need > 0) return false; continue; }
+    const cx = Math.floor(x * N), cy = Math.floor(y * N);
+    if (clear[(cy < N ? cy : N - 1) * N + (cx < N ? cx : N - 1)] < need) return false;
+  }
   return true;
 }
 // 가장 가까운 걸을 수 있는 지점 (벽에서 need칸)
@@ -84,31 +91,63 @@ function nearNodes(x, y, k = 6) {
 export function nodesOfType(type) { return NODES.map((n, i) => [n, i]).filter(([n]) => n[2] === type); }
 
 // A*: 시작점 → 근처 노드들 → … → 목표 근처 노드들 → 목표
+// 탐색 상태는 미리 만든 배열을 세대 번호로 다시 쓴다 (탐색마다 Map·배열을 새로 만들지 않게)
+const NN = NODES.length;
+const gArr = new Float64Array(NN), cameArr = new Int32Array(NN), goalArr = new Float64Array(NN);
+const seenGen = new Uint32Array(NN), closedGen = new Uint32Array(NN), goalGen = new Uint32Array(NN);
+const hx = Float64Array.from(NODES, n => n[0]), hy = Float64Array.from(NODES, n => n[1]);
+const adjTo = adj.map(l => Int32Array.from(l, e => e[0])), adjD = adj.map(l => Float64Array.from(l, e => e[1]));
+let gen = 0;
+const heapF = new Float64Array(NN * 8), heapV = new Int32Array(NN * 8);
 function astar(sx, sy, tx, ty, heading) {
-  const starts = nearNodes(sx, sy), goals = new Map(nearNodes(tx, ty).map(([d, i]) => [i, d]));
-  const g = new Map(), came = new Map(), open = [];
+  if (++gen >= 0xffffffff) { gen = 1; seenGen.fill(0); closedGen.fill(0); goalGen.fill(0); }
+  const starts = nearNodes(sx, sy);
+  for (const [d, i] of nearNodes(tx, ty)) { goalGen[i] = gen; goalArr[i] = d; }
+  let hn = 0;
+  const push = (f, v) => {
+    let i = hn++;
+    while (i > 0) { const pa = (i - 1) >> 1; if (heapF[pa] <= f) break; heapF[i] = heapF[pa]; heapV[i] = heapV[pa]; i = pa; }
+    heapF[i] = f; heapV[i] = v;
+  };
+  const pop = () => {
+    const v = heapV[0], lf = heapF[--hn], lv = heapV[hn];
+    let i = 0;
+    for (;;) {
+      const l = 2 * i + 1; if (l >= hn) break;
+      const r = l + 1, m = r < hn && heapF[r] < heapF[l] ? r : l;
+      if (heapF[m] >= lf) break;
+      heapF[i] = heapF[m]; heapV[i] = heapV[m]; i = m;
+    }
+    heapF[i] = lf; heapV[i] = lv;
+    return v;
+  };
   for (let [d, i] of starts) {
     // 지금 가던 방향 뒤쪽 노드로 시작하면 비용을 더한다 (갈림길에서 경로를 다시 찾을 때 되돌아가지 않게)
-    if (heading) { const dx = NODES[i][0] - sx, dy = NODES[i][1] - sy, l = Math.hypot(dx, dy) || 1; if ((dx * heading[0] + dy * heading[1]) / l < -0.2) d += 0.12; }
-    g.set(i, d); open.push([d + Math.hypot(NODES[i][0] - tx, NODES[i][1] - ty), i]); came.set(i, -1);
+    if (heading) { const dx = hx[i] - sx, dy = hy[i] - sy, l = Math.hypot(dx, dy) || 1; if ((dx * heading[0] + dy * heading[1]) / l < -0.2) d += 0.12; }
+    if (seenGen[i] === gen && gArr[i] <= d) continue;
+    seenGen[i] = gen; gArr[i] = d; cameArr[i] = -1;
+    push(d + Math.hypot(hx[i] - tx, hy[i] - ty), i);
   }
-  const closed = new Set();
-  let best = null, bestCost = Infinity;
-  while (open.length) {
-    let mi = 0; for (let k = 1; k < open.length; k++) if (open[k][0] < open[mi][0]) mi = k;
-    const [f, v] = open.splice(mi, 1)[0];
+  let best = -1, bestCost = Infinity;
+  while (hn > 0) {
+    const f = heapF[0], v = pop();
     if (f >= bestCost) break;
-    if (closed.has(v)) continue;
-    closed.add(v);
-    if (goals.has(v)) { const c = g.get(v) + goals.get(v); if (c < bestCost) { bestCost = c; best = v; } }
-    for (const [u, d] of adj[v]) {
-      const ng = g.get(v) + d;
-      if (ng < (g.get(u) ?? Infinity)) { g.set(u, ng); came.set(u, v); open.push([ng + Math.hypot(NODES[u][0] - tx, NODES[u][1] - ty), u]); }
+    if (closedGen[v] === gen) continue;
+    closedGen[v] = gen;
+    const gv = gArr[v];
+    if (goalGen[v] === gen) { const c = gv + goalArr[v]; if (c < bestCost) { bestCost = c; best = v; } }
+    const to = adjTo[v], dd = adjD[v];
+    for (let k = 0; k < to.length; k++) {
+      const u = to[k], ng = gv + dd[k];
+      if (seenGen[u] !== gen || ng < gArr[u]) {
+        seenGen[u] = gen; gArr[u] = ng; cameArr[u] = v;
+        if (hn < heapF.length) push(ng + Math.hypot(hx[u] - tx, hy[u] - ty), u);
+      }
     }
   }
-  if (best === null) return null;
+  if (best < 0) return null;
   const path = [];
-  for (let v = best; v >= 0; v = came.get(v)) path.push([NODES[v][0], NODES[v][1]]);
+  for (let v = best; v >= 0; v = cameArr[v]) path.push([hx[v], hy[v]]);
   return path.reverse();
 }
 

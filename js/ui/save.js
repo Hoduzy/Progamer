@@ -1,6 +1,6 @@
 // 저장: 자동 저장 + 슬롯 3개 + JSON 내보내기/불러오기
 import { CONFIG } from '../config.js';
-import { serialize, deserialize, needsNameMigration, needsDailyMigration } from '../engine/state.js';
+import { serialize, deserialize, needsNameMigration, needsDailyMigration, needsStatsMigration } from '../engine/state.js';
 import { fmtDate } from '../core/util.js';
 
 const P = CONFIG.storagePrefix;
@@ -12,6 +12,7 @@ const BACKUP_SRC = { auto: '자동 저장', slot1: '슬롯 1', slot2: '슬롯 2'
 const MIGRATIONS = [
   { tag: 'backup', name: '이름 변환 전', need: needsNameMigration },
   { tag: 'backup-day', name: '하루 1활동 변환 전', need: needsDailyMigration },
+  { tag: 'backup-stats', name: '능력치 기준 보정 전', need: needsStatsMigration },
 ];
 for (const m of MIGRATIONS) for (const [k, n] of Object.entries(BACKUP_SRC)) SLOT_NAMES[`${m.tag}.${k}`] = `${n} 백업 (${m.name})`;
 export const isBackupKey = k => k.startsWith('backup');

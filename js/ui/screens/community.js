@@ -6,7 +6,7 @@ import { shell } from '../layout.js';
 import { esc, fmtWon, POS_KO, fmtDate } from '../../core/util.js';
 import { teamInfo } from '../../engine/roster.js';
 import { careerSummary } from '../../engine/career.js';
-import { ovr } from '../../engine/players.js';
+import { ovr } from '../../stats.js';
 import { champIcon, teamLogo } from '../assets.js';
 import { champName } from '../../../data/champions.js';
 

@@ -54,6 +54,8 @@ node tools/validate-community.mjs   # ★ 커뮤니티 검사: 템플릿 개수,
 node tools/build-pages.mjs     # 배포 준비: 이미지 목록·서비스 워커 캐시 목록·버전 생성 + 경로(절대 경로·대소문자) 검사
 node tools/render-minimap.mjs 7 --out docs/movement --tag after   # 미니맵 연속 컷 시트 (0~3분·8~12분·20~25분, 20초 이동 궤적)
 node tools/build-navgraph.mjs  # 미니맵 이미지에서 걸을 수 있는 격자·이동 그래프(data/navgraph.js) 다시 만들기
+node tools/stats-report.mjs    # 능력치 기준 비교표: LCK 1군·2군·내 선수 OVR 분포와 능력치 8개 평균 (세이브 JSON을 주면 그 세이브 기준)
+node tools/sim-callup.mjs 6    # 2군 → 1군 콜업·첫 1군 출전까지 기간 (난이도별·옛 세이브 보정 후)
 ```
 
 ## 진행 상황
@@ -97,6 +99,7 @@ icons/                앱 아이콘 (180·192·512px)
 .github/workflows/pages.yml  main에 push하면 Pages로 자동 배포
 css/style.css         전체 스타일 (1180×820 기준 + 폰 세로 .pt / 가로 .pl)
 js/config.js          ★ 모든 수치 상수
+js/stats.js           ★ OVR 계산·능력치 생성 (모든 선수 공통 기준, 하나뿐)
 js/core/              rng.js(시드 난수), util.js
 js/engine/            화면 없는 로직 (node에서 실행 가능)
   match.js            경기 엔진 (5초 틱): 팀 계획 → 선수 목표 → 이동 → 판정
@@ -109,7 +112,7 @@ js/engine/            화면 없는 로직 (node에서 실행 가능)
   draft.js            밴픽 순서·AI 밴/픽·상성·조합 평가·감독 추천
   series.js           Bo1/3/5 시리즈, 퍼스트 셀렉션, 피어리스, 빠른 시뮬레이션
   meta.js             패치·메타 티어
-  players.js          선수 생성·OVR·성장
+  players.js          선수 생성(js/stats.js 생성기 사용)·성장
   rating.js           평점·POG
   awards.js           시리즈 POM·라운드 POM·All-LCK·신인왕·MVP·결승/대회 MVP
   events.js           랜덤 이벤트 발생·결과 적용
@@ -132,6 +135,7 @@ tools/                검증 스크립트 (validate-match, replay-bug, sim-seaso
 bug-reports/          버그 신고 JSON을 넣는 곳
 docs/DESIGN.md        전체 설계
 docs/MATCH_FIX.md     경기 엔진 정합성 수정 기록 (원인·새 구조·검사 결과)
+docs/STATS_FIX.md     능력치 기준 통일 (내 선수·AI 같은 OVR 공식·생성기, 난이도, 옛 세이브 보정)
 docs/MOVEMENT.md      선수 이동 시스템 (4층 구조·자연스러움 기준 판정·바꾸기 전후 비교, docs/movement/ 시트)
 CLAUDE.md             작업 규칙 (엔진 수정 시 검사기 위반 0건 확인 후 커밋)
 assets/               팀 로고, 내 사진 (assets/README.md 참고)

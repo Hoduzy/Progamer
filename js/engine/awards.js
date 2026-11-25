@@ -1,7 +1,7 @@
 // 시상: 시리즈 POM, 라운드 POM, All-LCK 1st/2nd/3rd, 신인왕, 정규시즌 MVP, 결승 MVP, 대회 MVP
 import { clamp, avg, POS, POS_KO } from '../core/util.js';
 import { addNews, addMsg } from './state.js';
-import { ovr } from './players.js';
+import { ovr } from '../stats.js';
 
 function giveUser(state, name, extra = {}) {
   const us = state.user;

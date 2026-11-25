@@ -731,3 +731,13 @@ button { font-family: inherit; color: inherit; }
 .ph .act-card { min-height: 84px; padding: 8px; }
 .ph .act-card .an { font-size: 14px; }
 .ph .act-card .ap { font-size: 10.5px; }
+
+/* 내 선수 비교 레이더 */
+.radar-wrap { width: 100%; max-width: 420px; margin: 0 auto; }
+.radar { width: 100%; height: auto; display: block; }
+.radar-grid { fill: none; stroke: var(--line2); stroke-width: 1; }
+.radar-lbl { fill: var(--txt); font-size: 12px; font-weight: 700; }
+.radar-tick { fill: var(--txt3); font-size: 9px; }
+.radar-key { display: inline-block; width: 14px; height: 4px; border-radius: 2px; }
+.cmp-tbl td, .cmp-tbl th { white-space: nowrap; }
+html.ph .cmp-tbl { font-size: 12px; }

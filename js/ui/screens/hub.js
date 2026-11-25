@@ -2,12 +2,14 @@
 import { App, go, modal, toast } from '../app.js';
 import { shell } from '../layout.js';
 import { CONFIG } from '../../config.js';
-import { esc, fmtDate, dateDiff, POS_KO, STAT_KO, avg, weekday, WEEKDAY_KO } from '../../core/util.js';
+import { esc, fmtDate, dateDiff, POS_KO, STAT_KO, STAT_KEYS, avg, weekday, WEEKDAY_KO } from '../../core/util.js';
+import { saveTo } from '../save.js';
 import { userMatchOn, nextUserMatch, userRef } from '../../engine/season.js';
 import { teamInfo, rivalProfile, userProfile } from '../../engine/roster.js';
 import { competitorOf } from '../../engine/state.js';
 import { ACTIVITIES, TRAINABLE, computeCondition, soloRankLabel, activityPreview, fatigueWarning, isRecoveryDay } from '../../engine/daily.js';
-import { ovr, topChamps } from '../../engine/players.js';
+import { topChamps } from '../../engine/players.js';
+import { ovr } from '../../stats.js';
 import { champIcon, teamLogo } from '../assets.js';
 import { champName, CHAMPIONS } from '../../../data/champions.js';
 import { todayAct, actLabel, runDay, autoAdvance } from '../dayFlow.js';
@@ -99,6 +101,21 @@ function render(root) {
   c.querySelector('#week').addEventListener('click', () => autoAdvance(7, '일주일 넘기기'));
   c.querySelector('#auto').addEventListener('click', () => autoAdvance(60, '다음 경기까지'));
   c.querySelector('#editRoutine').addEventListener('click', () => editRoutine());
+  // 능력치 기준 보정 알림 (옛 세이브를 처음 불러왔을 때 한 번)
+  const fx = st.user.statFix;
+  if (fx && !fx.shown) {
+    fx.shown = true;
+    saveTo('auto', st, App.rng);
+    const rows = STAT_KEYS.map(k => { const d = fx.after[k] - fx.before[k]; return `<tr><td>${STAT_KO[k]}</td><td>${fx.before[k]}</td><td><b>${fx.after[k]}</b></td><td class="${d > 0 ? 'pos' : d < 0 ? 'neg' : ''}">${d > 0 ? '+' : ''}${d}</td></tr>`; }).join('');
+    modal({
+      title: '능력치 기준 보정',
+      body: `<p>예전 버전에서는 내 선수만 다른 기준(시작 OVR 55)으로 만들어져 2군 평균보다 10 정도 낮았습니다. 이제 모든 선수가 같은 기준을 씁니다.</p>
+        <p class="small muted">시작 시점 기준 차이만 고쳤고, 지금까지 훈련·경기로 올린 능력치는 그대로 남았습니다. 보정 전 세이브는 백업 슬롯(능력치 기준 보정 전)에 있습니다.</p>
+        <table class="tbl"><tr><th>능력치</th><th>보정 전</th><th>보정 후</th><th>차이</th></tr>${rows}
+        <tr><td><b>OVR</b></td><td>${fx.ovrBefore.toFixed(1)}</td><td><b class="gold">${fx.ovrAfter.toFixed(1)}</b></td><td class="pos">+${(fx.ovrAfter - fx.ovrBefore).toFixed(1)}</td></tr></table>`,
+      buttons: [{ label: '확인', primary: true }],
+    });
+  }
 }
 
 // 활동 카드: 예상 효과 (경험치·피로·멘탈, 연속 감소)

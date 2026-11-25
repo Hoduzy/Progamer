@@ -18,6 +18,8 @@
 - 미니맵·문자중계·주요 장면 카드·HUD는 엔진 상태와 이벤트(`ev.pos`, `ev.parts`, `ev.region`)만 읽는다. 화면 쪽에서 위치를 따로 만들지 않는다.
 - 주요 장면 설명에 사실(체력, 점멸, 근처의 적, 오브젝트 진행)을 쓰면 `data/sceneNeeds.js`에 그 조건을 넣는다.
 - 수치 상수는 `js/config.js`에만 둔다.
+- **OVR 계산·능력치 생성은 `js/stats.js` 하나로만** 한다 (`ovr`/`ovrOf`, `genStats`, `academyTarget`, `userStartTarget`). 내 선수·AI·1군·2군·신인·해외·FA 모두 같은 공식·같은 생성기·같은 능력치 범위(`CONFIG.statRange`).
+  선수 생성 기준(`CONFIG.tierOvr`, `CONFIG.academy`, `CONFIG.userStart`, `CONFIG.playstyles`, `CONFIG.stars`)을 바꾸면 `node tools/sim-season.mjs`의 시작 점검(난이도별 새 캐릭터 100명·2군 분포)과 `node tools/stats-report.mjs`로 내 선수와 2군이 같은 기준인지 확인한다. 기준을 바꾼 뒤 옛 세이브의 내 선수가 어긋나면 `state.js` 변환(`migrateStats`처럼 시작 기준 차이만 보정)을 추가한다. 자세한 기록: `docs/STATS_FIX.md`.
 - LCK 1군 선수 이름은 `data/rosters.js`의 실제 로스터 영문 표기(대소문자 그대로)를 쓴다. 화면 어디서나 영문 표기, 커뮤니티 글·댓글에서만 한글 표기(예: 페이커)를 섞는다.
   그 밖의 선수(2군·신인·해외·FA)는 `data/names.js` 생성기의 영문 스타일 가상 이름이고, 차단 목록으로 실존 선수 이름을 피한다.
 - 세이브 형식이 바뀌면 `state.js`의 변환(`migrateNames` 같은)으로 옛 세이브를 고치고, 고치기 전 원본을 백업 슬롯에 남긴다.
@@ -42,4 +44,6 @@
 - `node tools/build-pages.mjs [--check]` — 배포 준비·경로 검사
 - `node tools/render-minimap.mjs [시드] [--out 폴더] [--tag 이름] [--trail 초] [--nav]` — 경기를 돌려 0~3분·8~12분·20~25분 미니맵을 `frames/`에 캡처하고 4×4 시트로 묶음 (이동이 자연스러운지 눈으로 확인)
 - `node tools/build-navgraph.mjs` — 미니맵 이미지(map11.png)에서 걸을 수 있는 격자·이동 그래프(`data/navgraph.js`) 생성
+- `node tools/stats-report.mjs [세이브.json] [--diff normal] [--style 캐리형] [--pos MID]` — LCK 1군·2군·내 선수 OVR 분포와 능력치 8개 평균표 (세이브 없으면 새 월드)
+- `node tools/sim-callup.mjs [시드 수] [--days 160]` — 2군 입단부터 콜업·첫 1군 출전까지 기간 (난이도별·옛 세이브 보정 후). 목표: 보통 첫 1군 출전 6~10주
 - 브라우저 확인: `python3 -m http.server 8080` 후 `http://localhost:8080` (iPad 가로 1180×820 기준)

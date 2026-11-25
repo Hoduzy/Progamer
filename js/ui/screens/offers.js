@@ -3,7 +3,7 @@ import { App, go } from '../app.js';
 import { CONFIG } from '../../config.js';
 import { esc, fmtWon, POS_KO } from '../../core/util.js';
 import { teamLogo } from '../assets.js';
-import { ovr } from '../../engine/players.js';
+import { ovr } from '../../stats.js';
 import { signUserToTeam, addMsg, addNews } from '../../engine/state.js';
 import { createSeason } from '../../engine/season.js';
 import { saveTo } from '../save.js';

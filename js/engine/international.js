@@ -2,7 +2,7 @@
 import { CONFIG } from '../config.js';
 import { avg, clamp } from '../core/util.js';
 import { REGIONS } from '../../data/teams.js';
-import { ovr } from './players.js';
+import { ovr } from '../stats.js';
 import { sortStandings } from './tournament.js';
 
 const BASIC = ['lckCup', 'lck12', 'lck34', 'cl12', 'cl34'];

@@ -5,7 +5,8 @@ import { CONFIG } from '../../config.js';
 import { esc, fmtDate, fmtWon, dateAdd, dateDiff, weekday, WEEKDAY_KO, POS, POS_KO, STAT_KO, STAT_KEYS, avg } from '../../core/util.js';
 import { allMatches, userRef, lckRegularStandings } from '../../engine/season.js';
 import { teamInfo, rivalProfile } from '../../engine/roster.js';
-import { ovr, topChamps } from '../../engine/players.js';
+import { topChamps } from '../../engine/players.js';
+import { ovr } from '../../stats.js';
 import { coachEvaluation, soloRankLabel } from '../../engine/daily.js';
 import { TIER_ORDER, TIER_LABEL } from '../../engine/meta.js';
 import { champIcon, teamLogo, playerPhoto } from '../assets.js';
@@ -122,14 +123,64 @@ export function playerModal(pid) {
 }
 
 // ---------------- 내 선수 ----------------
-function mePage(root) {
+// 비교 대상: 같은 팀 1군 주전 경쟁자 · LCK 2군 같은 포지션 평균 · LCK 1군 같은 포지션 평균 (모두 같은 OVR 공식)
+function compareSets(st, u) {
+  const team = u.teamId ? st.teams[u.teamId] : null;
+  const lck = Object.values(st.teams).filter(t => t.region === 'LCK');
+  const of = squad => lck.flatMap(t => t.depth[u.pos].filter(id => t.squadOf[id] === squad && id !== u.id)).map(id => st.players[id]).filter(Boolean);
+  const mean = ps => Object.fromEntries(STAT_KEYS.map(k => [k, avg(ps.map(p => p.stats[k]))]));
+  const rival = team ? team.depth[u.pos].filter(id => id !== u.id && team.squadOf[id] === 'main').map(id => st.players[id]).filter(Boolean).sort((a, b) => ovr(b) - ovr(a))[0] : null;
+  const cl = of('academy'), main = of('main');
+  const sets = [{ key: 'me', name: '나', stats: u.stats, ovr: ovr(u), color: 'var(--me)' }];
+  if (rival) sets.push({ key: 'rival', name: `1군 주전 경쟁자 ${rival.nick}`, stats: rival.stats, ovr: ovr(rival), color: 'var(--red)' });
+  if (cl.length) sets.push({ key: 'cl', name: `2군 ${POS_KO[u.pos]} 평균 (${cl.length}명)`, stats: mean(cl), ovr: avg(cl.map(ovr)), color: 'var(--blue)' });
+  if (main.length) sets.push({ key: 'lck', name: `LCK 1군 ${POS_KO[u.pos]} 평균 (${main.length}명)`, stats: mean(main), ovr: avg(main.map(ovr)), color: 'var(--gold)' });
+  return sets;
+}
+// 레이더 차트 (능력치 8개). 바깥 = 100, 가운데 = 값들 중 최솟값보다 조금 아래
+function radarSVG(sets) {
+  const n = STAT_KEYS.length, R = 120, cx = 160, cy = 150;
+  const all = sets.flatMap(s => STAT_KEYS.map(k => s.stats[k]));
+  const lo = Math.max(0, Math.floor((Math.min(...all) - 8) / 10) * 10), hi = 100;
+  const pt = (i, v) => { const a = -Math.PI / 2 + i * 2 * Math.PI / n, r = R * Math.max(0, (v - lo) / (hi - lo)); return [cx + Math.cos(a) * r, cy + Math.sin(a) * r]; };
+  let h = `<svg viewBox="0 0 320 300" class="radar" role="img" aria-label="능력치 비교 레이더 차트">`;
+  for (let ring = 1; ring <= 4; ring++) { const v = lo + (hi - lo) * ring / 4; h += `<polygon points="${STAT_KEYS.map((_, i) => pt(i, v).join(',')).join(' ')}" class="radar-grid"/>`; if (ring < 4) h += `<text x="${cx + 3}" y="${pt(0, v)[1] + 10}" class="radar-tick">${Math.round(v)}</text>`; }
+  STAT_KEYS.forEach((k, i) => { const [x, y] = pt(i, hi); h += `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" class="radar-grid"/>`; const [lx, ly] = pt(i, hi + (hi - lo) * 0.13); h += `<text x="${lx}" y="${ly + 4}" text-anchor="middle" class="radar-lbl">${STAT_KO[k]}</text>`; });
+  for (const s of sets.slice().reverse()) {
+    const pts = STAT_KEYS.map((k, i) => pt(i, s.stats[k]).map(v => v.toFixed(1)).join(',')).join(' ');
+    h += `<polygon points="${pts}" fill="${s.color}" fill-opacity="${s.key === 'me' ? 0.28 : 0.08}" stroke="${s.color}" stroke-width="${s.key === 'me' ? 2.5 : 1.6}" ${s.key === 'me' ? '' : 'stroke-dasharray="4 3"'}/>`;
+  }
+  return h + '</svg>';
+}
+function compareHTML(st, u) {
+  const sets = compareSets(st, u);
+  const me = sets[0];
+  const legend = sets.map(s => `<div class="row" style="gap:6px"><i class="radar-key" style="background:${s.color}"></i><span class="small">${esc(s.name)}</span><b class="small">OVR ${s.ovr.toFixed(1)}</b></div>`).join('');
+  const head = `<tr><th>능력치</th>${sets.map(s => `<th>${esc(s.key === 'me' ? '나' : s.key === 'rival' ? '경쟁자' : s.key === 'cl' ? '2군 평균' : '1군 평균')}</th>`).join('')}</tr>`;
+  const w = CONFIG.ovrWeights[u.pos];
+  const rows = STAT_KEYS.map(k => `<tr><td>${STAT_KO[k]} <span class="tiny dim">×${w[k]}</span></td>${sets.map(s => { const v = s.stats[k], d = s.key === 'me' ? 0 : me.stats[k] - v; return `<td>${s.key === 'me' ? `<b>${v}</b>` : `${v.toFixed(s.key === 'rival' ? 0 : 1)} <span class="tiny ${d >= 0 ? 'pos' : 'neg'}">${d >= 0 ? '+' : ''}${d.toFixed(0)}</span>`}</td>`; }).join('')}</tr>`).join('');
+  const ovrRow = `<tr><td><b>OVR</b></td>${sets.map(s => `<td><b>${s.ovr.toFixed(1)}</b></td>`).join('')}</tr>`;
+  return `<div class="grid2" style="grid-template-columns:1fr 1fr;align-items:start">
+    <div class="panel"><h3>능력치 비교</h3><div class="radar-wrap">${radarSVG(sets)}</div><div class="col" style="gap:4px;margin-top:6px">${legend}</div></div>
+    <div class="panel"><h3>숫자로 보기</h3><table class="tbl cmp-tbl">${head}${rows}${ovrRow}</table>
+      <div class="small muted" style="margin-top:8px">모든 선수가 같은 공식(${POS_KO[u.pos]} 가중치, 옆의 ×값)으로 OVR을 계산합니다. 작은 숫자는 나와의 차이(+면 내가 높음)입니다.</div></div></div>`;
+}
+
+function mePage(root, params = {}) {
   const st = App.state;
   const u = st.players[st.user.pid];
+  const tab = params.tab || 'info';
+  const tabs = `<div class="tabs"><button class="btn sm ${tab === 'info' ? 'active' : ''}" data-metab="info">정보</button><button class="btn sm ${tab === 'cmp' ? 'active' : ''}" data-metab="cmp">비교</button></div>`;
+  if (tab === 'cmp') {
+    const c = shell(root, 'me', tabs + compareHTML(st, u));
+    c.querySelectorAll('[data-metab]').forEach(b => b.addEventListener('click', () => go('me', { tab: b.dataset.metab })));
+    return;
+  }
   const ev = coachEvaluation(st);
   const S = u.season;
   const team = u.teamId ? st.teams[u.teamId] : null;
   const champs = Object.keys(u.champs).sort((a, b) => u.champs[b] - u.champs[a]).slice(0, 18);
-  const html = `<div class="grid2" style="grid-template-columns:1.1fr 1fr;align-items:start">
+  const html = `${tabs}<div class="grid2" style="grid-template-columns:1.1fr 1fr;align-items:start">
     <div class="panel">
       <div class="row" style="margin-bottom:10px">${playerPhoto(true, u.nick, team ? team.color : '#555', 76)}
         <div><div style="font-size:26px;font-weight:900">${esc(u.nick)}</div><div class="muted">${POS_KO[u.pos]} · ${u.age}세 · ${esc(u.style || '')}</div>
@@ -152,7 +203,8 @@ function mePage(root) {
       <div class="panel"><h3>최근 경기</h3><table class="tbl"><tr><th>날짜</th><th>대회</th><th>상대</th><th>결과</th><th>챔피언</th><th>KDA</th><th>평점</th></tr>
         ${st.user.matchLog.slice(0, 8).map(m => `<tr><td>${m.date.slice(5)}</td><td>${esc(m.compName)}</td><td>${esc(m.opp ? teamInfo(st, m.opp).code : '')}</td><td class="${m.win ? 'pos' : 'neg'}">${m.win ? '승' : '패'}</td><td>${champIcon(m.champ, 22)} ${esc(champName(m.champ))}</td><td>${m.k}/${m.d}/${m.a}</td><td><b>${m.rating.toFixed(1)}</b>${m.pog ? ' <span class="chip gold">POG</span>' : ''}</td></tr>`).join('') || '<tr><td colspan="7" class="muted">아직 경기 기록이 없습니다.</td></tr>'}</table></div>
     </div></div>`;
-  shell(root, 'me', html);
+  const c = shell(root, 'me', html);
+  c.querySelectorAll('[data-metab]').forEach(b => b.addEventListener('click', () => go('me', { tab: b.dataset.metab })));
 }
 
 // ---------------- 패치 노트 ----------------

@@ -8,7 +8,8 @@ import { newWorld, createUserPlayer, signUserToTeam } from '../js/engine/state.j
 import { createSeason, beginDay, endDay, userMatchOn } from '../js/engine/season.js';
 import { seasonTick, acceptOffer, newSeason } from '../js/engine/career.js';
 import { runActivity, runDayActivity, markMatchDay } from '../js/engine/daily.js';
-import { ovr, topChamps } from '../js/engine/players.js';
+import { topChamps } from '../js/engine/players.js';
+import { ovr } from '../js/stats.js';
 import { CONFIG } from '../js/config.js';
 import { STAT_KEYS, weekday, dateDiff, avg } from '../js/core/util.js';
 import { champsForPos, CHAMPIONS } from '../data/champions.js';

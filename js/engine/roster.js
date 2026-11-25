@@ -1,7 +1,7 @@
 // 로스터: 출전 명단, 주전 결정, 콜업/강등
 import { CONFIG } from '../config.js';
 import { clamp, avg, POS } from '../core/util.js';
-import { ovr } from './players.js';
+import { ovr } from '../stats.js';
 import { competitorOf, addMsg, addNews } from './state.js';
 
 export const isAcademyRef = ref => ref.endsWith(':A');

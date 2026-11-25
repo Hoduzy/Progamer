@@ -2,56 +2,14 @@ import { CONFIG } from '../config.js';
 import { clamp, POS, STAT_KEYS } from '../core/util.js';
 import { CHAMPIONS, champsForPos } from '../../data/champions.js';
 import { STAR_NICK } from '../../data/community/words.js';
+import { ovr, genStats } from '../stats.js';
 
 let nextId = 1;
 export function setNextPlayerId(n) { nextId = n; }
 export function getNextPlayerId() { return nextId; }
 
-export function ovr(p) {
-  const w = CONFIG.ovrWeights[p.pos];
-  let s = 0;
-  for (const k of STAT_KEYS) s += (p.stats[k] || 0) * w[k];
-  return Math.round(s * 10) / 10;
-}
-
-// 목표 OVR 근처로 능력치 생성
-// spikes: 튀는 능력치 수 (한 가지 압도형). 0이면 평균형
-export function genStats(rng, pos, target, spread = 6, spikes = 0) {
-  const stats = {};
-  for (const k of STAT_KEYS) stats[k] = clamp(Math.round(rng.normal(target, spread)), 30, 99);
-  // 포지션 특성 약간 반영
-  if (pos === 'SUP') stats.vision = clamp(stats.vision + 5, 30, 99);
-  if (pos === 'JGL') stats.decision = clamp(stats.decision + 3, 30, 99);
-  if (pos === 'ADC') stats.mechanics = clamp(stats.mechanics + 3, 30, 99);
-  // 튀는 능력치: 포지션 비중이 큰 능력치 중에서
-  const w = CONFIG.ovrWeights[pos];
-  const spikeKeys = [];
-  if (spikes > 0) {
-    const C = CONFIG.stars;
-    const pool = STAT_KEYS.filter(k => w[k] >= 0.13);
-    for (let i = 0; i < spikes && pool.length; i++) {
-      const k = pool.splice(rng.int(0, pool.length - 1), 1)[0];
-      stats[k] = clamp(Math.round(target + rng.float(...C.spike)), 30, C.spikeMax);
-      spikeKeys.push(k);
-    }
-  }
-  // 목표 OVR에 맞게 보정 (튀는 능력치는 그대로 두고 나머지로 맞춤)
-  for (let it = 0; it < 3; it++) {
-    const diff = target - ovr({ pos, stats });
-    const rest = STAT_KEYS.filter(k => !spikeKeys.includes(k));
-    const rw = rest.reduce((a, k) => a + w[k], 0) || 1;
-    for (const k of rest) stats[k] = clamp(Math.round(stats[k] + diff / rw), 30, 99);
-  }
-  // 반올림 오차 정리: 목표 OVR ~ +0.4 안으로 (90 목표가 89.6이 되지 않게)
-  const rest = STAT_KEYS.filter(k => !spikeKeys.includes(k));
-  for (let it = 0; it < 40; it++) {
-    const d = target - ovr({ pos, stats });
-    if (d > 0) { const c = rest.filter(k => stats[k] < 99); if (!c.length) break; stats[rng.pick(c)]++; }
-    else if (d < -0.4) { const c = rest.filter(k => stats[k] > 30); if (!c.length) break; stats[rng.pick(c)]--; }
-    else break;
-  }
-  return stats;
-}
+// OVR·능력치 생성은 js/stats.js 하나로 (모든 선수 공통 기준). 여기서는 다시 내보내기만
+export { ovr, genStats } from '../stats.js';
 
 // 잠재력 등급 → 최대 OVR 범위에서 하나
 export function rollPotential(rng, grade) {
@@ -79,7 +37,7 @@ export function genChampPool(rng, pos, quality, mains = null) {
   return champs;
 }
 
-export function makePlayer(rng, { nick, pos, age, target, teamId = null, squad = 'main', region = 'LCK', season = 2026, grade = null, spikes = null, exact = false }) {
+export function makePlayer(rng, { nick, pos, age, target, teamId = null, squad = 'main', region = 'LCK', season = 2026, grade = null, spikes = null, exact = false, bonus = null, spread = null }) {
   const C = CONFIG.stars;
   // 어린 선수는 잠재력 등급을 먼저 뽑고 데뷔 능력치를 등급에 맞춰 보정
   if (!grade && age <= 20) {
@@ -87,7 +45,7 @@ export function makePlayer(rng, { nick, pos, age, target, teamId = null, squad =
     if (!exact) target += C.rookieBoost[grade] || 0;   // exact: 목표 OVR을 그대로 (시작 로스터 분포)
   }
   if (spikes === null) spikes = rng.chance(C.spikeChance) ? rng.int(1, 2) : 0;
-  const stats = genStats(rng, pos, target, spikes ? 5 : 4.5, spikes);
+  const stats = genStats(rng, pos, target, { spread: spread ?? (spikes ? 5 : 4.5), spikes, bonus });
   const [pmin, pmax] = CONFIG.growth.potentialRange;
   let potential;
   if (grade) potential = Math.max(rollPotential(rng, grade), Math.round(target) + 1);
