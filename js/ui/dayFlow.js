@@ -166,7 +166,7 @@ export async function playUserMatch(match, done) {
   const comp = st.season.comps[match.compId];
   st.user.condition = computeCondition(st);
   let plays = true;
-  if (u.squad === 'main' && comp.league !== 'CL') {
+  {
     const dec = decideStarter(st, rng);
     if (!dec.solo) {
       plays = dec.starter === u.id;
@@ -180,7 +180,11 @@ export async function playUserMatch(match, done) {
         buttons: [{ label: plays ? '출전 준비 ▶' : '경기 결과 보기', primary: true }],
       });
     }
-  } else if (st.user.injury) plays = false;
+  }
+  if (st.user.injury) plays = false;
+  const s0 = plays ? buildSeries(st, match) : null;
+  // 출전 명단에 내가 없으면(예상 밖) 조용히 넘기지 않고 결과를 보여 준다
+  if (s0 && !s0.teams.some(t => t.players.some(p => p && p.id === u.id))) plays = false;
   if (!plays) {
     const s = simulateMatch(st, rng, match);
     st.user.lineupOverride = null;
@@ -193,9 +197,8 @@ export async function playUserMatch(match, done) {
     await hooks.afterSeries(st, rng, match, { played: false });
     return done();
   }
-  const s = buildSeries(st, match);
+  const s = s0;
   const ut = s.teams.findIndex(t => t.players.some(p => p && p.id === u.id));
-  if (ut < 0) { simulateMatch(st, rng, match); return done(); }
   const scenes = [];
   playSeries({
     series: s, userTeamIdx: ut, userPid: u.id, meta: st.meta, rng,

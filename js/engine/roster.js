@@ -30,7 +30,7 @@ export function lineup(state, ref) {
     const ids = team.depth[pos].filter(id => team.squadOf[id] === squad && available(state, id));
     let pick = null;
     const u = state.user && state.players[state.user.pid];
-    if (u && u.teamId === team.id && u.pos === pos && state.user.lineupOverride && squad === 'main') {
+    if (u && u.teamId === team.id && u.pos === pos && state.user.lineupOverride && team.squadOf[u.id] === squad) {
       const o = state.user.lineupOverride;
       if (ids.includes(o)) pick = o;
     }
@@ -84,9 +84,11 @@ export function lineupScore(pr, rng = null) {
 export function decideStarter(state, rng) {
   const u = state.players[state.user.pid];
   const team = state.teams[u.teamId];
-  const rivalId = team.depth[u.pos].find(id => id !== u.id && team.squadOf[id] === 'main');
+  // 경쟁자 = 같은 스쿼드(1군이면 1군, 2군이면 2군) 같은 포지션 선수. 2군도 감독이 정한다
+  // (강등 뒤 2군에 같은 포지션 선수가 있으면 OVR만으로 빠져 경기가 조용히 넘어가던 문제)
+  const squad = team.squadOf[u.id];
+  const rivalId = team.depth[u.pos].find(id => id !== u.id && team.squadOf[id] === squad);
   state.user.lineupOverride = null;
-  if (team.squadOf[u.id] !== 'main') return { starter: null, academy: true };
   if (state.user.injury) {
     state.user.lineupOverride = rivalId || null;
     return { starter: rivalId, injured: true, reasons: ['부상으로 출전 불가'] };
