@@ -47,8 +47,14 @@ function context(g, A, B, center) {
   const laningOnly = g.t < CONFIG.match.laningEnd && all.every(p => p.task && p.task.kind === 'lane');
   if (laningOnly && A.length === B.length) return { kind: 'trade', base: S.trade.chance };
   // 장로·바론을 치는 중인 팀에게 견제하러 온 팀: 거의 반드시 싸움이 난다 (처치 팀은 둥지에 묶여 있음)
+  // 장로는 견제 팀이 모여서(objTakingMin명, 살아 있는 인원이 적으면 전원) 둥지 근처에 왔을 때 — 먼저 온 두세 명이 잘리는 싸움이 아니라 한타로
+  const isCont = (p, key) => p.task && p.task.kind === 'objContest' && !p.task.gather && p.task.key === key && distTo(p, geo.OBJ_POS[key]) < 0.16;
   const contester = all.find(p => p.task && p.task.kind === 'objContest' && !p.task.gather && S.engage.objTaking[p.task.key] && g.obj[p.task.key].prog && distTo(p, geo.OBJ_POS[p.task.key]) < 0.16);
-  if (contester) return { kind: 'fight', base: S.engage.objTaking[contester.task.key] };
+  if (contester) {
+    const key = contester.task.key, need = (S.engage.objTakingMin || {})[key] || 1;
+    const mates = g.sides[contester.side].players.filter(q => q.alive);
+    if (mates.filter(q => isCont(q, key)).length >= Math.min(need, mates.length)) return { kind: 'fight', base: S.engage.objTaking[key] };
+  }
   if (all.some(p => p.task && TASK_OBJ.has(p.task.kind) && distTo(p, geo.OBJ_POS[p.task.key]) < 0.16)) return { kind: 'fight', base: S.engage.objective };
   if (all.some(p => p.task && (p.task.kind === 'gank' || p.task.kind === 'dive' || p.task.kind === 'pick'))) return { kind: 'fight', base: S.engage.gank };
   if (towerSupport(g, center) >= 0 || all.some(p => p.task && (p.task.kind === 'siege' || p.task.kind === 'defend' || p.task.kind === 'nexus'))) return { kind: 'fight', base: S.engage.structure };

@@ -52,6 +52,8 @@ node tools/sim-season.mjs 5 --chain   # 한 월드에서 5시즌 연속 (시즌 
 node tools/sim-career.mjs 6     # 예전 하루 3칸 vs 하루 1개 활동: 능력치 성장·피로·수입 ±10%, 1군 콜업까지 날짜
 node tools/validate-community.mjs   # ★ 커뮤니티 검사: 템플릿 개수, 쿨타임 안 중복 0, 글 안 중복 댓글 0, 금지 표현 0, 상위 10개 템플릿 출력 (--show N 예시 출력)
 node tools/build-pages.mjs     # 배포 준비: 이미지 목록·서비스 워커 캐시 목록·버전 생성 + 경로(절대 경로·대소문자) 검사
+node tools/render-minimap.mjs 7 --out docs/movement --tag after   # 미니맵 연속 컷 시트 (0~3분·8~12분·20~25분, 20초 이동 궤적)
+node tools/build-navgraph.mjs  # 미니맵 이미지에서 걸을 수 있는 격자·이동 그래프(data/navgraph.js) 다시 만들기
 ```
 
 ## 진행 상황
@@ -62,6 +64,7 @@ node tools/build-pages.mjs     # 배포 준비: 이미지 목록·서비스 워�
 - [x] 5단계: 연봉(월급)·계약·바이아웃·1군/2군·FA 제안/협상/재계약·이적 요청·AI 선수 이적·노화·은퇴·신인 충원·다음 시즌·은퇴와 명예의 전당
 - [x] 6단계: 랜덤 이벤트 35종, 커뮤니티 게시판·뉴스, 승리 인터뷰, 시상(POG·라운드 POM·All-LCK·신인왕·MVP·결승/대회 MVP), 기록실, 밸런스 조정
 - [x] 경기 엔진 정합성 개편: 계획 → 이동 → 도착 → 판정 구조, 팀 운영 AI, 자동 검사기, 디버그 모드, 버그 신고 (`docs/MATCH_FIX.md`)
+- [x] 선수 이동 시스템 새로 만들기: 팀 운영 → 포지션별 행동 → 길찾기(A*) → 조향 4층, 1초 단위 위치 + 화면 60fps 보간, 벽 통과 0 (`docs/MOVEMENT.md`)
 - [x] 커뮤니티 개편: 문장 풀 대폭 확장(제목 246·본문 171·댓글 588·대댓글 207), 템플릿 쿨타임, 문장 변형기, 고정 유저 20명(안티·팬·다른 팀 팬·분석충 등)과 호감도, 대댓글 싸움, 수위 설정
 - [x] GitHub Pages 자동 배포, 홈 화면 앱(PWA·오프라인 캐시·업데이트 알림), 폰 세로·가로 화면, 세이브 코드로 기기 간 옮기기
 
@@ -80,7 +83,8 @@ node tools/build-pages.mjs     # 배포 준비: 이미지 목록·서비스 워�
 - 문장은 `data/community/`(titles·bodies·comments·replies·users·words) 파일에 종류별로 있습니다. 템플릿 형식과 조건 태그는 `data/community/titles.js` 맨 위 설명을 보세요.
 
 경기 중 도구:
-- **설정 → 디버그 모드**: 미니맵에 선수별 현재 임무(예: "처치 바론", "사이드 운영 탑"), 목표 지점 화살표, 팀 계획 이름, 오브젝트 처치 게이지를 표시
+- **설정 → 디버그 모드**: 미니맵에 이동 그래프(노드·간선), 선수별 현재 임무(예: "처치 바론", "사이드 운영 탑"), 목표 지점 화살표, 팀 계획 이름, 오브젝트 처치 게이지를 표시
+- **설정 → 이동 궤적**: 미니맵에 선수마다 최근 20초 이동 경로를 희미한 선으로 표시
 - **🐞 버그 신고** (경기 화면 오른쪽): 시드·경기 입력·내 선택 기록·최근 30초 상태와 이벤트를 JSON으로 저장 → `bug-reports/`에 넣고 알려 주면 `tools/replay-bug.mjs`로 똑같이 재현
 
 ## 파일 구조
@@ -111,6 +115,8 @@ js/engine/            화면 없는 로직 (node에서 실행 가능)
   events.js           랜덤 이벤트 발생·결과 적용
   community.js        커뮤니티 글·댓글·대댓글 생성, 템플릿 쿨타임, 문장 변형기·조사 처리, 고닉 호감도, 수위 필터, 인터뷰
   mapgeo.js           맵 기하 (라인 경로·지역 판정·구조물 위치)
+  behavior.js         포지션별 행동(라인전·정글·서폿·대형·교전·오브젝트) + 조향(가속·감속·회전 제한·밀어내기)
+  nav.js              길찾기: 걸을 수 있는 격자(벽 판정)·이동 그래프 A*·곡선 다듬기
   state.js            새 게임(월드 생성)·사용자 선수·직렬화·뉴스/메시지
   season.js           시즌 대회 생성·일정·하루 진행·경기 시뮬레이션·기록
   tournament.js       라운드 로빈·브래킷(DE6/DE8/SE8/SE4/GSL)·플레이-인·순위·일정 배정
@@ -120,12 +126,13 @@ js/engine/            화면 없는 로직 (node에서 실행 가능)
   daily.js            하루 1개 활동(스크림·훈련·연습·솔랭·리플레이·휴식·방송·케미), 연속 훈련 감소, 회복일, 피로·부상, 코치 평가
 js/ui/                화면 (app.js 라우터·화면 모드, assets.js 이미지, matchScreen.js 경기, draftScreen.js 밴픽, seriesFlow.js 시리즈 진행, pwa.js 업데이트 알림, save.js·saveTransfer.js 저장·세이브 코드, screens/*)
 js/assetList.js       assets/ 안의 실제 이미지 목록 (자동 생성 — 없는 이미지는 요청하지 않음)
-data/                 챔피언·아이템·팀·이름·선택 장면(scenarios + sceneNeeds)·해설 문장·맵 좌표(map.js)
+data/                 챔피언·아이템·팀·이름·선택 장면(scenarios + sceneNeeds)·해설 문장·맵 좌표(map.js)·이동 그래프(navgraph.js, 자동 생성)
 data/community/       커뮤니티 문장 풀(제목·본문·댓글·대댓글), 고정 유저, 변형기 단어·수위 필터·금지 표현, 인터뷰
-tools/                검증 스크립트 (validate-match, replay-bug, sim-season, sim-choices, lib/match-checker)
+tools/                검증 스크립트 (validate-match, replay-bug, sim-season, sim-choices, render-minimap, build-navgraph, lib/match-checker)
 bug-reports/          버그 신고 JSON을 넣는 곳
 docs/DESIGN.md        전체 설계
 docs/MATCH_FIX.md     경기 엔진 정합성 수정 기록 (원인·새 구조·검사 결과)
+docs/MOVEMENT.md      선수 이동 시스템 (4층 구조·자연스러움 기준 판정·바꾸기 전후 비교, docs/movement/ 시트)
 CLAUDE.md             작업 규칙 (엔진 수정 시 검사기 위반 0건 확인 후 커밋)
 assets/               팀 로고, 내 사진 (assets/README.md 참고)
 ```

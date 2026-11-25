@@ -7,6 +7,7 @@ import { describe, render as renderLine } from '../engine/commentary.js';
 import { TASK_KO } from '../engine/teamai.js';
 import { computeRatings, pickPOG } from '../engine/rating.js';
 import * as geo from '../engine/mapgeo.js';
+import { NODES as NAV_NODES, EDGES as NAV_EDGES } from '../../data/navgraph.js';
 const geoRegion = r => geo.regionKo(r);
 import { champIcon, itemIcon, spellIcon, teamLogo, splashStyle, mapUrl, fallbackMapSVG } from './assets.js';
 import { champName } from '../../data/champions.js';
@@ -76,6 +77,8 @@ function render(root, params) {
       <div class="mm-layer" id="mm-minions"></div>
       <div class="mm-layer" id="mm-objs"></div>
       <div class="mm-layer" id="mm-fx"></div>
+      <div class="mm-layer" id="mm-nav"></div>
+      <div class="mm-layer" id="mm-trail"></div>
       <div class="mm-layer" id="mm-dbg"></div>
       <div class="mm-layer" id="mm-scene"></div>
       <div class="mm-layer" id="mm-champs"></div>
@@ -156,12 +159,76 @@ function render(root, params) {
       if (fl) fl.classList.toggle('cd', !flashReady(g, p));
     }
   }
+  // ---------- 선수 이동: 엔진의 1초 위치(g.secLog)를 한 틱 동안 매 프레임 보간 ----------
+  // 화면이 위치를 만들지 않는다: 엔진이 1초마다 남긴 점 사이만 이어 그린다
+  const anim = { samples: null, t0: 0, dur: 1, raf: 0, cur: null, lastT: -1, trail: allPlayers(g).map(() => []) };
+  function startMoveAnim() {
+    if (anim.lastT === g.t) return;
+    anim.lastT = g.t;
+    const ps = allPlayers(g);
+    const log = g.secLog && g.secLog.length && g.secLog[g.secLog.length - 1].t === g.t ? g.secLog : [{ t: g.t, ps: ps.map(p => [p.x, p.y, p.alive ? 1 : 0]) }];
+    const first = anim.cur || log[0].ps;
+    anim.samples = [{ t: log[0].t - 1, ps: first }, ...log];
+    anim.t0 = performance.now(); anim.dur = Math.max(1, tickMs());
+    // 궤적: 엔진 1초 점을 쌓고 최근 trailSec만 남김
+    const keep = CONFIG.ui.minimap.trailSec;
+    for (const s of log) ps.forEach((p, i) => anim.trail[i].push([s.t, s.ps[i][0], s.ps[i][1], s.ps[i][2]]));
+    anim.trail.forEach(tr => { while (tr.length && tr[0][0] < g.t - keep) tr.shift(); });
+    if (!anim.raf) anim.raf = requestAnimationFrame(frame);
+  }
+  function frame(now) {
+    anim.raf = 0;
+    if (ui.destroyed || !anim.samples) return;
+    const S = anim.samples, k = Math.max(0, Math.min(1, (now - anim.t0) / anim.dur)) * (S.length - 1);
+    const i = Math.min(S.length - 2, Math.floor(k)), f = k - i, jump = CONFIG.ui.minimap.jump;
+    const ps = allPlayers(g);
+    anim.cur = ps.map((p, j) => {
+      const a = S[i].ps[j], b = S[i + 1].ps[j];
+      // 귀환·순간이동·부활처럼 1초에 멀리 옮겨진 구간은 미끄러지지 않고 바로 이동
+      const far = Math.hypot(b[0] - a[0], b[1] - a[1]) > jump;
+      const x = far ? (f < 0.5 ? a[0] : b[0]) : a[0] + (b[0] - a[0]) * f;
+      const y = far ? (f < 0.5 ? a[1] : b[1]) : a[1] + (b[1] - a[1]) * f;
+      const el = $('mc-' + p.pid);
+      el.style.left = (x * 100) + '%'; el.style.top = (y * 100) + '%';
+      return [x, y, b[2]];
+    });
+    if (App.settings.moveTrails) drawTrails();
+    if (k < S.length - 1) anim.raf = requestAnimationFrame(frame);
+  }
+  // 최근 20초 이동 궤적 (희미한 선). 멀리 뛴 구간·죽은 구간은 끊는다
+  function drawTrails() {
+    const ps = allPlayers(g), jump = CONFIG.ui.minimap.jump;
+    let h = '<svg class="mm-dbg-svg" viewBox="0 0 100 100" preserveAspectRatio="none">';
+    ps.forEach((p, i) => {
+      const pts = anim.trail[i].concat(anim.cur ? [[g.t, anim.cur[i][0], anim.cur[i][1], anim.cur[i][2]]] : []);
+      let seg = [], prev = null;
+      const flush = () => { if (seg.length > 1) h += `<polyline points="${seg.join(' ')}" fill="none" stroke="${sideColor[p.side]}" stroke-opacity=".45" stroke-width=".45" stroke-linejoin="round"/>`; seg = []; };
+      for (const [, x, y, al] of pts) {
+        if (!al || (prev && Math.hypot(x - prev[0], y - prev[1]) > jump)) flush();
+        if (al) seg.push(`${(x * 100).toFixed(2)},${(y * 100).toFixed(2)}`);
+        prev = [x, y];
+      }
+      flush();
+    });
+    $('mm-trail').innerHTML = h + '</svg>';
+  }
+  // 디버그: 이동 그래프(노드·간선)
+  const NAV_COL = { base: '#fff', baseExit: '#fff', tower: '#ffd54a', camp: '#7dff8a', pit: '#c58cff', pitEntrance: '#c58cff', river: '#5fd3ff', bush: '#3fbf5f', vision: '#ff9a3c', lane: '#bbb', path: '#888' };
+  function drawNav() {
+    const on = !!App.settings.debugMatch, el = $('mm-nav');
+    if (!on) { el.innerHTML = ''; return; }
+    if (el.firstChild) return;
+    let h = '<svg class="mm-dbg-svg" viewBox="0 0 100 100" preserveAspectRatio="none">';
+    for (const [a, b] of NAV_EDGES) h += `<line x1="${(NAV_NODES[a][0] * 100).toFixed(2)}" y1="${(NAV_NODES[a][1] * 100).toFixed(2)}" x2="${(NAV_NODES[b][0] * 100).toFixed(2)}" y2="${(NAV_NODES[b][1] * 100).toFixed(2)}" stroke="#fff" stroke-opacity=".18" stroke-width=".18"/>`;
+    for (const [x, y, ty] of NAV_NODES) h += `<circle cx="${(x * 100).toFixed(2)}" cy="${(y * 100).toFixed(2)}" r="${ty === 'path' || ty === 'lane' ? 0.35 : 0.6}" fill="${NAV_COL[ty] || '#888'}" fill-opacity=".8"/>`;
+    el.innerHTML = h + '</svg>';
+  }
   function updateMinimap() {
-    const dur = Math.max(120, tickMs() * 0.95);
+    startMoveAnim();
+    if (!App.settings.moveTrails) $('mm-trail').innerHTML = '';
+    drawNav();
     for (const p of allPlayers(g)) {
       const el = $('mc-' + p.pid);
-      el.style.transitionDuration = `${dur}ms, ${dur}ms`;
-      el.style.left = (p.x * 100) + '%'; el.style.top = (p.y * 100) + '%';
       el.classList.toggle('dead', !p.alive);
       $('mrt-' + p.pid).textContent = p.alive ? '' : Math.ceil(p.respawnAt - g.t);
     }
@@ -190,13 +257,13 @@ function render(root, params) {
     $('mm-wards').innerHTML = g.sides.map(s => s.wards.map(w => `<div class="mm-ent mm-ward ${s.idx === 0 ? 'blue' : 'red'}" style="left:${w.x * 100}%;top:${w.y * 100}%"></div>`).join('')).join('');
     // 미니언 웨이브: 엔진의 웨이브 위치(g.waves)를 그대로 그린다
     let mh = '';
+    // 점 개수 = 웨이브 크기 (쌓이면 길어짐)
+    const MM = CONFIG.ui.minimap;
     for (const l of ['TOP', 'MID', 'BOT']) {
-      const front = g.waves[l].s;
-      for (let i = 0; i < 4; i++) {
-        const [bx, by] = geo.pointOnLane(l, front - 0.008 - i * 0.008);
-        const [rx, ry] = geo.pointOnLane(l, front + 0.008 + i * 0.008);
-        mh += `<div class="mm-ent mm-minion blue" style="left:${bx * 100}%;top:${by * 100}%"></div><div class="mm-ent mm-minion red" style="left:${rx * 100}%;top:${ry * 100}%"></div>`;
-      }
+      const w = g.waves[l], front = w.s, n = w.n || [4 * MM.minionPer, 4 * MM.minionPer];
+      const nb = Math.min(MM.minionMaxDots, Math.ceil(n[0] / MM.minionPer)), nr = Math.min(MM.minionMaxDots, Math.ceil(n[1] / MM.minionPer));
+      for (let i = 0; i < nb; i++) { const [x, y] = geo.pointOnLane(l, front - 0.008 - i * MM.minionGap); mh += `<div class="mm-ent mm-minion blue" style="left:${x * 100}%;top:${y * 100}%"></div>`; }
+      for (let i = 0; i < nr; i++) { const [x, y] = geo.pointOnLane(l, front + 0.008 + i * MM.minionGap); mh += `<div class="mm-ent mm-minion red" style="left:${x * 100}%;top:${y * 100}%"></div>`; }
     }
     $('mm-minions').innerHTML = g.t > 65 ? mh : '';
     updateDebug();
@@ -595,7 +662,7 @@ function render(root, params) {
   updateAll();
   caption(lineFor('gameStart', {}));
   schedule();
-  return () => { ui.destroyed = true; clearTimeout(ui.timer); clearTimeout(ui.sceneTimeout); clearTimeout(ui.contTimer); };
+  return () => { ui.destroyed = true; cancelAnimationFrame(anim.raf); clearTimeout(ui.timer); clearTimeout(ui.sceneTimeout); clearTimeout(ui.contTimer); };
 }
 
 function dragonColor(t) {

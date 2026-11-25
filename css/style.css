@@ -196,7 +196,7 @@ button { font-family: inherit; color: inherit; }
 .mm-obj.baron { background: #6a2fb8; } .mm-obj.herald { background: #8a4fd1; } .mm-obj.grubs { background: #5d3a8f; } .mm-obj.elder { background: #3bb7d8; } .mm-obj.atakhan { background: #a3243a; }
 .mm-minion { width: 5px; height: 5px; border-radius: 50%; }
 .mm-minion.blue { background: #8ab8ff; } .mm-minion.red { background: #ff9aa5; }
-.mm-champ { width: 34px; height: 34px; border-radius: 50%; border: 3px solid; transition: left .6s linear, top .6s linear; z-index: 5; background: #000; }
+.mm-champ { width: 34px; height: 34px; border-radius: 50%; border: 3px solid; z-index: 5; background: #000; }
 .mm-champ img, .mm-champ .fb { width: 100%; height: 100%; border-radius: 50%; display: block; }
 .mm-champ.blue { border-color: #3d8bff; } .mm-champ.red { border-color: #ff4d5e; }
 .mm-champ.me { border-color: var(--me); z-index: 7; box-shadow: 0 0 10px var(--me); }

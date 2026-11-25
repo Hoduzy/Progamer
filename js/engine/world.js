@@ -147,7 +147,23 @@ export function updateWaves(g) {
     w.s = clamp(w.s + ds, lo, hi);
     w.atRed = w.s >= hi - 0.002;   // 블루 미니언이 레드 구조물을 치는 중
     w.atBlue = w.s <= lo + 0.002;
+    waveSize(g, w, ds);
   }
+}
+// 웨이브 크기 (화면·라이너 위치용 — 결과 계산에는 쓰지 않음): 30초마다 양쪽에 미니언이 오고,
+// 밀리는 쪽 미니언이 더 빨리 죽어 미는 쪽이 쌓인다. 포탑 앞에 닿으면 포탑이 미니언을 줄인다.
+function waveSize(g, w, ds) {
+  const W = SIM().wave, d = dt();
+  if (!w.n) w.n = [0, 0];
+  const spawnT = Math.floor((g.t - 65) / W.every), prevT = Math.floor((g.t - d - 65) / W.every);
+  if (spawnT > prevT && g.t >= 65) { w.n[0] += W.perWave; w.n[1] += W.perWave; }
+  const push = Math.max(-1, Math.min(1, ds / SIM().waveMaxStep));   // + 블루가 미는 중
+  const [b, r] = w.n;
+  const killR = Math.min(r, b * W.trade * d * (1 + push)), killB = Math.min(b, r * W.trade * d * (1 - push));
+  w.n[0] = Math.max(0, b - killB); w.n[1] = Math.max(0, r - killR);
+  if (w.atRed) w.n[0] = Math.max(0, w.n[0] - W.towerKill * d);
+  if (w.atBlue) w.n[1] = Math.max(0, w.n[1] - W.towerKill * d);
+  w.n = w.n.map(v => Math.min(W.max, +v.toFixed(2)));
 }
 
 // ---------------- 구조물 피해 ----------------

@@ -10,6 +10,7 @@ import { newMeta } from '../../js/engine/meta.js';
 import { buildScene, resolveScene } from '../../js/engine/choices.js';
 import { checkEvent } from '../../js/engine/commentary.js';
 import * as geo from '../../js/engine/mapgeo.js';
+import * as nav from '../../js/engine/nav.js';
 import { champsForPos } from '../../data/champions.js';
 
 export const opts = { VERBOSE: false, SCENES: true, MAXSHOW: 4 };
@@ -32,6 +33,7 @@ const fmt = t => `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60
 const d2 = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
 
 export const stats = {
+  moveSec: 0, laneWave: [],
   games: 0, dur: [], kills: [], tf: { '0-1': 0, '2-4': 0, '5-7': 0, ace: 0 }, tfN: 0, labels: {},
   objTime: {}, plan: {}, task: {}, earlyMid: [0, 0], side: [0, 0], scenes: 0, blueWins: 0, timeouts: 0,
   firstTower: [], objCount: {}, violByGame: {}, sceneIds: {}, killBy: {}, killLabel: {}, fr: {},
@@ -42,6 +44,54 @@ export const stats = {
 // ---- 오브젝트 운영 통계: 한타/교환/견제/포기, 바론 후 골드 격차, 진입·후퇴 반복 (11) ----
 const TRACK = ['dragon', 'baron', 'elder'];
 const goldOf = s => s.players.reduce((a, p) => a + p.gold, 0);
+// 1초 기록(g.secLog)으로 이동 검사 + 라인전 라이너와 자기 웨이브 거리
+function checkSeconds(g, ps, moved, st, seed) {
+  if (!g.secLog) return;
+  const V = CONFIG.match.validate.move, vmax = S.moveSpeed * S.maxSpeedMult + 1e-4;
+  st.last = st.last || {};
+  st.turns = st.turns || {};
+  st.turnCd = st.turnCd || {};
+  for (const [k, sec] of g.secLog.entries()) {
+    ps.forEach((p, i) => {
+      const cur = sec.ps[i], prev = st.last[p.pid];
+      st.last[p.pid] = cur;
+      if (!cur[2]) { st.turns[p.pid] = []; return; }
+      if (!nav.walkable(cur[0], cur[1])) V_('12 벽 통과', seed, sec.t, `${p.nick} 벽 안 위치 (${cur[0].toFixed(3)}, ${cur[1].toFixed(3)})`);
+      if (!prev || !prev[2] || (k === 0 && moved[p.pid])) return;      // 귀환·텔레포트·부활 순간은 제외
+      const d = Math.hypot(cur[0] - prev[0], cur[1] - prev[1]);
+      stats.moveSec++;
+      if (d > vmax) V_('13 초당 이동 한도', seed, sec.t, `${p.nick} 1초 ${d.toFixed(4)} 이동 (한도 ${vmax.toFixed(4)})`);
+      if (d > 1e-6 && !nav.segWalkable(prev[0], prev[1], cur[0], cur[1], 1)) V_('12 벽 통과', seed, sec.t, `${p.nick} (${prev[0].toFixed(3)},${prev[1].toFixed(3)}) → (${cur[0].toFixed(3)},${cur[1].toFixed(3)}) 벽을 지남`);
+      // 방향 전환: 의미 있는 이동만 (최고 속도의 일정 비율 이상), 교전·도주 제외
+      const fighting = p.fightId || p.flee || (p.task && (p.task.kind === 'fight' || p.task.kind === 'retreat'));
+      const tr = st.turns[p.pid] || (st.turns[p.pid] = []);
+      if (fighting || d < S.moveSpeed * V.turnMinFrac) return;
+      const h = Math.atan2(cur[1] - prev[1], cur[0] - prev[0]);
+      if (tr.length) {
+        let da = Math.abs(h - tr[tr.length - 1].h); if (da > Math.PI) da = 2 * Math.PI - da;
+        if (da >= V.reverseDeg * Math.PI / 180) tr.push({ t: sec.t, h, rev: true }); else tr.push({ t: sec.t, h, rev: false });
+      } else tr.push({ t: sec.t, h, rev: false });
+      while (tr.length && tr[0].t <= sec.t - V.turnWindow) tr.shift();
+      const revs = tr.filter(x => x.rev).length;
+      if (revs >= V.turnMax && sec.t >= (st.turnCd[p.pid] || 0)) {
+        V_('14 방향 반복 전환', seed, sec.t, `${p.nick} ${V.turnWindow}초 안에 방향 ${revs}번 뒤집음 (${p.task ? p.task.kind : '-'})`);
+        st.turnCd[p.pid] = sec.t + 10;
+      }
+    });
+  }
+  // 라인전: 라인에 서 있는 라이너와 자기 웨이브(앞 위치) 거리
+  //  (와드 다녀오기 중, 귀환·부활 뒤 라인으로 걸어가는 중 = 자기 라인 자리에서 0.05 넘게 떨어진 때는 빼고)
+  if (g.t < CONFIG.match.laningEnd && g.t >= 90) {
+    for (const p of ps) {
+      if (!p.alive || p.pos === 'JGL' || p.pos === 'SUP' || !p.task || p.task.kind !== 'lane') continue;
+      if ((p.mv && p.mv.ward) || Math.hypot(p.task.target[0] - p.x, p.task.target[1] - p.y) > 0.05) continue;
+      const l = p.task.lane, w = g.waves[l];
+      const fr = geo.pointOnLane(l, w.s);
+      stats.laneWave.push(Math.hypot(p.x - fr[0], p.y - fr[1]));
+    }
+  }
+}
+
 function trackStrat(g, evs, st, seed) {
   for (const e of evs) {
     if (e.type === 'spawn' && TRACK.includes(e.obj)) st.inst[e.obj] = { t: g.t, fight: false, contest: false, trade: [false, false] };
@@ -152,6 +202,8 @@ export function runChecked(g, seed, { chooseOpt = null, stopAt = Infinity, onTic
     }
     const moved = {};
     for (const e of evs) if (e.type === 'move') moved[e.pid] = e;
+    // ---- 1초 단위 이동 (12 벽 통과, 13 초당 이동 한도, 14 방향 반복 전환) ----
+    checkSeconds(g, ps, moved, strat, seed);
     // ---- 이동 (2), 사망 (3) ----
     const maxStep = S.moveSpeed * S.maxSpeedMult * dt + TOL;
     for (const p of ps) {
@@ -416,7 +468,7 @@ const pct = (a, b) => (b ? (a / b * 100).toFixed(1) + '%' : '-');
 const quant = (a, q) => { const s = a.slice().sort((x, y) => x - y); return s[Math.floor(q * (s.length - 1))]; };
 
 console.log(`[위반] 총 ${violTotal}건`);
-const CHECKS = ['1 위치', '2 이동 속도', '3 사망자', '4 오브젝트', '5 구조물·넥서스', '6 한타 표기', '7 초반 미드 뭉침', '8 사이드 운영', '9 주요 장면', '10 문자중계', '11 진입·후퇴 반복'];
+const CHECKS = ['1 위치', '2 이동 속도', '3 사망자', '4 오브젝트', '5 구조물·넥서스', '6 한타 표기', '7 초반 미드 뭉침', '8 사이드 운영', '9 주요 장면', '10 문자중계', '11 진입·후퇴 반복', '12 벽 통과', '13 초당 이동 한도', '14 방향 반복 전환'];
 const em = stats.earlyMid[0] / Math.max(1, stats.earlyMid[1]);
 const sd = stats.side[0] / Math.max(1, stats.side[1]);
 if (em >= V.earlyMidStackMax) V_('7 초반 미드 뭉침', 'ALL', 0, `0~14분 5명 미드 비율 ${pct(stats.earlyMid[0], stats.earlyMid[1])} ≥ ${V.earlyMidStackMax * 100}%`);
@@ -483,6 +535,9 @@ const bwr = stats.baronWins / Math.max(1, stats.baronGames), bwOk = bwr >= V.bar
 statOk.push(bsOk, bwOk);
 console.log(`  ${bsOk ? '✓' : '✗'} 바론 처치 직전 → 버프 종료 골드 격차 증가: 평균 ${Math.round(bsAvg)} (목표 ${V.baronSwing.join('~')}) · 10%/50%/90% ${Math.round(quant(bs, 0.1) || 0)}/${Math.round(quant(bs, 0.5) || 0)}/${Math.round(bs90)} (상위 10% 목표 ${V.baronSwingP90} 이상)`);
 console.log(`  ${bwOk ? '✓' : '✗'} 첫 바론 처치 팀 승률 ${(bwr * 100).toFixed(1)}% (${stats.baronGames}경기, 목표 ${Math.round(V.baronWinRate[0] * 100)}~${Math.round(V.baronWinRate[1] * 100)}%) · 진입·후퇴 반복 ${stats.flips}건`);
+const lw = avg(stats.laneWave), lwOk = lw >= V.move.laneWaveDist[0] && lw <= V.move.laneWaveDist[1];
+statOk.push(lwOk);
+console.log(`  ${lwOk ? '✓' : '✗'} 라인전 라이너 ↔ 자기 웨이브 평균 거리 ${lw.toFixed(3)} (목표 ${V.move.laneWaveDist.join('~')}, 10%/90% ${(quant(stats.laneWave, 0.1) || 0).toFixed(3)}/${(quant(stats.laneWave, 0.9) || 0).toFixed(3)}) · 1초 이동 검사 ${stats.moveSec.toLocaleString()}회`);
 const durOk = avg(stats.dur) >= V.durationMin[0] && avg(stats.dur) <= V.durationMin[1];
 const killOk = avg(stats.kills) >= V.killsAvg[0] && avg(stats.kills) <= V.killsAvg[1];
 console.log(`\n[목표 범위] 경기 시간 ${durOk ? '✓' : '✗'} · 킬 ${killOk ? '✓' : '✗'} · 한타 분포·킬 비율·어시스트·장면 조합 ${statOk.every(Boolean) ? '✓' : '✗'}`);

@@ -11,6 +11,8 @@ import {
   nextLaneStructure, attackableStructures, baseOpen, nexusAttackable,
 } from './matchcore.js';
 import { strength } from './combat.js';
+import { steer, separation } from './behavior.js';
+import * as nav from './nav.js';
 import { nextItemCost, summonHerald } from './world.js';
 
 export const TASK_KO = {
@@ -487,7 +489,7 @@ function assign(g, s, p) {
         if (!tg) break;
         const spot = geo.pointOnLane(plan.lane, tg.s + own(s.idx, 0.07));
         const holder = byPos(s, 'JGL').alive ? byPos(s, 'JGL') : alive(s)[0];
-        if (p === holder && distTo(p, spot) < 0.03 && s.heraldEye) { summonHerald(g, p, plan.lane); s.plan = mk(g, 'siege', 6.8, { target: tg, lane: plan.lane, dur: 50 }); setTask(p, 'herald', [p.x, p.y], { lane: plan.lane }); return; }
+        if (p === holder && distTo(p, spot) < 0.03 && s.heraldEye) { summonHerald(g, p, plan.lane); s.plan = mk(g, 'siege', 6.8, { target: tg, lane: plan.lane, dur: 50 }); setTask(p, 'herald', [p.x, p.y], { lane: plan.lane, still: true }); return; }
         return goTask(g, p, 'herald', jit(spot, p, 0.015), { lane: plan.lane });
       }
     }
@@ -612,8 +614,9 @@ function jungleRoute(g, s, p) {
   const id = J.route[J.i % 6];
   const cp = geo.campPos(s.idx, id);
   if (distTo(p, cp) < 0.02) {
-    J.clearUntil = t + S.campClearSec;
-    J.campAt[id] = t + S.campClearSec + S.campRespawn;
+    const clearSec = (S.campClear && S.campClear[id]) || S.campClearSec;
+    J.clearUntil = t + clearSec;
+    J.campAt[id] = t + clearSec + S.campRespawn;
     J.i++;
     setTask(p, 'camp', cp, { camp: id });
     return;
@@ -718,7 +721,7 @@ export function channels(g) {
       p.chan = null;
       if (c.kind === 'recall') { moveLog(g, p, 'recall', c.dest); p.task = { kind: 'walk', target: [p.x, p.y], label: TASK_KO.walk }; }
       else if (c.kind === 'tp') {
-        if (tpDestValid(g, p, c.dest)) moveLog(g, p, 'tp', c.dest, { via: c.via });
+        if (tpDestValid(g, p, c.dest)) moveLog(g, p, 'tp', nav.snap(c.dest[0], c.dest[1]), { via: c.via });   // 도착 지점은 길 위로
         else emit(g, { type: 'tpCancel', pid: p.pid, side: p.side, pos: [p.x, p.y], parts: [p.pid] });
       }
     }
@@ -726,13 +729,20 @@ export function channels(g) {
 }
 
 // ---------------- 이동 ----------------
+// 틱(5초)을 1초 단위로 나눠 포지션별 행동(behavior.goalFor) → 길찾기(nav) → 조향(behavior.steer).
+// 1초마다 위치를 g.secLog에 남긴다 (화면 보간·검사기).
 export function movement(g) {
-  const S = SIM();
-  for (const p of g.sides[0].players.concat(g.sides[1].players)) {
-    if (!p.alive || p.chan || !p.task) continue;
-    const spd = S.moveSpeed * speedMult(g, p) * dt();
-    const [x, y] = geo.stepToward(p.x, p.y, p.task.target[0], p.task.target[1], spd);
-    p.x = x; p.y = y;
+  const S = SIM(), n = Math.round(dt());
+  const all = g.sides[0].players.concat(g.sides[1].players);
+  g.secLog = [];
+  for (let k = 1; k <= n; k++) {
+    const t = g.t - n + k;
+    const seps = all.map(p => (p.alive && !p.chan ? separation(g.sides[p.side].players, p) : [0, 0]));
+    all.forEach((p, i) => {
+      if (!p.alive || p.chan || !p.task) { if (p.mv) { p.mv.vx = 0; p.mv.vy = 0; } return; }
+      steer(g, p, t, S.moveSpeed * speedMult(g, p), seps[i]);
+    });
+    g.secLog.push({ t, ps: all.map(p => [p.x, p.y, p.alive ? 1 : 0]) });
   }
 }
 export function speedMult(g, p) {

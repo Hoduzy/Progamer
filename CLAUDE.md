@@ -1,16 +1,18 @@
 # LCK 프로게이머 커리어 게임 — 작업 규칙
 
 개인용 브라우저 게임 (바닐라 ES 모듈, 빌드 없음). 화면 문구는 모두 한국어.
-설계: `docs/DESIGN.md`, 경기 엔진 정합성 수정 기록: `docs/MATCH_FIX.md`.
+설계: `docs/DESIGN.md`, 경기 엔진 정합성 수정 기록: `docs/MATCH_FIX.md`, 선수 이동 시스템: `docs/MOVEMENT.md`.
 
 ## 반드시 지킬 것
 
-- **경기 엔진(`js/engine/match.js`, `matchcore.js`, `teamai.js`, `combat.js`, `world.js`, `mapgeo.js`, `choices.js`, `objScenes.js`, `commentary.js`, `data/map.js`, `data/scenarios.js`, `data/sceneNeeds.js`, `data/objScenes.js`, `data/commentary.js`, `CONFIG.match`, `CONFIG.scene`)을 고칠 때마다**
+- **경기 엔진(`js/engine/match.js`, `matchcore.js`, `teamai.js`, `behavior.js`, `nav.js`, `combat.js`, `world.js`, `mapgeo.js`, `choices.js`, `objScenes.js`, `commentary.js`, `data/map.js`, `data/navgraph.js`, `data/scenarios.js`, `data/sceneNeeds.js`, `data/objScenes.js`, `data/commentary.js`, `CONFIG.match`, `CONFIG.scene`)을 고칠 때마다**
   ```
   node tools/validate-match.mjs 500
   ```
   를 돌려 **위반 0건과 "결과: 통과 ✓"(경기 시간·킬·한타 분포 목표 범위)** 를 확인한 뒤에만 커밋한다.
   위반이 있으면 엔진을 고치고 다시 돌린다. 검사 항목을 느슨하게 바꿔 통과시키지 않는다.
+- 이동은 4층이다: 팀 운영(`teamai.js` 계획·임무) → 포지션별 행동(`behavior.js` goalFor) → 길찾기(`nav.js` A*·곡선) → 조향(`behavior.js` steer, 1초 단위). 위치는 이 길로만 바뀐다. 귀환·순간이동·부활만 순간 이동(`moveLog`).
+  벽은 `data/navgraph.js`의 MASK(미니맵 이미지에서 만든 걸을 수 있는 격자)다. 맵 이미지가 바뀌면 `node tools/build-navgraph.mjs`로 다시 만든다.
 - 엔진 구조는 **계획 → 이동 → 도착 → 판정** 순서다. 이벤트를 확률로 먼저 뽑고 위치를 나중에 맞추는 코드를 다시 넣지 않는다.
   교전·오브젝트·포탑 판정은 그 자리에 실제로 있는 선수만 대상으로 한다.
 - 미니맵·문자중계·주요 장면 카드·HUD는 엔진 상태와 이벤트(`ev.pos`, `ev.parts`, `ev.region`)만 읽는다. 화면 쪽에서 위치를 따로 만들지 않는다.
@@ -38,4 +40,6 @@
 - `node tools/sim-career.mjs [시드 수] [--mult N]` — 일상 활동 비교(예전 하루 3칸 vs 하루 1개): 능력치 성장·피로 누적·수입 ±10%. `CONFIG.daily`를 고치면 돌린다
 - `node tools/validate-community.mjs [설정 수] [--show N]` — 커뮤니티 템플릿·중복·금지 표현 검사
 - `node tools/build-pages.mjs [--check]` — 배포 준비·경로 검사
+- `node tools/render-minimap.mjs [시드] [--out 폴더] [--tag 이름] [--trail 초] [--nav]` — 경기를 돌려 0~3분·8~12분·20~25분 미니맵을 `frames/`에 캡처하고 4×4 시트로 묶음 (이동이 자연스러운지 눈으로 확인)
+- `node tools/build-navgraph.mjs` — 미니맵 이미지(map11.png)에서 걸을 수 있는 격자·이동 그래프(`data/navgraph.js`) 생성
 - 브라우저 확인: `python3 -m http.server 8080` 후 `http://localhost:8080` (iPad 가로 1180×820 기준)

@@ -41,7 +41,7 @@ export function createMatch(opts) {
     firstBlood: false, firstTower: false,
     feed: [], newEvents: [], goldHist: [{ t: 0, diff: 0 }],
     lane: { TOP: 0, MID: 0, BOT: 0 },
-    waves: { TOP: { s: 0.5 }, MID: { s: 0.5 }, BOT: { s: 0.5 } },
+    waves: { TOP: { s: 0.5, n: [0, 0] }, MID: { s: 0.5, n: [0, 0] }, BOT: { s: 0.5, n: [0, 0] } },   // s: 웨이브 앞 위치(블루 0 → 레드 1), n: [블루, 레드] 미니언 수
     fights: [], nextFightId: 1, nextEvId: 1, heraldUnit: null,
     scenePlan: [], sceneLog: [], choiceScore: 0, history: [],
     recentTitles: new Set(opts.recentSceneTitles || []),   // 최근 경기에서 쓴 장면 제목 (생성 장면이 피함)

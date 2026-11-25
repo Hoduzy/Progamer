@@ -15,7 +15,7 @@ export const App = {
 };
 
 function loadSettings() {
-  const def = { showBigEvents: true, defaultSpeed: 1, autoSkipBigEvents: false, debugMatch: false, communityTone: 'spicy' };
+  const def = { showBigEvents: true, defaultSpeed: 1, autoSkipBigEvents: false, debugMatch: false, moveTrails: false, communityTone: 'spicy' };
   try { return { ...def, ...JSON.parse(localStorage.getItem('lckc.settings') || '{}') }; } catch { return def; }
 }
 export function saveSettings() { try { localStorage.setItem('lckc.settings', JSON.stringify(App.settings)); } catch { } }

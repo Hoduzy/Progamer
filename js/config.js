@@ -52,7 +52,29 @@ export const CONFIG = {
       recallChannel: 8,        // 귀환 채널링(초) → 우물
       tpChannel: 4,            // 텔레포트 채널링(초) → 아군 포탑·와드·미니언
       tpCooldown: 300,
-      campClearSec: 10,        // 정글 캠프 하나 정리 시간
+      campClearSec: 10,        // 정글 캠프 하나 정리 시간 (아래 campClear에 없는 캠프)
+      campClear: { blue: 15, red: 15, gromp: 8, wolves: 8, raptors: 8, krugs: 10 },   // 캠프별 정리 시간(초)
+      // 이동(포지션별 행동 + 조향). 거리 단위 = 미니맵 0~1
+      move: {
+        accel: 0.9,              // 1초에 최고 속도의 이 비율까지 속도를 바꿀 수 있음 (출발 가속·도착 감속)
+        arriveR: 0.025,          // 목표까지 이 거리 안에서 감속
+        turnDeg: 110,            // 1초 최대 회전 (교전 카이팅·도주는 예외)
+        lookahead: 1.0,          // 경로 위 앞쪽 점 (최고 속도 × 이 값)
+        sepR: 0.014, sepW: 0.008, sepSmooth: 0.7,   // 같은 팀 밀어내기 반경·세기(상한)·부드럽게
+        nearGoal: 0.04, holdSec: 3,   // 가까운 목표가 바위 너머로 살짝 옮겨지면 3초까지 원래 목표 유지
+        supFollow: 0.12, supFar: 0.03,   // 서폿이 원딜 위치를 따라가는 비율, 이보다 멀면 빠르게 따라붙음
+        replanSec: 3, repathDist: 0.004, repathFar: 0.06,   // 목표가 0.004~0.06 옮겨지면 경로 끝만 바꾸고, 0.06 넘으면 새로 찾음. 막혔을 때 3초마다 다시
+        wanderR: 0.004,          // 대기 중 아주 작은 움직임
+        laneJitR: 0.008, laneJitSec: [1, 3],   // 라인전 막타 움찔
+        jitSpeed: 0.22,          // 자리에 와 있을 때 움찔·대기 움직임 속도 (최고 속도 비율)
+        backR: 0.035,            // 이 거리 안의 목표가 뒤쪽이면 천천히 돌아섬
+        wardEvery: [70, 110], wardStay: 4, wardRange: 0.11, visionLead: 55,
+        orbitR: { camp: 0.008, pit: 0.016, roleShift: 0.012 },
+        gankDirect: 0.05,        // 이 거리 안이면 대상에게 바로
+        scatter: 0.05,           // 도망칠 때 흩어지는 폭
+        fight: { front: 0.008, mid: 0.018, diveIn: 0.004, flank: 0.02, back: 0.032, kite: 0.006, spread: 0.03 },
+        formation: { joinR: 0.12, front: 0.034, back: 0.03, side: 0.03, moveR: 0.03, arrived: 0.62, faceR: 0.15 },   // 이동 중 대형 간격 / 도착 후 배율
+      },
       campRespawn: 135,
       regenPerSec: 0.004,      // 비전투 체력 회복
       recallHp: 0.32,          // 이 체력 아래면 귀환
@@ -61,25 +83,25 @@ export const CONFIG = {
       clusterLink: 0.07,       // 이 거리 안의 선수들을 한 무리로 묶음
       engageRange: 0.065,      // 적과 이 거리 안이면 교전 개시 판정
       fightRadius: 0.085,      // 교전 중심에서 이 거리 안이면 참여
-      joinRange: 0.30,         // 아군 교전에 합류하러 가는 거리
+      joinRange: 0.33,         // 아군 교전에 합류하러 가는 거리
       fightMaxTicks: 4, fightMaxTicksBig: 5,   // 교전 최대 길이(틱): 소규모 / 8명 이상
       fightSwing: 0.4,         // 교전마다 팀 집중력 (피해 배율 e^N(0,σ))
-      dps: 0.045,              // 기본 초당 피해 (체력 1 = 한 명)
+      dps: 0.046,              // 기본 초당 피해 (체력 1 = 한 명)
       powScale: 10,            // 파워 10 차이당 피해 e배
       focus: 0.6,              // 같은 대상을 집중 공격할 확률
-      fleeHp: 0.28,            // 이 체력 아래면 도주
+      fleeHp: 0.25,            // 이 체력 아래면 도주
       fleeRatio: 0.65,         // 남은 전력이 상대의 이 비율 아래면 팀 전체 후퇴
       fleeRatioBig: 0.35,       // 8명 이상 큰 교전 후퇴 기준 (더 오래 버팀)
       bigFightDps: 2.6,         // 8명 이상 큰 교전 피해 배율 (본 교전)
       bigFightOpen: 1.6,        // 큰 교전 첫 교환(5초) 피해 배율
       fleeHpBig: 0.08,          // 큰 교전 개인 도주 체력
       lastFleeHp: 0.7, lastEscape: 0.4,   // 큰 교전에서 혼자 남으면 체력 70% 아래에서 빠지고, 잡힐 확률 40%
-      mutualDisengage: 0.38,   // 큰 교전 첫 5초 뒤 팽팽하면 양 팀이 빠질 확률
+      mutualDisengage: 0.18,   // 큰 교전 첫 5초 뒤 팽팽하면 양 팀이 빠질 확률
       catchSmall: 0.3,         // 5명 이하 교전에서 잡힐 확률 배율 (도주가 쉬움)
       catchPerChaser: 0.05,    // 추격자 1명 늘 때마다 잡힐 확률 배율 +
-      catchBase: 0.2,         // 도주자가 잡힐 기본 확률
+      catchBase: 0.17,         // 도주자가 잡힐 기본 확률
       trade: { chance: 0.07, intensity: 0.45, fleeHp: 0.45 }, // 라인전 견제
-      engage: { objective: 0.11, objTaking: { baron: 0.15, elder: 0.85 }, structure: 0.05, numbers: 0.07, gank: 0.25, roam: 0.02, late: 0.02 },
+      engage: { objective: 0.11, objTaking: { baron: 0.15, elder: 0.85 }, objTakingMin: { elder: 4 }, structure: 0.05, numbers: 0.07, gank: 0.25, roam: 0.02, late: 0.02 },
       avoidRatio: 0.8, retreatSlack: 0.02, retreatBehind: 0.02, siegeChainRadius: 0.2, siegeChainRatio: 0.9,         // 전력비가 이 아래면 교전을 피해 물러남
       // 킬 배분: 마무리 일격 = 그 대상에게 준 피해(기여) × 포지션 가중치 × 챔피언 성향
       // 오브젝트 준비 중 강가 장악: 둥지 근처(radius) 전력비로 control(둥지 앞 강가 전진)·push(상대 대기 지점까지 밀기)·hold·yield(더 뒤로)
@@ -88,7 +110,7 @@ export const CONFIG = {
         pushKeys: ['dragon', 'grubs', 'herald'] },   // 밀어내기·뒤로 빠지기는 이 오브젝트만 (바론·장로는 강가 장악 / 대기까지 — 끝까지 버틴다)
       // 오브젝트 스탠스 (등장 1분 전 한 번 결정) · 진입·후퇴 히스테리시스 · 계획 최소 유지
       stance: {
-        bias: { dragon: 2.6, baron: 1.0, elder: 8 },   // 정면 승부 기본 성향 (로지스틱 입력)
+        bias: { dragon: 3.8, baron: 1.4, elder: 8 },   // 정면 승부 기본 성향 (로지스틱 입력)
         importance: { dragon: 0, baron: 0.3, elder: 0.6 }, soulPoint: 0.9, stack: 0.3,
         advScale: 0.8,                // 유불리 점수 반영 배율
         w: { goldPerK: 0.25, level: 0.35, alive: 0.7, ult: 0.12, flash: 0.08, comp: 0.15, vision: 0.12 },
@@ -103,7 +125,7 @@ export const CONFIG = {
         contestKeepR: 0.3, defendKeepR: 0.28, defendMinSec: 12,   // 견제·수비 계획 유지 반경(들어올 때보다 넓게)·최소 시간
       },
       kill: {
-        pos: { ADC: 0.72, MID: 0.59, JGL: 0.69, TOP: 0.66, SUP: 0.18 },
+        pos: { ADC: 0.68, MID: 0.59, JGL: 0.65, TOP: 0.66, SUP: 0.18 },
         dmgSup: 0.4,             // 딜 서폿(마법사·원딜·암살자형 서폿)은 서폿 중 높게
         dmgExp: 0.5,              // 피해 기여 반영 지수 (1 = 기여에 비례)
         cls: { apAssassin: 1.3, lethality: 1.25, mageBurst: 1.15, adcCrit: 1.1, adcLethal: 1.15, adcOnhit: 1.05, ezreal: 1.05, smolder: 1.05, yasuo: 1.15, gpCrit: 1.05,
@@ -113,7 +135,7 @@ export const CONFIG = {
       // 구조물
       towerRange: 0.05,
       towerDps: 0.035,         // 미니언 없이 포탑 아래 들어간 챔피언이 초당 잃는 체력
-      champStructDps: 0.0075,  // 챔피언 1명 초당 구조물 피해 (구조물 체력 1)
+      champStructDps: 0.0093,  // 챔피언 1명 초당 구조물 피해 (구조물 체력 1)
       lateStructFrom: 1800, lateStructPerMin: 0.14,   // 30분 이후 1분마다 챔피언 구조물 피해 +14%
       veryLateFrom: 2700, veryLatePerMin: 0.25,       // 45분 이후 1분마다 +25% 추가 (끝없는 장기전 방지)
       minionStructDps: 0.0018, // 미니언 웨이브 초당 구조물 피해
@@ -122,14 +144,15 @@ export const CONFIG = {
       fortifyUntil: 300,       // 이 시간 전에는 포탑 피해 -70%
       plateUntil: 840,         // 이 시간 전에는 외곽 포탑 피해 -35% (포탑 방패)
       grubsStructBonus: 0.06,  // 유충 1마리당 구조물 피해 +6%
-      baronStructBonus: 0.15,  // 바론 버프 중 챔피언의 구조물 피해 +15%
-      baronMinionMult: 1.4,    // 바론 버프 선수 근처 미니언의 구조물 피해 배율
-      baronFarmMult: 1.12, baronDenyMult: 0.9,    // 바론 버프 중 강화 미니언: 버프 팀 파밍 +12%, 상대 파밍 -10%
+      baronStructBonus: 0.04,  // 바론 버프 중 챔피언의 구조물 피해 +4%
+      baronMinionMult: 1.1,    // 바론 버프 선수 근처 미니언의 구조물 피해 배율
+      baronFarmMult: 1.08, baronDenyMult: 1.0,    // 바론 버프 중 강화 미니언: 버프 팀 파밍 +8%, 상대 파밍 그대로
       recallChannelBaron: 4,   // 바론 버프 중 귀환 채널링(초)
-      closeLead: 2500,         // 기지가 열렸을 때 이만큼 앞서면 인원이 같아도 넥서스를 치러 간다
+      closeLead: 3500,         // 기지가 열렸을 때 이만큼 앞서면 인원이 같아도 넥서스를 치러 간다
       reopenAt: 2400,          // 40분 이후: 앞선 팀은 되살아난 억제기도 다시 민다
       nexusMinAttackers: 3,    // 넥서스 공격 최소 인원 (상대 기지 안)
       // 웨이브
+      wave: { every: 30, perWave: 6, trade: 0.05, towerKill: 0.4, max: 30 },   // 웨이브 크기: 30초마다 6마리, 초당 교환 비율, 포탑이 초당 줄이는 수
       wavePush: 0.012,         // 라인 앞 챔피언 전력 1당 웨이브 이동 (s/틱)
       waveMaxStep: 0.03,
       waveRelax: 0.006,        // 아무도 없을 때 가운데로 돌아가는 속도
@@ -162,6 +185,8 @@ export const CONFIG = {
       baronSwing: [1500, 3000],  // 바론 처치~버프 종료 동안 늘어나는 골드 격차 평균
       baronSwingP90: 4000,       // 그 상위 10% 하한
       baronWinRate: [0.70, 0.80],// 첫 바론 처치 팀 승률
+      // 이동 자연스러움: 방향 전환 = 최고 속도의 turnMinFrac 이상 움직인 초끼리 reverseDeg 이상 꺾임, turnWindow초 안에 turnMax번이면 위반
+      move: { turnMinFrac: 0.25, reverseDeg: 150, turnWindow: 5, turnMax: 3, laneWaveDist: [0.01, 0.06] },   // 라인전 라이너 ↔ 자기 웨이브 평균 거리 목표
     },
     objectives: {
       dragonSpawn: 300, dragonRespawn: 300,
@@ -388,5 +413,7 @@ export const CONFIG = {
     speeds: [1, 2, 4],
     sceneShrinkMs: 600,
     showBigEvents: true,
+    // 경기 미니맵: 궤적 길이(초), 이 거리보다 1초에 멀리 옮겨지면 보간 없이 바로(귀환·순간이동), 미니언 점 하나 = minionPer마리
+    minimap: { trailSec: 20, jump: 0.05, minionPer: 2, minionMaxDots: 10, minionGap: 0.006 },
   },
 };
