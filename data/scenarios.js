@@ -282,7 +282,7 @@ export const SCENARIOS = [
     id: 'jgl_counter', pos: 'JGL', phase: ['early'], splash: 'ejg', title: '상대가 바텀 갱킹 중!',
     desc: '{ejg}이(가) 아군 바텀을 갱킹하고 있다. 나는 근처 캠프에 있다.\n탑은 반대로 비어 있다.',
     opts: [
-      o('역갱 합류', 'mid', 50, { decision: 2, teamfight: 1.5 }, ['fight'], ['3대3 승리', '늦으면 손해'],
+      o('역갱 합류', 'mid', 47, { decision: 2, teamfight: 1.5 }, ['fight'], ['3대3 승리', '늦으면 손해'],
         ['역갱 대성공! 바텀에서 트리플 킬이 나왔다!', '역갱 성공! 상대 둘을 잡았다.', '늦었다. 아군 한 명이 잡혔다.', '도착하자마자 잡혔다.'],
         [{ kill: 2, assist: 1, target: 'ejg' }, { kill: 1, assist: 1, target: 'ejg' }, { allyDeath: 1 }, { death: true, allyDeath: 2 }]),
       o('반대편 탑 갱킹', 'mid', 54, { decision: 2 }, ['fight'], ['손해 교환', '탑도 빠지면 손해'],
