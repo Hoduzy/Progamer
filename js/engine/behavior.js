@@ -14,6 +14,7 @@ import { CHAMPIONS } from '../../data/champions.js';
 import { FRONT } from './matchcore.js';
 
 const M = () => CONFIG.match.sim.move;
+const SIM = () => CONFIG.match.sim;
 const RANGED = new Set(['adc', 'adcCrit', 'adcLethal', 'adcOnhit', 'mage', 'mageBurst', 'mageControl', 'mageBattle', 'enchanter', 'enchant', 'ezreal', 'smolder', 'gpCrit']);
 const DIVE = new Set(['apAssassin', 'lethality', 'skirm']);
 const clsOf = p => (CHAMPIONS[p.champ] ? CHAMPIONS[p.champ].cls : 'bruiser');
@@ -227,6 +228,12 @@ function formationGoal(g, p, t) {
   // 이동 중엔 대형을 넓게(보이게), 도착하면(공성·대기) 좁게 모인다
   f *= scNow; r *= scNow;
   const slot = clipToward(nav.snap(tc[0], tc[1], 1), [tc[0] + dx * f - dy * r, tc[1] + dy * f + dx * r]);
+  // 공성·넥서스: 대형이 넓어도 구조물 사거리 안(towerRange × siegeIn)에는 서 있는다 (뒷줄이 사거리 밖으로 밀려나 공성이 느려지지 않게)
+  const st = p.task.struct && p.task.struct.pos;
+  if (st) {
+    const R = SIM().towerRange * M().formation.siegeIn, d = Math.hypot(slot[0] - st[0], slot[1] - st[1]);
+    if (d > R) { const c = clipToward(nav.snap(st[0], st[1], 1), [st[0] + (slot[0] - st[0]) * R / d, st[1] + (slot[1] - st[1]) * R / d]); slot[0] = c[0]; slot[1] = c[1]; }
+  }
   const mv = mvOf(p);
   if (t >= mv.jitAt) { const a = (t * 1.3 + seedOf(p) * 6.28) % 6.28; mv.jit = [Math.cos(a) * M().wanderR, Math.sin(a) * M().wanderR]; mv.jitAt = t + 2.5; }
   const near = Math.hypot(slot[0] - p.x, slot[1] - p.y) < M().formation.moveR;

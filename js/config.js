@@ -47,7 +47,7 @@ export const CONFIG = {
     },
     // ---- 시뮬레이션 (계획 → 이동 → 도착 → 판정) ----
     sim: {
-      moveSpeed: 0.0275,       // 초당 이동 거리 (맵 대각선 1.30 ≈ 47초)
+      moveSpeed: 0.030,        // 초당 이동 거리 (맵 대각선 1.30 ≈ 43초). 실제 길은 직선보다 평균 1.1배 길어 직선 시절 0.0275에서 올림
       maxSpeedMult: 1.15,      // 신발·기동성 보정 최대치 (검사기 기준)
       recallChannel: 8,        // 귀환 채널링(초) → 우물
       tpChannel: 4,            // 텔레포트 채널링(초) → 아군 포탑·와드·미니언
@@ -73,7 +73,7 @@ export const CONFIG = {
         gankDirect: 0.05,        // 이 거리 안이면 대상에게 바로
         scatter: 0.05,           // 도망칠 때 흩어지는 폭
         fight: { front: 0.008, mid: 0.018, diveIn: 0.004, flank: 0.02, back: 0.032, kite: 0.006, spread: 0.03 },
-        formation: { joinR: 0.12, front: 0.034, back: 0.03, side: 0.03, moveR: 0.03, arrived: 0.62, faceR: 0.15 },   // 이동 중 대형 간격 / 도착 후 배율
+        formation: { joinR: 0.12, front: 0.034, back: 0.03, side: 0.03, moveR: 0.03, arrived: 0.62, faceR: 0.15, siegeIn: 0.85 },   // 이동 중 대형 간격 / 도착 후 배율
       },
       campRespawn: 135,
       regenPerSec: 0.004,      // 비전투 체력 회복
@@ -101,7 +101,7 @@ export const CONFIG = {
       catchPerChaser: 0.05,    // 추격자 1명 늘 때마다 잡힐 확률 배율 +
       catchBase: 0.17,         // 도주자가 잡힐 기본 확률
       trade: { chance: 0.07, intensity: 0.45, fleeHp: 0.45 }, // 라인전 견제
-      engage: { objective: 0.11, objTaking: { baron: 0.15, elder: 0.85 }, objTakingMin: { elder: 4 }, structure: 0.05, numbers: 0.07, gank: 0.25, roam: 0.02, late: 0.02 },
+      engage: { objective: 0.11, objTaking: { baron: 0.08, elder: 0.7 }, objTakingMin: { elder: 4 }, structure: 0.05, numbers: 0.07, gank: 0.25, roam: 0.02, late: 0.02 },
       avoidRatio: 0.8, retreatSlack: 0.02, retreatBehind: 0.02, siegeChainRadius: 0.2, siegeChainRatio: 0.9,         // 전력비가 이 아래면 교전을 피해 물러남
       // 킬 배분: 마무리 일격 = 그 대상에게 준 피해(기여) × 포지션 가중치 × 챔피언 성향
       // 오브젝트 준비 중 강가 장악: 둥지 근처(radius) 전력비로 control(둥지 앞 강가 전진)·push(상대 대기 지점까지 밀기)·hold·yield(더 뒤로)
@@ -135,20 +135,20 @@ export const CONFIG = {
       // 구조물
       towerRange: 0.05,
       towerDps: 0.035,         // 미니언 없이 포탑 아래 들어간 챔피언이 초당 잃는 체력
-      champStructDps: 0.0093,  // 챔피언 1명 초당 구조물 피해 (구조물 체력 1)
+      champStructDps: 0.0085,  // 챔피언 1명 초당 구조물 피해 (구조물 체력 1)
       lateStructFrom: 1800, lateStructPerMin: 0.14,   // 30분 이후 1분마다 챔피언 구조물 피해 +14%
       veryLateFrom: 2700, veryLatePerMin: 0.25,       // 45분 이후 1분마다 +25% 추가 (끝없는 장기전 방지)
       minionStructDps: 0.0018, // 미니언 웨이브 초당 구조물 피해
       superMinionMult: 3,
       structHp: { tower: [1, 1.25, 1.35], inhib: 1.0, nexusTower: 1.1, nexus: 1.4 },
       fortifyUntil: 300,       // 이 시간 전에는 포탑 피해 -70%
-      plateUntil: 840,         // 이 시간 전에는 외곽 포탑 피해 -35% (포탑 방패)
+      plateUntil: 720,         // 이 시간 전에는 외곽 포탑 피해 -35% (포탑 방패)
       grubsStructBonus: 0.06,  // 유충 1마리당 구조물 피해 +6%
       baronStructBonus: 0.04,  // 바론 버프 중 챔피언의 구조물 피해 +4%
       baronMinionMult: 1.1,    // 바론 버프 선수 근처 미니언의 구조물 피해 배율
       baronFarmMult: 1.08, baronDenyMult: 1.0,    // 바론 버프 중 강화 미니언: 버프 팀 파밍 +8%, 상대 파밍 그대로
       recallChannelBaron: 4,   // 바론 버프 중 귀환 채널링(초)
-      closeLead: 3500,         // 기지가 열렸을 때 이만큼 앞서면 인원이 같아도 넥서스를 치러 간다
+      closeLead: 2500,         // 기지가 열렸을 때 이만큼 앞서면 인원이 같아도 넥서스를 치러 간다
       reopenAt: 2400,          // 40분 이후: 앞선 팀은 되살아난 억제기도 다시 민다
       nexusMinAttackers: 3,    // 넥서스 공격 최소 인원 (상대 기지 안)
       // 웨이브
@@ -162,7 +162,7 @@ export const CONFIG = {
       baronFewMult: 1.2,       // 4명 미만 바론 처치 시간 배율
       setupLead: 60,           // 오브젝트 등장 이 시간 전부터 시야 장악
       objDrain: { baron: 0.015 }, objDrainFloor: 0.4,   // 오브젝트 치는 동안 초당 체력 감소 (하한)
-      stealBase: 0.2,  stealPerMech: 0.004,
+      stealBase: 0.3,  stealPerMech: 0.004,
       heraldSpeed: 0.022, heraldStructDmg: 0.65, heraldHp: 1, heraldHoldSec: 240,
       // 장면·검사
       sceneRadius: 0.09,       // 장면 참여자 범위
